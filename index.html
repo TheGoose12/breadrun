@@ -33,7 +33,7 @@
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
   #hud { position: fixed; top: 10px; left: 10px; padding: 8px 10px; width: 172px; display: grid; gap: 5px; pointer-events: none; font-size: 12px; }
   .need { display: grid; grid-template-columns: 38px 1fr; gap: 6px; align-items: center; }
-  @media (max-width: 899px) { #hud { width: 122px; padding: 5px 7px; gap: 2px; font-size: 10px; } #hud .need { grid-template-columns: 30px 1fr; gap: 4px; } #hud .bar { height: 5px; } #stats { margin-top: 0; } #mini { top: 96px; max-width: 40vw; gap: 4px; } #mini button { font-size: 10px; padding: 4px 7px; } }
+  @media (max-width: 899px) { #hud { width: 122px; padding: 5px 7px; gap: 2px; font-size: 10px; } #hud .need { grid-template-columns: 30px 1fr; gap: 4px; } #hud .bar { height: 5px; } #stats { margin-top: 0; } #mini { top: 112px !important; max-width: 42vw !important; gap: 4px !important; } #mini button { font-size: 10px; padding: 4px 7px; } }
   .bar { height: 8px; background: rgba(255, 255, 255, 0.12); border-radius: 2px; overflow: hidden; }
   .bar i { display: block; height: 100%; width: 50%; background: var(--ok); }
   #stats { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; color: var(--muted); margin-top: 2px; }
@@ -2256,9 +2256,9 @@ Game.prototype.updateMoon = function (dt) {
     night *= 1 - calmK * 0.55; wAmt *= 1 - calmK * Math.min(1, dt * 2);
     if (G.state === 'inside' || G.state === 'airport') { night = 0; noon = Math.min(noon, 0.2); }      // shops are always lit
     if (G.moon) { hemi.intensity = 0.42; hemi.color.setHex(0xdfe6ff); sun.intensity = 0.6; sun.color.setHex(0xffffff); scene.fog.color.setHex(0x05050c); scene.fog.far = 420; sky.material.color.setHex(0x05050c); sunDisc.visible = sunHalo.visible = false; wx.visible = false; return; }
-    hemi.intensity = 0.56 - 0.24 * night + 0.04 * noon + 0.03 * calmK; mixc(hemi.color, 0xffc9b0, 0x6f7fd0, night); hemi.color.lerp(cB.setHex(0xe8f2ff), noon);
-    sun.intensity = (0.76 - 0.6 * night + 0.04 * noon) * (1 - wAmt * 0.35); mixc(sun.color, 0xffa868, 0xfff4e0, noon);
-    mixc(scene.fog.color, 0xf2a086, 0x171233, night); scene.fog.color.lerp(cB.setHex(0xbcd8f0), noon); scene.fog.color.lerp(cB.setHex(wKind === 'snow' ? 0xd8dde8 : 0x6a7088), wAmt * 0.5 * (1 - night * 0.6)); scene.fog.color.lerp(cB.setHex(0xffc8a8), calmK * 0.5); scene.fog.far = (vr ? 120 : (BIGSCR ? 260 : 170)) * (1 - wAmt * 0.3) * (1 + calmK * 0.6);
+    hemi.intensity = 0.56 - 0.04 * night + 0.04 * noon + 0.03 * calmK; mixc(hemi.color, 0xffc9b0, 0x98a6f2, night); hemi.color.lerp(cB.setHex(0xe8f2ff), noon);
+    sun.intensity = (0.76 - 0.4 * night + 0.04 * noon) * (1 - wAmt * 0.35); mixc(sun.color, 0xffa868, 0xfff4e0, noon); sun.color.lerp(cB.setHex(0xaebcff), night);       /* night is moonlit, not black */
+    mixc(scene.fog.color, 0xf2a086, 0x25224f, night); scene.fog.color.lerp(cB.setHex(0xbcd8f0), noon); scene.fog.color.lerp(cB.setHex(wKind === 'snow' ? 0xd8dde8 : 0x6a7088), wAmt * 0.5 * (1 - night * 0.6)); scene.fog.color.lerp(cB.setHex(0xffc8a8), calmK * 0.5); scene.fog.far = (vr ? 120 : (BIGSCR ? 260 : 170)) * (1 - wAmt * 0.3) * (1 + calmK * 0.6);
     mixc(sky.material.color, 0xffffff, 0x2c2c60, night); sky.material.color.lerp(cB.setHex(0xa8d4ff), noon * 0.55); sunDisc.visible = sunHalo.visible = night < 0.5;
     R.gp.material.opacity = 0.4 + 0.6 * night; R.gp.material.size = 3.4 + 2.4 * night; R.poolMesh.material.opacity = 0.08 + 0.42 * night; winMat.emissiveIntensity = 0.55 + 0.8 * night;
     if (tallK > 0.01) { hemi.intensity *= 1 - 0.5 * tallK; sun.intensity *= 1 - 0.65 * tallK; scene.fog.color.lerp(cB.setHex(0x08060f), tallK * 0.75); scene.fog.far *= 1 - 0.55 * tallK; mixc(sky.material.color, sky.material.color.getHex(), 0x1a1030, tallK * 0.7); }
