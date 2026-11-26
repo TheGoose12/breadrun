@@ -570,8 +570,14 @@ Game.prototype.update = function (dt) {
   if (p.dashCd > 0) p.dashCd -= dt; if (p.dashT > 0) p.dashT -= dt;
   var sp = PSPEED * (p.dashT > 0 ? 1.75 : 1) * (this.bag.n > 9 ? 0.93 : 1);
   if (this.drive) {
-    var c = this.drive, ox = c.x, oz = c.z; c.v += ((ml > 0.12 ? (c.moonV === 'tank' ? 7 : 12) * ml : 0) - c.v) * Math.min(1, dt * 3.5);
-    if (ml > 0.12) this.turnTo(c, mx, mz, (c.moonV === 'tank' ? 1.5 : 2.1) * Math.min(1, 0.25 + c.v / 6) * dt);
+    var c = this.drive, ox = c.x, oz = c.z, cin = this.manual && this.input.car ? this.input.car : null;
+    if (cin) {        // in the headset the car drives like a car: stick forward and back is throttle and reverse, left and right steers, and where you look does not matter
+      var ctop = c.moonV === 'tank' ? 7 : 13, ctg = cin.t >= 0 ? ctop * cin.t : 5 * cin.t; c.v += (ctg - c.v) * Math.min(1, dt * (Math.abs(ctg) < Math.abs(c.v) ? 3 : 1.7));
+      var csr = cin.s * (c.moonV === 'tank' ? 1.0 : 1.55) * Math.min(1, Math.abs(c.v) / 4.5) * (c.v < 0 ? -1 : 1); if (csr) { var cang = Math.atan2(c.hx, c.hz) - csr * dt; c.hx = Math.sin(cang); c.hz = Math.cos(cang); }
+    } else {
+      c.v += ((ml > 0.12 ? (c.moonV === 'tank' ? 7 : 12) * ml : 0) - c.v) * Math.min(1, dt * 3.5);
+      if (ml > 0.12) this.turnTo(c, mx, mz, (c.moonV === 'tank' ? 1.5 : 2.1) * Math.min(1, 0.25 + c.v / 6) * dt);
+    }
     var cnx = c.x + c.hx * c.v * dt, cnz = c.z + c.hz * c.v * dt, cur = this.carBlocked(c.x, c.z, c.hx, c.hz), bump = false;
     if (!this.carBlocked(cnx, c.z, c.hx, c.hz) || (cur && !this.carHit(cnx, c.z))) c.x = cnx; else bump = true;
     if (!this.carBlocked(c.x, cnz, c.hx, c.hz) || (cur && !this.carHit(c.x, cnz))) c.z = cnz; else bump = true;
@@ -1123,7 +1129,7 @@ Game.prototype.updateMoon = function (dt) {
     R.blk.count = n; R.blk.instanceMatrix.needsUpdate = true; if (R.blk.instanceColor) R.blk.instanceColor.needsUpdate = true; R.blkGlow.count = gn; R.blkGlow.instanceMatrix.needsUpdate = true; R.glowG.setDrawRange(0, gn); R.glowG.attributes.position.needsUpdate = true;
     if (save) try { localStorage.setItem('breadrun-blocks', JSON.stringify(G.blocks)); } catch (e) {}
   }
-  var tallK = 0, tallBeat = 0, plIn = false, danceBeat = 0, bT = { place: null, hit: null }, palEl = document.createElement('div'), palWas = -2;
+  var tallK = 0, tallBeat = 0, carS = 0, carT = 0, plIn = false, danceBeat = 0, bT = { place: null, hit: null }, palEl = document.createElement('div'), palWas = -2;
   palEl.style.cssText = 'position:fixed;left:50%;bottom:8px;transform:translateX(-50%);display:none;gap:6px;padding:6px 8px;background:rgba(20,4,31,0.8);border-radius:12px;z-index:5;pointer-events:none'; document.body.appendChild(palEl);
   BCOL.forEach(function (c) { var d = document.createElement('div'); d.style.cssText = 'width:26px;height:26px;border-radius:6px;border:3px solid transparent;background:#' + ('00000' + c.toString(16)).slice(-6); palEl.appendChild(d); });
   function palSync(on) {      // the block colours sit along the bottom of the screen while you build
@@ -1774,7 +1780,7 @@ Game.prototype.updateMoon = function (dt) {
     }
 
     else if (t === 'splat') { blood(ev.x, ev.z, 2, ev.kind); shake = Math.max(shake, 0.25); tone(110, 0.25, 0.3, 'sine', 50); }
-    else if (t === 'jack') { toast('NICE CAR', 1.2, '#35e8ff'); tone(180, 0.35, 0.2, 'sawtooth', 420); } else if (t === 'carout') tone(300, 0.1, 0.12, 'square');
+    else if (t === 'jack') { toast(vr ? 'STICK: FORWARD GAS, BACK REVERSE, SIDES STEER' : 'NICE CAR', vr ? 4 : 1.2, '#35e8ff'); tone(180, 0.35, 0.2, 'sawtooth', 420); } else if (t === 'carout') tone(300, 0.1, 0.12, 'square');
     else if (t === 'gemma') { toast('EL JEFE HAS YOUR SCENT', 2.2, '#8fff6a'); tone(110, 1, 0.3, 'sawtooth', 70); }
     else if (t === 'gemmadown') { toast('EL JEFE IS DOWN! +$1,500', 2.6, '#8fff6a'); jingle([392, 523, 659, 784, 1047], 0.08); }
     else if (t === 'threat') { toast('"EVERYTHING IN THE BAG!"', 2, '#ffd23f'); tone(200, 0.3, 0.25, 'square', 90); }
@@ -2187,7 +2193,7 @@ Game.prototype.updateMoon = function (dt) {
         } else if (tpAim && mag < 0.3) { tpAim = false; if (tpValid) { G.p.x = tpX; G.p.z = tpZ; tpFade = 0.16; buzz(padL, 0.5, 40); } }
       } else { tpAim = false; wantX = fx * -sy - fz * sx; wantZ = fz * -sy + fx * sx; }   // smooth: forward is where you are looking
     }
-    tpRing.visible = tpLine.visible = canTp && tpAim; smx += (wantX - smx) * Math.min(1, dt * 7); smz += (wantZ - smz) * Math.min(1, dt * 7); G.input.mx = smx; G.input.mz = smz;   // ease in and out instead of lurching
+    tpRing.visible = tpLine.visible = canTp && tpAim; smx += (wantX - smx) * Math.min(1, dt * 7); smz += (wantZ - smz) * Math.min(1, dt * 7); G.input.mx = smx; G.input.mz = smz; if (G.drive && L) { carS += ((sx || 0) - carS) * Math.min(1, dt * 7); carT += ((-sy || 0) - carT) * Math.min(1, dt * 7); G.input.car = { s: carS, t: carT }; } else { G.input.car = null; carS = carT = 0; }   // ease in and out instead of lurching
     if (Rg) { var rx = ax(Rg)[0]; if (Math.abs(rx) > 0.65 && snapReady) { vrYaw -= (rx > 0 ? 1 : -1) * Math.PI / 6; snapReady = false; } else if (Math.abs(rx) < 0.3) snapReady = true; }   // 30 degree snap turn
     if (yB) { vignOn = !vignOn; toast('Comfort vignette ' + (vignOn ? 'on' : 'off'), 1.4); }
     tpMode = false;       // teleport movement is switched off for now
