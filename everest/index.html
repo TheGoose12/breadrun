@@ -1715,7 +1715,7 @@ function update(dt, now) {
     var fov = (camera.aspect < 1 ? 82 : 70) + (ski ? clamp(P.v / 30, 0, 1) * 9 : 0); if (Math.abs(fov - camera.fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
   }
   // skis under the feet, lying on the slope
-  var me3 = view3 && !vr; myLegs.visible = !me3; myFig.visible = me3;
+  var me3 = view3 && !vr; myLegs.visible = false; myFig.visible = me3;      // no legs in first person: just your skis
   if (me3) {
     var fl3 = P.down > 0 ? Math.sin(Math.PI * clamp(1 - P.down / 1.7, 0, 1)) : 0, sk3 = P.mode === 'ski';
     myFig.position.set(P.x, P.ry + (sk3 ? 0.05 : 0) + 0.2 * fl3, P.z); myFig.rotation.set(1.5 * fl3, sk3 ? P.head : P.yaw, sk3 ? clamp(-P.turn * P.v * 0.02, -0.4, 0.4) : 0);
