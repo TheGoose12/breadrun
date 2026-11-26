@@ -42,7 +42,7 @@
 <body>
 <div id="stage"></div>
 <div id="read" class="serif"><div id="alt"></div><div id="spd"></div></div>
-<div id="btns"><button id="skibtn">SKIS ON</button><button id="topbtn">SUMMIT</button><button id="mpbtn">TOGETHER</button><button id="skybtn">SKY: AUTO</button><button id="vrbtn">ENTER VR</button></div>
+<div id="btns"><button id="skibtn">SKIS ON</button><button id="topbtn">SUMMIT</button><button id="mpbtn">TOGETHER</button><button id="skybtn">SKY: AUTO</button><button id="viewbtn">VIEW: EYES</button><button id="vrbtn">ENTER VR</button></div>
 <div id="msg" class="serif"></div>
 <div id="hint"></div>
 <div id="joy"><div id="knob"></div></div>
@@ -274,7 +274,7 @@ var U = {     // uniforms shared by everything
   uWA: { value: new THREE.Vector2(Math.cos(WIND), Math.sin(WIND)) }, uWB: { value: new THREE.Vector2(-Math.sin(WIND), Math.cos(WIND)) },
   uZen: { value: new V3() }, uMid: { value: new V3() }, uHor: { value: new V3() }, uGlow: { value: new V3() }, uSky: { value: new THREE.Vector4(0, 0, 0, 1) },     // uSky: sunset glow, night, weather, sun disc
   uCloudLit: { value: new V3(1, 1, 1) }, uCloudSh: { value: new V3(0.4, 0.5, 0.8) }, uLightC: { value: new V3(3, 3, 3) }, uAmbC: { value: new V3(0.16, 0.31, 0.8) }, uTint: { value: new V3(1, 1, 1) },
-  uLampP: { value: new THREE.Vector4(0, 0, 0, 0) }, uLampD: { value: new V3(0, 0, -1) }
+  uLampP: { value: new THREE.Vector4(0, 0, 0, 0) }, uLampD: { value: new V3(0, 0, -1) }, uGust: { value: 0.5 }
 };
 function UN(o) { var k, r = {}; for (k in U) r[k] = U[k]; if (o) for (k in o) r[k] = o[k]; return r; }
 var GL_SKY = [
@@ -373,7 +373,7 @@ var TER_FS = GL_SKY + GL_TONE + [
   '  vec3 col = alb * (uLightC * (ndl * sh) + uAmbC * (0.50 + 0.24 * N.y) + uLightC * (0.03 * (1.0 - sh * 0.5)));',
   '  float sp = pow(max(dot(N, normalize(uSun - rd)), 0.0), 60.0) * (1.0 - rock) * sh;',
   '  col += uLightC * (sp * 0.18);',
-  '  if (uLampP.w > 0.0) { vec3 lv = vW - uLampP.xyz; float ld = length(lv); lv /= ld; col += alb * vec3(1.0, 0.94, 0.82) * (uLampP.w * smoothstep(0.80, 0.97, dot(lv, uLampD)) * (max(dot(N, -lv), 0.0) * 0.6 + 0.4) * 7.0 / (4.0 + ld * 0.6 + ld * ld * 0.012)); }',
+  '  if (uLampP.w > 0.0) { vec3 lv = vW - uLampP.xyz; float ld = length(lv); lv /= ld; col += alb * vec3(1.0, 0.94, 0.82) * (uLampP.w * smoothstep(0.80, 0.97, dot(lv, uLampD)) * (max(dot(N, -lv), 0.0) * 0.6 + 0.4) * 4.6 / (4.0 + ld * 0.5 + ld * ld * 0.01)); }',
   '  col = tone(col);',
   '  vec3 hz = skyBase(vec3(rd.x, max(rd.y, 0.0) * 0.6 + 0.03, rd.z));',
   '  col = mix(col, hz, 1.0 - exp(-dist * uFog));',
@@ -385,9 +385,10 @@ var TER_FS = GL_SKY + GL_TONE + [
   '  gl_FragColor = vec4(col, 1.0);',
   '}'
 ].join('\n');
-var PROP_VS = [       // people are one mesh each; thighs, shins and arms swing here in the shader
-  'attribute vec3 color; attribute float aBone; uniform vec4 uAnim; varying vec3 vC; varying vec3 vN; varying vec4 vWE;',     // uAnim: step phase, stride, lean, crouch
+var PROP_VS = [       // people are one mesh each; legs, arms, head and straps move here in the shader
+  'attribute vec3 color; attribute float aBone; uniform vec4 uAnim; uniform vec4 uLook; uniform float uTime; uniform vec2 uWA; uniform float uGust; varying vec3 vC; varying vec3 vN; varying vec4 vWE;',     // uAnim: step phase, stride, lean, crouch. uLook: head turn, head tilt, wave, breath
   'vec3 rx(vec3 p, vec3 o, float a) { p -= o; float c = cos(a), s = sin(a); return vec3(p.x, c * p.y - s * p.z, s * p.y + c * p.z) + o; }',
+  'vec3 ry(vec3 p, vec3 o, float a) { p -= o; float c = cos(a), s = sin(a); return vec3(c * p.x + s * p.z, p.y, c * p.z - s * p.x) + o; }',
   'void main() {',
   '  vec3 p = position, n = normal; float b = aBone, c = uAnim.w, th = 0.65 * c, kb = c;',
   '  if (b > 0.5 && b < 4.5) {',
@@ -397,11 +398,15 @@ var PROP_VS = [       // people are one mesh each; thighs, shins and arms swing 
   '    p = rx(p, vec3(sx, 0.92, 0.0), sw); n = rx(n, vec3(0.0), sw);',
   '  } else {',
   '    float lean = -(uAnim.z + 0.5 * c);',
-  '    if (b > 4.5) { float a = sin(uAnim.x + (b < 5.5 ? 3.14159 : 0.0)) * 0.36 * uAnim.y - 0.35 * c; p = rx(p, vec3(b < 5.5 ? 0.235 : -0.235, 1.44, 0.0), a); n = rx(n, vec3(0.0), a); }',
+  '    if (b > 4.5 && b < 6.5) { float a = sin(uAnim.x + (b < 5.5 ? 3.14159 : 0.0)) * 0.36 * uAnim.y - 0.35 * c; if (b > 5.5) a += uLook.z * (2.55 + 0.28 * sin(uTime * 9.0)); p = rx(p, vec3(b < 5.5 ? 0.235 : -0.235, 1.44, 0.0), a); n = rx(n, vec3(0.0), a); }',
+  '    else if (b > 6.5 && b < 7.5) { vec3 nk = vec3(0.0, 1.52, 0.0); p = rx(p, nk, uLook.y); n = rx(n, vec3(0.0), uLook.y); p = ry(p, nk, uLook.x); n = ry(n, vec3(0.0), uLook.x); }',
+  '    if (p.y > 1.0 && b < 7.5) p.z += (p.z > 0.0 ? 1.0 : -1.0) * 0.006 * sin(uLook.w);',
   '    p = rx(p, vec3(0.0, 0.95, 0.0), lean); n = rx(n, vec3(0.0), lean);',
   '  }',
   '  p.y += abs(sin(uAnim.x)) * 0.025 * uAnim.y - 0.42 * (1.0 - cos(th)) - 0.42 * (1.0 - cos(th - kb));',
-  '  vC = color; vN = normalize(mat3(modelMatrix) * n); vec4 w = modelMatrix * vec4(p, 1.0); vWE = vec4(w.xyz, b > 8.5 ? 1.0 : 0.0); gl_Position = projectionMatrix * viewMatrix * w;',
+  '  vC = color; vN = normalize(mat3(modelMatrix) * n); vec4 w = modelMatrix * vec4(p, 1.0);',
+  '  if (b > 7.5 && b < 9.5) { float fl = fract(b); w.xyz += vec3(uWA.x, 0.35, uWA.y) * (fl * (0.06 + 0.16 * uGust)) + vec3(-uWA.y, 0.0, uWA.x) * (fl * sin(uTime * 13.0 + w.x * 5.0 + w.z * 3.0) * 0.05 * (0.4 + uGust)); }',
+  '  vWE = vec4(w.xyz, b > 9.5 ? 1.0 : 0.0); gl_Position = projectionMatrix * viewMatrix * w;',
   '}'
 ].join('\n');
 var PROP_FS = GL_TONE + [
@@ -409,7 +414,7 @@ var PROP_FS = GL_TONE + [
   'void main() {',
   '  vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;',
   '  vec3 c = vC * (uLightC * (0.92 * max(dot(N, uSun), 0.0)) + uAmbC * (0.75 + 0.35 * N.y) + uLightC * 0.04);',
-  '  if (uLampP.w > 0.0) { vec3 lv = vWE.xyz - uLampP.xyz; float ld = length(lv); lv /= ld; c += vC * vec3(1.0, 0.94, 0.82) * (uLampP.w * smoothstep(0.80, 0.97, dot(lv, uLampD)) * (max(dot(N, -lv), 0.0) * 0.7 + 0.3) * 7.0 / (4.0 + ld * 0.6 + ld * ld * 0.012)); }',
+  '  if (uLampP.w > 0.0) { vec3 lv = vWE.xyz - uLampP.xyz; float ld = length(lv); lv /= ld; c += vC * vec3(1.0, 0.94, 0.82) * (uLampP.w * smoothstep(0.80, 0.97, dot(lv, uLampD)) * (max(dot(N, -lv), 0.0) * 0.7 + 0.3) * 4.6 / (4.0 + ld * 0.5 + ld * ld * 0.01)); }',
   '  c += vC * (vWE.w * uSky.y * (1.1 + 0.25 * N.y));',          // tents glow from inside at night
   '  gl_FragColor = vec4(tone(c), 1.0);',
   '}'
@@ -660,15 +665,20 @@ Builder.prototype.geo = function () {
 var propMat, climbers = [];
 var SUITS = [[0.92, 0.66, 0.05], [0.78, 0.09, 0.07], [0.08, 0.24, 0.72], [0.9, 0.36, 0.05], [0.07, 0.5, 0.36], [0.16, 0.17, 0.2]];
 // a climber in a down suit: hood, goggles, oxygen mask and bottle, pack, big boots, two poles. Faces -z.
-function climberGeo(suit, pack, detail) {
+function climberGeo(suit, pack, detail, variant) {
   var b = new Builder(), dk = [0.05, 0.05, 0.065], gy = [0.55, 0.57, 0.6], lens = [0.95, 0.5, 0.08], boot = [0.9, 0.75, 0.1], s; b.detail = detail;
   var sd = [suit[0] * 0.45, suit[1] * 0.45, suit[2] * 0.45];
   b.bone = 0;
   b.ball(0, 0.96, 0.005, 0.175, 0.13, 0.135, suit); b.ball(0, 1.2, 0.0, 0.2, 0.3, 0.15, suit, 0, 12); b.ball(0, 1.41, 0.0, 0.225, 0.115, 0.145, suit);
   b.ball(0, 0.99, 0.005, 0.182, 0.035, 0.142, dk);                                                                  // harness
-  b.ball(0, 1.545, 0.01, 0.105, 0.075, 0.11, suit); b.ball(0, 1.665, 0.005, 0.112, 0.128, 0.122, suit);              // collar, hood
+  b.ball(0, 1.545, 0.01, 0.105, 0.075, 0.11, suit);                                                                    // collar
+  b.bone = 7; b.ball(0, 1.665, 0.005, 0.112, 0.128, 0.122, suit);                                                      // hood: the head turns on its own
   b.ball(0, 1.675, 0.0, 0.117, 0.024, 0.127, dk); b.ball(0, 1.675, -0.082, 0.078, 0.036, 0.05, lens);                // goggles
-  b.ball(0, 1.6, -0.092, 0.048, 0.05, 0.05, [0.12, 0.12, 0.14]); b.tube([0.03, 1.58, -0.09], [0.11, 1.42, 0.1], 0.013, 0.013, dk);   // oxygen mask and hose
+  b.ball(0, 1.6, -0.092, 0.048, 0.05, 0.05, [0.12, 0.12, 0.14]); b.tube([0.02, 1.57, -0.1], [0.07, 1.5, -0.02], 0.013, 0.013, dk);   // oxygen mask
+  if (variant % 2) { b.ball(0, 1.735, 0.01, 0.125, 0.085, 0.135, [0.9, 0.9, 0.92]); b.ball(0, 1.75, -0.1, 0.03, 0.025, 0.02, [0.95, 0.9, 0.6]); }   // some wear a helmet with a lamp
+  b.bone = 0; b.tube([0.07, 1.5, -0.02], [0.11, 1.42, 0.1], 0.013, 0.013, dk);
+  for (s = 0; s < 3; s++) { b.bone = 8 + s * 0.3; b.box(0.03, 0.09, 0.008, 0.12, 0.98 - s * 0.08, 0.27, sd); b.box(0.03, 0.09, 0.008, -0.13, 1.0 - s * 0.08, 0.26, sd); }   // loose pack straps blow in the wind
+  b.bone = 0;
   b.ball(0, 1.22, 0.185, 0.15, 0.24, 0.1, pack); b.tube([0.055, 1.12, 0.26], [0.055, 1.52, 0.25], 0.05, 0.05, [0.92, 0.5, 0.08]); b.ball(0.055, 1.52, 0.25, 0.05, 0.05, 0.05, [0.92, 0.5, 0.08]);
   b.tube([-0.07, 1.0, 0.27], [-0.07, 1.62, 0.26], 0.012, 0.012, gy); b.box(0.2, 0.02, 0.03, -0.07, 1.62, 0.26, gy, 0, 0, 0.2);                                    // ice axe on the pack
   for (s = 1; s >= -1; s -= 2) {
@@ -683,21 +693,22 @@ function climberGeo(suit, pack, detail) {
   }
   return b.geo();
 }
-function figMat() { return new THREE.ShaderMaterial({ uniforms: UN({ uAnim: { value: new THREE.Vector4(0, 0, 0, 0) } }), vertexShader: PROP_VS, fragmentShader: PROP_FS }); }
+function figMat() { return new THREE.ShaderMaterial({ uniforms: UN({ uAnim: { value: new THREE.Vector4(0, 0, 0, 0) }, uLook: { value: new THREE.Vector4(0, 0, 0, 0) } }), vertexShader: PROP_VS, fragmentShader: PROP_FS }); }
 var figGeos = {};
-function figGeo(i, hi) { var k = (i % SUITS.length) + (hi ? 'h' : 'l'); return figGeos[k] || (figGeos[k] = climberGeo(SUITS[i % SUITS.length], SUITS[(i + 3) % SUITS.length], hi ? 2 : 1)); }
+function figGeo(i, hi) { var k = (i % 12) + (hi ? 'h' : 'l'); return figGeos[k] || (figGeos[k] = climberGeo(SUITS[i % SUITS.length], SUITS[(i * 5 + 3) % SUITS.length], hi ? 2 : 1, Math.floor(i / SUITS.length) + i)); }
 function buildProps() {
-  propMat = new THREE.ShaderMaterial({ uniforms: UN({ uAnim: { value: new THREE.Vector4(0, 0, 0, 0) } }), vertexShader: PROP_VS, fragmentShader: PROP_FS, side: THREE.DoubleSide });
+  propMat = new THREE.ShaderMaterial({ uniforms: UN({ uAnim: { value: new THREE.Vector4(0, 0, 0, 0) }, uLook: { value: new THREE.Vector4(0, 0, 0, 0) } }), vertexShader: PROP_VS, fragmentShader: PROP_FS, side: THREE.DoubleSide });
   // people: [route distance, how far they wander, metres to the side]
   var spec = [[7, 0, -2.2], [13, 0, 2.0], [70, 34, 0.9], [84, 34, 0.9], [215, 60, -0.8], [232, 60, -0.8], [249, 60, -0.8], [470, 90, 0.9], [760, 70, 1], [778, 70, 1],
     [COL_ARC + 14, 0, -9], [COL_ARC + 26, 0, 8], [COL_ARC + 8, 0, 12], [2500, 120, 1.2], [2520, 120, 1.2], [5385, 0, 9], [5410, 0, -8], [6600, 150, 1], [ROUTE_LEN - 60, 0, 10], [ROUTE_LEN - 48, 0, -9], [ROUTE_LEN - 30, 0, 14]];
   spec.forEach(function (s, i) {
     var m = new THREE.Mesh(figGeo(i, false), figMat());
-    scene.add(m); climbers.push({ m: m, i: i, hi: false, a0: s[0], rng: s[1], side: s[2], ph: i * 1.7 });
+    var bh = 0.93 + hash2(i, 3, 41) * 0.14, bw = 0.94 + hash2(i, 5, 42) * 0.16; m.scale.set(bw, bh, bw); m.rotation.order = 'YXZ';
+    scene.add(m); climbers.push({ m: m, i: i, hi: false, a0: s[0], rng: s[1], side: s[2], ph: i * 1.7, x: 0, z: 0, yaw: i * 3.57, ly: 0, lp: 0, wave: 0, cool: 3 + i, down: 0, hold: 0 });
   });
   // tents, flags
   var b = new Builder(), dome = new THREE.SphereGeometry(1, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler();
-  function tent(x, z, col, rot, sc) { var y = Math.min(H(x - 1, z, 0), H(x + 1, z, 0), H(x, z - 1, 0), H(x, z + 1, 0)) - Y0 - 0.1; E.set(0, rot, 0); Q.setFromEuler(E); M.compose(new V3(x, y, z), Q, new V3(1.5 * sc, 1.15 * sc, 1.1 * sc)); b.bone = 9; b.add(dome.clone(), col, M); b.bone = 0; }
+  function tent(x, z, col, rot, sc) { var y = Math.min(H(x - 1, z, 0), H(x + 1, z, 0), H(x, z - 1, 0), H(x, z + 1, 0)) - Y0 - 0.1; E.set(0, rot, 0); Q.setFromEuler(E); M.compose(new V3(x, y, z), Q, new V3(1.5 * sc, 1.15 * sc, 1.1 * sc)); b.bone = 10; b.add(dome.clone(), col, M); b.bone = 0; }
   var camps = [[COL_ARC + 20, 6, 22], [3000, 3, 12], [5400, 7, 30], [7750, 4, 22], [ROUTE_LEN - 45, 12, 45]], tcol = [[0.98, 0.45, 0.06], [0.95, 0.72, 0.08], [0.88, 0.2, 0.1], [0.98, 0.55, 0.1]];
   camps.forEach(function (c, ci) {
     var p = routeAt(c[0]), px = p[0], pz = p[1];
@@ -739,23 +750,64 @@ function buildFar() {         // the other giants, far outside the map, standing
   var m = new THREE.Mesh(g, new THREE.ShaderMaterial({ uniforms: UN(), vertexShader: FAR_VS, fragmentShader: FAR_FS }));
   m.frustumCulled = false; m.matrixAutoUpdate = false; m.renderOrder = 20; scene.add(m);
 }
-function updateClimbers(now) {
+var speech = null, LINES = [['Namaste! You made it!', 'Top of the world!', 'What a view!'], ['Careful near the edge!', 'Namaste!', 'Nice day for it!', 'Long way down!'], ['Tea at Base Camp!', 'Ski safe!', 'Namaste!', 'See you at the bottom!']], OUCH = ['Hey! Watch it!', 'Whoa!', 'Oof!', 'Look out!'];
+function speak(x, y, z, text) {      // a line of talk floating over someone's head
+  if (!speech) {
+    var cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; var tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+    speech = { ctx: cv.getContext('2d'), tex: tex, t: 0, sp: new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false })) };
+    speech.sp.center.set(0.5, 0); speech.sp.renderOrder = 76; scene.add(speech.sp);
+  }
+  var c = speech.ctx; c.clearRect(0, 0, 512, 96); c.font = 'italic 44px Georgia, serif'; c.textAlign = 'center';
+  var w = Math.min(500, c.measureText(text).width + 50); c.fillStyle = 'rgba(8,28,100,0.72)'; c.beginPath(); c.moveTo(256 - w / 2 + 30, 14); c.arcTo(256 + w / 2, 14, 256 + w / 2, 84, 30); c.arcTo(256 + w / 2, 84, 256 - w / 2, 84, 30); c.arcTo(256 - w / 2, 84, 256 - w / 2, 14, 30); c.arcTo(256 - w / 2, 14, 256 + w / 2, 14, 30); c.fill();
+  c.fillStyle = '#fff'; c.fillText(text, 256, 64); speech.tex.needsUpdate = true; speech.t = 3.2; speech.sp.visible = true; speech.sp.position.set(x, y, z);
+}
+function updateClimbers(now, dt) {
+  if (speech && speech.t > 0) { speech.t -= dt; var sd = Math.hypot(speech.sp.position.x - P.x, speech.sp.position.z - P.z), sw = clamp(sd * 0.5, 2.0, 14); speech.sp.scale.set(sw, sw * 0.1875, 1); speech.sp.material.opacity = clamp(speech.t * 2, 0, 1); if (speech.t <= 0) speech.sp.visible = false; }
   for (var i = 0; i < climbers.length; i++) {
     var c = climbers[i], a = c.a0, dir = -1;
-    if (c.rng > 0) { var T = c.rng / 0.32, ph = (now + c.ph * 40) % (2 * T); if (ph < T) { a = c.a0 + c.rng * 0.5 - ph * 0.32; dir = -1; } else { a = c.a0 - c.rng * 0.5 + (ph - T) * 0.32; dir = 1; } }
+    if (c.down > 0) { c.down -= dt; c.hold += dt; }
+    if (c.rng > 0) { var T = c.rng / 0.32, ph = (now - c.hold + c.ph * 40) % (2 * T); if (ph < T) { a = c.a0 + c.rng * 0.5 - ph * 0.32; dir = -1; } else { a = c.a0 - c.rng * 0.5 + (ph - T) * 0.32; dir = 1; } }
     var p = routeAt(a), x = p[0], z = p[1], q = routeAt(a + 2), tx = q[0] - x, tz = q[1] - z, tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
-    x += -tz * c.side; z += tx * c.side;
+    x += -tz * c.side; z += tx * c.side; c.x = x; c.z = z;
     c.m.visible = Math.abs(x - P.x) < 900 && Math.abs(z - P.z) < 900; if (!c.m.visible) continue;
-    var hi = Math.abs(x - P.x) < 70 && Math.abs(z - P.z) < 70; if (hi !== c.hi) { c.hi = hi; c.m.geometry = figGeo(c.i, hi); }
-    var cy = H(x, z, 0) - Y0; c.m.position.set(x, cy, z);
-    if (U.uLampP.value.w > 0.02) { var ry = c.rng > 0 ? Math.atan2(-tx * dir, -tz * dir) : c.m.rotation.y; lampAt(x, cy + 1.7, z, -Math.sin(ry), -Math.cos(ry)); }
-    if (c.rng > 0) { c.m.rotation.y = Math.atan2(-tx * dir, -tz * dir); c.m.material.uniforms.uAnim.value.set(a / 0.62 * Math.PI * 0.5 * dir, 1, dir < 0 ? 0.24 : 0.08, 0); }
-    else { c.m.rotation.y = c.ph * 2.1 + Math.sin(now * 0.21 + c.ph) * 0.5; c.m.material.uniforms.uAnim.value.set(0, 0, 0.04, 0); }
+    var dxp = P.x - x, dzp = P.z - z, dp = Math.hypot(dxp, dzp), hi = dp < 70; if (hi !== c.hi) { c.hi = hi; c.m.geometry = figGeo(c.i, hi); }
+    var cy = H(x, z, 0) - Y0, walking = c.rng > 0 && c.down <= 0, UA = c.m.material.uniforms.uAnim.value, UL = c.m.material.uniforms.uLook.value;
+    if (dp < 0.8 && c.down <= 0 && started && P.v > 2.5 && canKnock()) { c.down = 4.2; var gk = grad(x, z); c.sl = Math.hypot(gk[0], gk[1]); if (c.sl > 0.05) c.yaw = Math.atan2(-gk[0], -gk[1]); knock(dxp / (dp || 1), dzp / (dp || 1)); speak(x, cy + 2.05, z, OUCH[(i + Math.floor(now)) % OUCH.length]); }     // you ran into them
+    var fall = c.down > 0 ? clamp((4.2 - c.down) / 0.4, 0, 1) * clamp(c.down / 0.9, 0, 1) : 0;
+    if (walking) c.yaw = Math.atan2(-tx * dir, -tz * dir);
+    else if (c.down <= 0 && dp < 7) c.yaw += angDiff(Math.atan2(-dxp, -dzp), c.yaw) * Math.min(1, dt * 2.2);          // turn to face you
+    else if (c.rng === 0) c.yaw += angDiff(c.ph * 2.1 + Math.sin(now * 0.21 + c.ph) * 0.5, c.yaw) * Math.min(1, dt);
+    c.m.rotation.set((1.57 + Math.atan(c.sl || 0)) * fall, c.yaw, Math.sin(now * 0.6 + c.ph) * 0.02 * (walking ? 0 : 1)); c.m.position.set(x, cy + 0.26 * fall, z);
+    if (U.uLampP.value.w > 0.02 && fall < 0.5) lampAt(x, cy + 1.7, z, -Math.sin(c.yaw), -Math.cos(c.yaw));
+    var ly, lp;
+    if (dp < 14 && c.down <= 0) {        // eyes on you
+      var cs = Math.cos(c.yaw), sn = Math.sin(c.yaw), lx = cs * dxp - sn * dzp, lz = sn * dxp + cs * dzp;
+      ly = clamp(Math.atan2(-lx, -lz), -1.25, 1.25); lp = clamp(Math.atan2(P.ry + 1.6 - cy - 1.62, dp), -0.5, 0.5);
+      if (dp < 9 && c.cool <= 0 && started) { c.wave = 2.6; c.cool = 28 + i; var zone = a < 60 ? 0 : a < 1750 ? 1 : 2; speak(x, cy + 2.05, z, LINES[zone][(i + Math.floor(now / 7)) % LINES[zone].length]); }
+    } else { ly = Math.sin(now * 0.37 + c.ph) * (walking ? 0.2 : 0.55); lp = Math.sin(now * 0.23 + c.ph * 2) * 0.1; }
+    c.cool -= dt; c.wave -= dt; var k = Math.min(1, dt * 5); c.ly += (ly - c.ly) * k; c.lp += (lp - c.lp) * k;
+    UL.set(c.ly, c.lp, c.wave > 0 ? sstep(0, 0.35, c.wave) * sstep(2.6, 2.25, c.wave) : 0, now * 1.5 + c.ph);
+    if (walking) UA.set(a / 0.62 * Math.PI * 0.5 * dir, 1, dir < 0 ? 0.24 : 0.08, 0); else UA.set(0, 0, 0.04, 0);
   }
 }
 
 // ================= skis, tracks, spray, wind =================
-var skiGroup, skiGeo, myTrack;
+var skiGroup, skiGeo, myTrack, myLegs, myFig, view3 = false, cam3 = new V3(), cam3ok = false;
+function legsGeo(suit) {       // what you see when you look down: knees, shins and ski boots
+  var b = new Builder(), dk = [0.07, 0.07, 0.085], sh = [0.16, 0.17, 0.2], bk = [0.75, 0.76, 0.8], s; b.detail = 2;
+  for (s = -1; s <= 1; s += 2) {
+    var x = s * 0.15;
+    b.ball(x, 0.1, -0.03, 0.058, 0.07, 0.15, sh); b.ball(x, 0.09, -0.15, 0.052, 0.05, 0.06, sh); b.tube([x, 0.1, 0.03], [x, 0.36, -0.03], 0.068, 0.072, sh); b.box(0.105, 0.03, 0.31, x, 0.04, -0.02, dk);      // boot shell, toe, cuff, sole
+    b.box(0.07, 0.014, 0.02, x, 0.15, -0.085, bk); b.box(0.085, 0.014, 0.02, x, 0.25, -0.092, bk); b.box(0.085, 0.014, 0.02, x, 0.32, -0.1, bk);                                                         // buckles
+    b.tube([x, 0.34, -0.03], [x * 0.95, 0.58, -0.17], 0.08, 0.082, suit, 1); b.ball(x * 0.95, 0.58, -0.17, 0.084, 0.084, 0.084, suit); b.tube([x * 0.95, 0.58, -0.17], [x * 0.8, 0.86, 0.1], 0.084, 0.092, suit, 1); b.ball(x * 0.8, 0.86, 0.1, 0.094, 0.094, 0.094, suit);
+  }
+  return b.geo();
+}
+function canKnock() { return !(P.down > 0) && P.safe <= 0 && !P.lost; }
+function knock(nx, nz) {       // a crash: both of you go down, then you get back up where you are
+  P.down = 1.7; P.v = 0; P.u = 0; P.air = 0; P.x += nx * 0.9; P.z += nz * 0.9; say('Wipeout!', 1.6); thump(1); buzz(0, 1, 120); buzz(1, 1, 120);
+  for (var i = 0; i < 30; i++) sprayEmit(P.x + (Math.random() - 0.5), P.y + 0.3, P.z + (Math.random() - 0.5), (Math.random() - 0.5) * 7, 1 + Math.random() * 3.5, (Math.random() - 0.5) * 7);
+}
 function Track(n, r, g, b, a) {      // lines left in the snow
   this.n = n; this.head = 0; this.last = null;
   this.pos = new Float32Array(n * 12); this.side = new Float32Array(n * 12); this.idx = new Uint16Array(n * 12);
@@ -788,9 +840,11 @@ function buildSkis() {
   for (s = -1; s <= 1; s += 2) {
     var x = s * 0.15;
     b.box(0.1, 0.02, 1.55, x, 0.01, -0.1, red); b.box(0.1, 0.02, 0.22, x, 0.045, -0.97, red, 0.36); b.box(0.1, 0.022, 0.3, x, 0.012, -0.55, wh);
-    b.box(0.09, 0.06, 0.3, x, 0.05, 0.0, dk); b.box(0.11, 0.22, 0.3, x, 0.16, 0.02, bl); b.box(0.12, 0.2, 0.14, x, 0.34, 0.08, bl, -0.2);
+    b.box(0.1, 0.02, 0.2, x, 0.03, 0.72, red, -0.12); b.box(0.085, 0.045, 0.1, x, 0.045, -0.2, dk); b.box(0.085, 0.06, 0.09, x, 0.05, 0.17, dk); b.box(0.02, 0.012, 1.3, x, 0.022, 0.0, [0.95, 0.75, 0.1]);
   }
   skiGeo = b.geo(); skiGroup = new THREE.Mesh(skiGeo, propMat); skiGroup.visible = false; scene.add(skiGroup);
+  myLegs = new THREE.Mesh(legsGeo(SUITS[2]), propMat); myLegs.visible = false; skiGroup.add(myLegs);
+  myFig = new THREE.Mesh(figGeo(2, true), figMat()); myFig.visible = false; myFig.rotation.order = 'YXZ'; scene.add(myFig);
   myTrack = new Track(1000, 0.42, 0.56, 0.86, 0.6);
 }
 // soft white puffs that always face you: ski spray and the snow plumes streaming off the peaks
@@ -810,7 +864,7 @@ Batch.prototype.set = function (i, x, y, z, size, a) { var k = i * 12, j, P_ = t
 Batch.prototype.flush = function () { this.geo.attributes.position.needsUpdate = true; this.geo.attributes.aSA.needsUpdate = true; };
 function lampAt(x, y, z, hx, hz) {       // someone else's headlamp: a bright dot and a pool of light on the snow
   if (lampI + 2 > 64) return; var d = Math.hypot(x - P.x, z - P.z), n = U.uLampP.value.w;
-  lamps.set(lampI++, x + hx * 0.16, y, z + hz * 0.16, 0.16 + d * 0.006, 0.95 * n);
+  lamps.set(lampI++, x + hx * 0.16, y, z + hz * 0.16, 0.09 + d * 0.006, 0.95 * n);
   var gx = x + hx * 2.6, gz = z + hz * 2.6; lamps.set(lampI++, gx, H(gx, gz, 2) - Y0 + 0.25, gz, 2.6, 0.2 * n);
 }
 var DRIFT_N = 220, driftPos, driftSl, driftGeo, driftD = new Float32Array(DRIFT_N * 8), driftF = 0;    // per streak: x, z, ground y, slope x, slope z, height, speed, phase
@@ -831,7 +885,7 @@ function buildWind() {
 function sprayEmit(x, y, z, vx, vy, vz) { var i = sprayI; sprayI = (sprayI + 1) % SPRAY_N; sprayP[3 * i] = x; sprayP[3 * i + 1] = y; sprayP[3 * i + 2] = z; sprayVel[3 * i] = vx; sprayVel[3 * i + 1] = vy; sprayVel[3 * i + 2] = vz; sprayLife[i] = 0.5 + Math.random() * 0.5; }
 function windStep(dt) {
   var i, k, t = clock;
-  gust = clamp((0.55 + 0.45 * Math.sin(t * 0.37) * Math.sin(t * 0.11 + 2)) * (0.75 + 0.6 * SKY.w), 0, 1.2); flagU.uGust.value = gust;
+  gust = clamp((0.55 + 0.45 * Math.sin(t * 0.37) * Math.sin(t * 0.11 + 2)) * (0.75 + 0.6 * SKY.w), 0, 1.2); flagU.uGust.value = gust; U.uGust.value = gust;
   for (i = 0; i < SPRAY_N; i++) {
     if (sprayLife[i] <= 0) { if (puffs.sa[i * 8 + 1] !== 0) puffs.set(i, 0, -1e5, 0, 0, 0); continue; }
     sprayLife[i] -= dt; sprayVel[3 * i + 1] -= 5 * dt; sprayVel[3 * i] += WDX * 6 * dt; sprayVel[3 * i + 2] += WDZ * 6 * dt;
@@ -901,7 +955,7 @@ function drawVrHud(a, b, c) {
 }
 
 // ================= player =================
-var P = { yb: 0, vy: 0, air: 0, gy0: 0, rock: 0, squat: 0, headTop: 0, x: 0, z: 0, y: 0, ry: 0, yaw: 0, pitch: -0.12, head: 0, v: 0, u: 0, turn: 0, mode: 'walk', roll: 0, autoPitch: 0, top: 0, t0: 0, timing: false, done: false, lost: 0, bob: 0, drop: 0 };
+var P = { down: 0, safe: 0, yb: 0, vy: 0, air: 0, gy0: 0, rock: 0, squat: 0, headTop: 0, x: 0, z: 0, y: 0, ry: 0, yaw: 0, pitch: -0.12, head: 0, v: 0, u: 0, turn: 0, mode: 'walk', roll: 0, autoPitch: 0, top: 0, t0: 0, timing: false, done: false, lost: 0, bob: 0, drop: 0 };
 var started = false, vr = false, xrSession = null, vrYaw = 0, snapReady = true, btnPrev = {}, headPrev = null, holdTop = 0, vigOn = QS.get('vig') !== '0';
 var inp = { mx: 0, my: 0, turn: 0, brake: 0, run: false };
 var keys = {}, joy = { id: -1, ox: 0, oy: 0, x: 0, y: 0 }, look = { id: -1, x: 0, y: 0 }, isTouch = false;
@@ -915,7 +969,7 @@ function hint() {
   $('hint').textContent = h; $('skibtn').textContent = P.mode === 'ski' ? 'SKIS OFF' : 'SKIS ON';
 }
 function toSummit() {
-  var p = routeAt(40).slice(), sp = routeAt(1.5 + (MP.n - 1) * 1.7); P.x = sp[0] + 0.4; P.z = sp[1]; P.v = 0; P.u = 0; P.mode = 'walk'; P.done = false; P.timing = false; P.top = 0; P.lost = 0;
+  var p = routeAt(40).slice(), sp = routeAt(1.5 + (MP.n - 1) * 1.7); P.x = sp[0] + 0.4; P.z = sp[1]; P.v = 0; P.u = 0; P.mode = 'walk'; P.done = false; P.timing = false; P.top = 0; P.lost = 0; P.down = 0; cam3ok = false;
   P.yaw = Math.atan2(-(p[0] - P.x), -(p[1] - P.z)); P.head = P.yaw; P.pitch = -0.1; vrYaw = P.yaw; headPrev = null;
   P.y = H(P.x, P.z, 0) - Y0; P.ry = P.y; myTrack.last = null; skiGroup.visible = false;
   lodUpdate(P.x, P.z, true); hint();
@@ -941,6 +995,7 @@ window.addEventListener('keydown', function (e) {
   if (!started) { if (e.code === 'Enter' || e.code === 'Space') begin(); return; }
   if (e.code === 'Space') { toggleSkis(); e.preventDefault(); }
   if (e.code === 'KeyR') { toSummit(); say('Back on top', 2); }
+  if (e.code === 'KeyV') $('viewbtn').click();
 });
 window.addEventListener('keyup', function (e) { keys[e.code] = false; });
 window.addEventListener('blur', function () { keys = {}; });
@@ -983,6 +1038,7 @@ function buildHands() {
 }
 function setVR(on) {
   vr = on; vigMesh.visible = on && vigOn; vrHud.visible = on; grips.forEach(function (g) { g.visible = on; });
+  $('viewbtn').style.display = on ? 'none' : '';
   if (on) { vrYaw = P.yaw; headPrev = null; camera.position.set(0, 0, 0); camera.rotation.set(0, 0, 0); } else { camera.rotation.set(0, 0, 0); rig.rotation.set(0, 0, 0); resize(); }
   $('vrbtn').textContent = on ? 'EXIT VR' : 'ENTER VR'; hint();
 }
@@ -1110,6 +1166,7 @@ function setSky(mode, th) {
   SKY.mode = mode; if (mode > 0) SKY.th = SKYTH[mode]; else if (th !== undefined) SKY.th = th;
   $('skybtn').textContent = SKYNAME[mode]; skyUpdate(0); shadowSet(); try { localStorage.setItem('mr_sky', String(mode)); } catch (e) {}
 }
+$('viewbtn').addEventListener('click', function () { view3 = !view3; cam3ok = false; this.textContent = view3 ? 'VIEW: BEHIND' : 'VIEW: EYES'; try { localStorage.setItem('mr_view', view3 ? '1' : '0'); } catch (e) {} });
 $('skybtn').addEventListener('click', function () { setSky((SKY.mode + 1) % 4); if (started) say(['Day turns to night on its own', 'Always day', 'Always sunset', 'Always night'][SKY.mode], 2.5); });
 
 // ================= playing together =================
@@ -1151,12 +1208,12 @@ function mpConn(c) {
 function num(v, a, b) { return typeof v === 'number' && isFinite(v) ? clamp(v, a, b) : 0; }
 function mpData(d, c) {
   if (!d || typeof d !== 'object') return;
-  if (d.t === 'hello' && !MP.host) { MP.n = clamp(d.n | 0, 2, 99); $('mp').style.display = 'none'; $('mpbtn').textContent = 'WITH ' + MP.code; if (!started) begin(); toSummit(); say('You are on the same mountain.\nFind your friend!', 4); return; }
+  if (d.t === 'hello' && !MP.host) { MP.n = clamp(d.n | 0, 2, 99); myFig.geometry = figGeo(MP.n + 1, true); myLegs.geometry = legsGeo(SUITS[(MP.n + 1) % SUITS.length]); $('mp').style.display = 'none'; $('mpbtn').textContent = 'WITH ' + MP.code; if (!started) begin(); toSummit(); say('You are on the same mountain.\nFind your friend!', 4); return; }
   if (d.t === 's' && typeof d.id === 'string' && d.id.length <= 12 && d.id !== MP.id) {
     var b = MP.buds[d.id]; if (!b) { if (MP.count >= 8) return; b = budMake(d.id, clamp(d.n | 0, 1, 99)); }
     var x = num(d.x, WX0, WX0 + WS), z = num(d.z, WZ0, WZ0 + WS);
     if (b.tx === null || Math.hypot(x - b.tx, z - b.tz) > 60) { b.x = x; b.z = z; b.track.last = null; }
-    b.tx = x; b.tz = z; b.th = num(d.h, -1e4, 1e4); b.v = num(d.v, 0, 60); b.ski = d.m === 1; b.at = performance.now(); b.via = c; MP.rx = b.at;
+    b.tx = x; b.tz = z; b.th = num(d.h, -1e4, 1e4); b.v = num(d.v, 0, 60); b.ski = d.m === 1; b.dn = d.k === 1; b.at = performance.now(); b.via = c; MP.rx = b.at;
     if (!MP.host && b.n === 1 && typeof d.td === 'number') { var th = num(d.td, 0, 6.2832), sm = clamp(d.sm | 0, 0, 3); if (sm !== SKY.mode || Math.abs(angDiff(th, SKY.th)) > 0.06) setSky(sm, th); SKY.wc = num(d.wc, 0, 1e7); }
     if (d.f === 1 && !b.done) { b.done = true; say('Player ' + b.n + ' reached Base Camp!', 4); } else if (d.f !== 1) b.done = false;
     if (MP.host) for (var i = 0; i < MP.conns.length; i++) if (MP.conns[i] !== c && MP.conns[i].open) MP.conns[i].send(d);
@@ -1169,14 +1226,14 @@ function budMake(id, n) {
   var tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
   var tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false })); tag.center.set(0.5, 0); tag.renderOrder = 75; scene.add(tag);
   MP.count++;
-  return (MP.buds[id] = { n: n, g: g, fig: fig, sk: sk, tag: tag, track: new Track(260, 0.42, 0.56, 0.86, 0.6), x: 0, z: 0, tx: null, tz: 0, h: 0, th: 0, v: 0, walk: 0, cr: 0, ski: false, at: performance.now(), via: null, done: false });
+  return (MP.buds[id] = { n: n, g: g, fig: fig, sk: sk, tag: tag, track: new Track(260, 0.42, 0.56, 0.86, 0.6), x: 0, z: 0, tx: null, tz: 0, h: 0, th: 0, v: 0, walk: 0, cr: 0, fall: 0, dn: false, ski: false, at: performance.now(), via: null, done: false });
 }
 function mpTick(dt) {
   if (!MP.peer) return; var k, b;
   if (!MP.host && MP.live && performance.now() - MP.rx > 9000) { MP.live = false; say('Lost the connection', 3); mpStat('Disconnected', true); $('mpbtn').textContent = 'TOGETHER'; }
   MP.sendT -= dt;
   if (MP.sendT <= 0 && started && MP.conns.length) {
-    MP.sendT = 0.1; var msg = { t: 's', id: MP.id, n: MP.n, x: Math.round(P.x * 100) / 100, z: Math.round(P.z * 100) / 100, h: Math.round((P.mode === 'ski' ? P.head : (vr ? viewYaw() : P.yaw)) * 100) / 100, v: Math.round(P.v * 10) / 10, m: P.mode === 'ski' ? 1 : 0, f: P.done ? 1 : 0 };
+    MP.sendT = 0.1; var msg = { t: 's', id: MP.id, n: MP.n, x: Math.round(P.x * 100) / 100, z: Math.round(P.z * 100) / 100, h: Math.round((P.mode === 'ski' ? P.head : (vr ? viewYaw() : P.yaw)) * 100) / 100, v: Math.round(P.v * 10) / 10, m: P.mode === 'ski' ? 1 : 0, f: P.done ? 1 : 0, k: P.down > 0 ? 1 : 0 };
     if (MP.host) { msg.td = Math.round(SKY.th * 1000) / 1000; msg.sm = SKY.mode; msg.wc = Math.round(SKY.wc); }
     for (k = 0; k < MP.conns.length; k++) if (MP.conns[k].open) MP.conns[k].send(msg);
   }
@@ -1185,8 +1242,10 @@ function mpTick(dt) {
     if (b.tx === null) continue;
     var al = Math.min(1, dt * 8); b.x += (b.tx - b.x) * al; b.z += (b.tz - b.z) * al; b.h += angDiff(b.th, b.h) * al;
     var y = H(b.x, b.z, 0) - Y0, hx = -Math.sin(b.h), hz = -Math.cos(b.h), g = grad(b.x, b.z);
-    b.g.position.set(b.x, y, b.z); b.g.rotation.y = b.h; b.sk.visible = b.ski; b.sk.rotation.x = b.ski ? Math.atan(g[0] * hx + g[1] * hz) : 0; b.walk += Math.hypot((b.tx - b.x), (b.tz - b.z)) * al; b.cr += ((b.ski ? 0.55 + Math.min(b.v / 40, 0.3) : 0) - b.cr) * Math.min(1, dt * 5); b.fig.position.y = b.ski ? 0.05 : 0; b.fig.material.uniforms.uAnim.value.set(b.walk / 0.62 * Math.PI * 0.5, b.ski ? 0 : Math.min(b.v / 2, 1), b.ski ? 0 : 0.1, b.cr);
-    if (b.ski && b.v > 0.5) b.track.step(b.x, b.z, hx, hz); else b.track.last = null;
+    b.g.position.set(b.x, y, b.z); b.g.rotation.y = b.h; b.sk.visible = b.ski; b.sk.rotation.x = b.ski ? Math.atan(g[0] * hx + g[1] * hz) : 0; b.walk += Math.hypot((b.tx - b.x), (b.tz - b.z)) * al; b.cr += ((b.ski ? 0.55 + Math.min(b.v / 40, 0.3) : 0) - b.cr) * Math.min(1, dt * 5); b.fig.position.y = b.ski ? 0.05 : 0; b.fig.material.uniforms.uAnim.value.set(b.walk / 0.62 * Math.PI * 0.5, b.ski ? 0 : Math.min(b.v / 2, 1), b.ski ? 0 : 0.1, b.cr); b.fig.material.uniforms.uLook.value.set(0, 0, 0, clock * 1.5);
+    b.fall += ((b.dn ? 1 : 0) - b.fall) * Math.min(1, dt * 6); b.g.rotation.order = 'YXZ'; b.g.rotation.x = 1.5 * b.fall; b.g.position.y = y + 0.2 * b.fall;
+    var db = Math.hypot(b.x - P.x, b.z - P.z); if (db < 0.85 && !b.dn && started && (P.v > 2.5 || b.v > 2.5) && canKnock()) knock((P.x - b.x) / (db || 1), (P.z - b.z) / (db || 1));       // friends can crash into each other
+    if (b.ski && b.v > 0.5 && !b.dn) b.track.step(b.x, b.z, hx, hz); else b.track.last = null;
     if (U.uLampP.value.w > 0.02) lampAt(b.x, y + 1.7 - b.cr * 0.4, b.z, hx, hz);
     var dc = Math.hypot(b.x - P.x, b.z - P.z, y - P.ry), w = clamp(dc * 0.13, 1.3, 2500);
     b.tag.scale.set(w, w * 0.25, 1); b.tag.position.set(b.x, y + 2.0 + dc * 0.01, b.z);
@@ -1280,7 +1339,8 @@ function update(dt, now) {
     polesStep(dt);
   } else P.squat = 0;
   var vy = vr ? viewYaw() : P.yaw;
-  if (started && !P.lost) { if (P.mode === 'ski') stepSki(dt, vy); else stepWalk(dt, vy); }
+  if (P.down > 0) { P.down -= dt; if (P.down <= 0) P.safe = 2.5; } else if (P.safe > 0) P.safe -= dt;
+  if (started && !P.lost && !(P.down > 0)) { if (P.mode === 'ski') stepSki(dt, vy); else stepWalk(dt, vy); }
   else if (!started) P.yaw += dt * 0.03;
   var e = Math.min(P.x - WX0, P.z - WZ0, WX0 + WS - P.x, WZ0 + WS - P.z);
   P.y = H(P.x, P.z, 0) - Y0;
@@ -1304,7 +1364,14 @@ function update(dt, now) {
   if (vr) {
     var c2 = Math.cos(vrYaw), s2 = Math.sin(vrYaw), lx = camera.position.x, lz = camera.position.z;
     rig.rotation.set(0, vrYaw, 0); rig.position.set(P.x - (c2 * lx + s2 * lz), P.ry, P.z - (-s2 * lx + c2 * lz));
-    vigMesh.material.uniforms.uA.value += ((P.mode === 'ski' ? clamp((P.v - 4) / 16, 0, 0.8) : 0) - vigMesh.material.uniforms.uA.value) * Math.min(1, dt * 3);
+    vigMesh.material.uniforms.uA.value += ((P.down > 0 ? 1 : P.mode === 'ski' ? clamp((P.v - 4) / 16, 0, 0.8) : 0) - vigMesh.material.uniforms.uA.value) * Math.min(1, dt * (P.down > 0 ? 12 : 3));
+    if (P.down > 0) rig.position.y -= 0.75 * Math.sin(Math.PI * clamp(1 - P.down / 1.7, 0, 1));          // in VR a crash drops you into the snow; the view never spins
+  } else if (view3) {         // watching yourself from behind
+    var hd3 = P.yaw, f3x = -Math.sin(hd3), f3z = -Math.cos(hd3), dist3 = 5.6 + (P.mode === 'ski' ? P.v * 0.09 : 0), up3 = 2.5 - P.pitch * 4;
+    var wx3 = P.x - f3x * dist3, wz3 = P.z - f3z * dist3, wy3 = Math.max(P.ry + clamp(up3, 0.6, 7), H(wx3, wz3, 2) - Y0 + 0.9);
+    if (!cam3ok) { cam3.set(wx3, wy3, wz3); cam3ok = true; } else { var k3 = Math.min(1, dt * 7); cam3.x += (wx3 - cam3.x) * k3; cam3.y += (wy3 - cam3.y) * k3; cam3.z += (wz3 - cam3.z) * k3; }
+    rig.rotation.set(0, 0, 0); rig.position.set(0, 0, 0); camera.position.copy(cam3); camera.rotation.order = 'XYZ'; camera.lookAt(P.x + f3x * 4, P.ry + 1.3, P.z + f3z * 4);
+    if (Math.abs(camera.fov - (camera.aspect < 1 ? 82 : 70)) > 0.05) { camera.fov = camera.aspect < 1 ? 82 : 70; camera.updateProjectionMatrix(); }
   } else {
     var ski = P.mode === 'ski', fwd = g[0] * -Math.sin(P.yaw) + g[1] * -Math.cos(P.yaw);
     var tp = ski ? clamp(Math.atan(fwd) * 0.55, -0.6, 0.3) * clamp(P.v / 6, 0.25, 1) : 0;
@@ -1312,17 +1379,25 @@ function update(dt, now) {
     P.roll += ((ski ? clamp(P.turn * P.v * 0.012, -0.2, 0.2) : 0) - P.roll) * Math.min(1, dt * 5);
     rig.rotation.set(0, 0, 0); rig.position.set(P.x, P.ry, P.z);
     camera.position.set(0, 1.66 + (ski ? -0.12 : Math.sin(P.bob * 2.6) * 0.035), 0);
-    camera.rotation.set(clamp(P.pitch + P.autoPitch, -1.4, 1.3), P.yaw, P.roll, 'YXZ');
+    var tum = P.down > 0 ? clamp(1 - (P.down - 0.5) / 1.2, 0, 1) : 0; tum = tum * tum * (3 - 2 * tum);
+    camera.rotation.set(clamp(P.pitch + P.autoPitch, -1.4, 1.3) - Math.sin(tum * Math.PI) * 0.5, P.yaw, P.roll + tum * Math.PI * 2, 'YXZ'); if (P.down > 0) camera.position.y -= 0.9 * Math.sin(Math.PI * tum);
     var fov = (camera.aspect < 1 ? 82 : 70) + (ski ? clamp(P.v / 30, 0, 1) * 9 : 0); if (Math.abs(fov - camera.fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
   }
   // skis under the feet, lying on the slope
-  skiGroup.visible = P.mode === 'ski';
+  var me3 = view3 && !vr; myLegs.visible = !me3; myFig.visible = me3;
+  if (me3) {
+    var fl3 = P.down > 0 ? Math.sin(Math.PI * clamp(1 - P.down / 1.7, 0, 1)) : 0, sk3 = P.mode === 'ski';
+    myFig.position.set(P.x, P.ry + (sk3 ? 0.05 : 0) + 0.2 * fl3, P.z); myFig.rotation.set(1.5 * fl3, sk3 ? P.head : P.yaw, sk3 ? clamp(-P.turn * P.v * 0.02, -0.4, 0.4) : 0);
+    myFig.material.uniforms.uAnim.value.set(P.bob / 0.62 * Math.PI * 0.5, sk3 ? 0 : Math.min(P.v / 2.5, 1), sk3 ? 0 : 0.1, sk3 ? 0.5 + 0.35 * Math.max(clamp(inp.my, 0, 1), P.squat) : 0);
+    myFig.material.uniforms.uLook.value.set(clamp(angDiff(P.yaw, sk3 ? P.head : P.yaw), -1, 1), 0, 0, clock * 1.5);
+  }
+  skiGroup.visible = P.mode === 'ski' && !(P.down > 0 && me3);
   if (skiGroup.visible) {
     var hx2 = -Math.sin(P.head), hz2 = -Math.cos(P.head), fa = g[0] * hx2 + g[1] * hz2, sd = g[0] * -hz2 + g[1] * hx2;
     skiGroup.position.set(P.x, P.ry + 0.02, P.z); skiGroup.rotation.set(Math.atan(fa), P.head, Math.atan(sd) * 0.9, 'YXZ');
   }
   lodUpdate(P.x, P.z, false);
-  skyUpdate(dt); shadowStep(dt); updateClimbers(clock); mpTick(dt); windStep(dt);
+  skyUpdate(dt); shadowStep(dt); updateClimbers(clock, dt); mpTick(dt); windStep(dt);
   U.uFog.value = 1 / ((2500 + 67500 * sstep(CLOUD + 60, CLOUD + 900, alt)) * (1 - 0.93 * SKY.w));
   camera.getWorldPosition(_v); camera.getWorldDirection(_v2); _v2.y -= 0.16; _v2.normalize(); U.uLampP.value.set(_v.x, _v.y + 0.08, _v.z, U.uLampP.value.w); U.uLampD.value.copy(_v2);
   labelT -= dt; if (labelT <= 0) { labelT = 0.12; _cam.set(P.x, P.ry + 1.6, P.z); updateLabels(0.12, _cam); }
@@ -1354,13 +1429,14 @@ function init() {
   var t0 = performance.now();
   U.tGlobal.value = bakeGlobal(); U.tRipple.value = bakeRipple(); U.tCloud.value = bakeCloud(); shadowInit();
   buildStatic(); buildLODs(); buildSky(); buildFar(); buildRoute(); buildLabels(); buildProps(); buildFlags(); buildSkis(); buildWind(); buildCameraBits(); buildHands();
+  try { if (localStorage.getItem('mr_view') === '1' || QS.get('view') === '3') { view3 = true; $('viewbtn').textContent = 'VIEW: BEHIND'; } } catch (e) {}
   var sm0 = 0; try { sm0 = parseInt(localStorage.getItem('mr_sky') || '0', 10) || 0; } catch (e) {} if (QS.get('sky')) sm0 = parseInt(QS.get('sky'), 10) || 0;
   setSky(clamp(sm0, 0, 3)); if (QS.get('th')) { SKY.th = parseFloat(QS.get('th')); skyUpdate(0); shadowSet(); }
   toSummit();
   if (QS.get('join')) { $('mpcode').value = QS.get('join'); mpJoin(QS.get('join')); }
   if (QS.get('arc')) teleport(parseFloat(QS.get('arc')), QS.get('ski') === '1');
   ready = true; $('sub').textContent = 'You are standing on top of Everest. Walk the ridge, then ski all the way down.'; $('go').style.display = 'inline-block';
-  window.MR = { SKY: SKY, setSky: setSky, sh: sh, MP: MP, step: function (dt) { update(dt, 0); }, near: nearestOnRoute, say: say, U: U, inp: inp, P: P, H: H, teleport: teleport, toSummit: toSummit, toggleSkis: toggleSkis, begin: begin, keys: keys, renderer: renderer, camera: camera, routeAt: routeAt, LODS: LODS, initMs: Math.round(performance.now() - t0), info: function () { return renderer.info.render; } };
+  window.MR = { climbers: climbers, knock: knock, SKY: SKY, setSky: setSky, sh: sh, MP: MP, step: function (dt) { update(dt, 0); }, near: nearestOnRoute, say: say, U: U, inp: inp, P: P, H: H, teleport: teleport, toSummit: toSummit, toggleSkis: toggleSkis, begin: begin, keys: keys, renderer: renderer, camera: camera, routeAt: routeAt, LODS: LODS, initMs: Math.round(performance.now() - t0), info: function () { return renderer.info.render; } };
   hint();
 }
 renderer.setAnimationLoop(tick);
