@@ -161,7 +161,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 /*SIM*/
-var BS = 10, RW = 6, NB = 8, PITCH = 14, SIZE = NB * PITCH + RW, BAGMAX = 14, PSPEED = 6.2;
+var BS = 10, RW = 8, NB = 8, PITCH = BS + RW, SIZE = NB * PITCH + RW, BAGMAX = 14, PSPEED = 6.2;
 var DIFF = { easy: { drain: 0.6, cop: 0.8, extra: 0, watch: 0.75, susp: 0.8 }, medium: { drain: 1, cop: 0.9, extra: 1, watch: 1, susp: 1 }, hard: { drain: 1.35, cop: 0.98, extra: 2, watch: 1.3, susp: 1.25 } };
 var SHOPS = [
   { label: 'DONUTS', name: 'Glaze Daze Donuts', kind: 'food', per: 1, risk: 5, val: 12, color: 0xff8fb8, icon: 'donut' },
@@ -277,7 +277,7 @@ function Game(seed, diff) {
   this.input = { mx: 0, mz: 0 };
   this.wanted = 0; this.evadeT = 0; this.hideT = 0; this.wantedT = 0; this.grace = 0; this.pdf = new Int16Array(SIZE * SIZE); this.pdfT = 0;
   this.cops = []; for (var i = 0; i < 3; i++) this.cops.push(this.newCop(false));
-  this.rob = null; this.robber = null; this.robberT = 0; this.catches = 0; this.guards = []; this.hot = 0; this.dragon = { x: DRG.x, z: DRG.z, hx: -1, hz: 0, v: 0 }; this.dalt = 0; this.dfire = []; this.blocks = {}; this.nblocks = 0; this.build = -1; this.launchT = 0; this.chuteT = 0; this.won = false; this.heistAlarm = false; this.tipT = 0;
+  this.rob = null; this.robber = null; this.robberT = 0; this.catches = 0; this.guards = []; this.hot = 0; this.ladders = []; this.bridges = []; this.buildRoofs(); this.dragon = { x: DRG.x, z: DRG.z, hx: -1, hz: 0, v: 0, alt: 0 }; this.plane = { x: AIR.x, z: AIR.z, hx: 1, hz: 0, v: 0, alt: 0, phase: 'idle', T: 0, a: 0.2, pilot: false, t: 0 }; this.dalt = 0; this.dfire = []; this.blocks = {}; this.nblocks = 0; this.build = -1; this.launchT = 0; this.chuteT = 0; this.won = false; this.heistAlarm = false; this.tipT = 0;
   // mayhem: health, weapons, zombies, bears, bystanders
   this.hp = 100; this.hurtT = 0; this.lastBite = 'zombie'; this.weapon = 0; this.owned = diff === 'easy' ? [1, 1, 1, 0] : [1, 0, 0, 0]; this.fireCd = 0; this.rockets = 4; this.nades = 6; this.proj = []; this.kills = 0; this.mpT = 0; this.refillT = 8;
   this.mobs = []; this.peds = []; var nz = 9 + this.D.extra * 3;
@@ -285,7 +285,7 @@ function Game(seed, diff) {
   this.mobs.push(this.spawnMob({ kind: 'bear', otter: true, name: 'Julia Otter', df: new Int16Array(SIZE * SIZE) }));
   for (i = 0; i < 16; i++) this.peds.push(this.spawnPed({ kind: 'ped', look: i }));
   this.mobs[0].boss = true; this.mobs[0].name = 'El Jefe'; this.mobs[0].hp = 14; this.gemmaT = 0;
-  this.tall = { on: false, x: 0, z: 0, t: 0, next: 120 + this.rnd() * 80 }; this.cars = []; this.drive = null; this.inn = null; this.ufo = { on: false, x: 0, z: 0, t: 0, next: 45 + this.rnd() * 30, fx: 0, fz: 0, tx: 0, tz: 0 }; this.p.fly = 0;
+  this.giant = { on: false, x: 0, z: 0, tx: 0, tz: 0, t: 0, step: 0, hx: 1, hz: 0 }; this.tall = { on: false, x: 0, z: 0, t: 0, next: 120 + this.rnd() * 80 }; this.cars = []; this.drive = null; this.inn = null; this.ufo = { on: false, x: 0, z: 0, t: 0, next: 45 + this.rnd() * 30, fx: 0, fz: 0, tx: 0, tz: 0 }; this.p.fly = 0;
   for (i = 0; i < 12; i++) this.cars.push({ look: i, ai: true, horiz: i % 2 === 0, lane: Math.floor(this.rnd() * 9), dir: this.rnd() < 0.5 ? 1 : -1, t: -40 + this.rnd() * (SIZE + 80), sp: 6 + this.rnd() * 3, x: 0, z: 0, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: false });
   for (i = 0; i < 6; i++) { var pk, pz, pn = 0; do { pk = 1 + Math.floor(this.rnd() * 7); pz = 10 + Math.floor(this.rnd() * (SIZE - 20)); } while (this.carBlocked(pk * PITCH + 0.62, pz + 0.5, 0, 1) && pn++ < 200); this.cars.push({ look: 12 + i, ai: false, horiz: false, lane: pk, dir: 1, t: 0, sp: 0, x: pk * PITCH + 0.62, z: pz + 0.5, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: false }); }   // parked at the curb, clear of trees and posts
   ['tank', 'tank', 'buggy', 'buggy', 'buggy'].forEach(function (k, q) { this.cars.push({ look: 30 + q, moonV: k, mi: q, ai: false, horiz: false, lane: 0, dir: 1, t: 0, sp: 0, x: -99, z: -99, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: true }); }, this);   // garage slots for Moon vehicles driven home through the portal
@@ -298,11 +298,14 @@ Game.prototype.ev = function (t, a) { var e = a || {}; e.t = t; this.events.push
 Game.prototype.hit = function (x, z) { var w = this.w, r = 0.28; return !w.walk(Math.floor(x - r), Math.floor(z - r)) || !w.walk(Math.floor(x + r), Math.floor(z - r)) || !w.walk(Math.floor(x - r), Math.floor(z + r)) || !w.walk(Math.floor(x + r), Math.floor(z + r)); };
 Game.prototype.move = function (e, vx, vz, dt) {
   var nx = e.x + vx * dt, nz = e.z + vz * dt;
-  if (e === this.p && !this.drive && (e.z + 0.3 >= SIZE || nz + 0.3 >= SIZE)) {      // only you can step off the last street onto the sand
+  if (e === this.p && e.onRoof) {       // up on the roofs: you stay on roofs and bridges, and ladders take you down
+    if (this.roofAt(nx, e.z) !== null) e.x = nx; if (this.roofAt(e.x, nz) !== null) e.z = nz; var rr = this.roofAt(e.x, e.z); if (rr === null) { e.onRoof = false; e.bh = 0; } else e.bh = rr;
+    if (e.onRoof && !(this.ladCd > 0)) for (var li = 0; li < this.ladders.length; li++) { var L = this.ladders[li]; if (Math.abs(e.x - L.tx) < 0.8 && Math.abs(e.z - L.tz) < 0.8 && vx * L.ox + vz * L.oz > 1) { e.onRoof = false; e.bh = 0; e.x = L.bx; e.z = L.bz; this.ladCd = 1.2; this.ev('ladder', { down: true }); break; } }
+  } else if (e === this.p && !this.drive && (e.z + 0.3 >= SIZE || nz + 0.3 >= SIZE)) {      // only you can step off the last street onto the sand
     if (nz + 0.3 < SIZE) { if (!this.hit(e.x, nz)) e.z = nz; } else if (e.z + 0.3 >= SIZE || !this.hit(e.x, SIZE - 0.31)) e.z = Math.min(SIZE + BEACH, nz);
     var bx0 = e.x, bz0 = e.z;
     if (e.z + 0.3 >= SIZE) e.x = Math.max(0.5, Math.min(SIZE - 0.5, nx)); else if (!this.hit(nx, e.z)) e.x = nx;
-    if (this.nblocks) { var bh = e.bh || 0; if (this.colTop(e.x, e.z) * BSZ - bh > BSZ + 0.05) { if (this.colTop(e.x, bz0) * BSZ - bh <= BSZ + 0.05) e.z = bz0; else if (this.colTop(bx0, e.z) * BSZ - bh <= BSZ + 0.05) e.x = bx0; else { e.x = bx0; e.z = bz0; } } }
+    if (this.nblocks) { var bh = (e.bh || 0) + (e.jh || 0); if (this.colTop(e.x, e.z) * BSZ - bh > BSZ + 0.05) { if (this.colTop(e.x, bz0) * BSZ - bh <= BSZ + 0.05) e.z = bz0; else if (this.colTop(bx0, e.z) * BSZ - bh <= BSZ + 0.05) e.x = bx0; else { e.x = bx0; e.z = bz0; } } }
   } else { if (!this.hit(nx, e.z)) e.x = nx; if (!this.hit(e.x, nz)) e.z = nz; }
   var sp = Math.sqrt(vx * vx + vz * vz); if (sp > 0.2) { e.dx = vx / sp; e.dz = vz / sp; } e.moving = sp > 0.2;
 };
@@ -350,7 +353,7 @@ Game.prototype.updateCops = function (dt) {
       if (d < nearest) nearest = d;
       if (d < 1.6 && w.los(c.x, c.z, p.x, p.z)) this.move(c, dx / d * speed, dz / d * speed, dt); else this.steer(c, this.pdf, speed, dt);
       for (var k = 0; k < this.cops.length; k++) { var o = this.cops[k]; if (o === c) continue; var ox = c.x - o.x, oz = c.z - o.z, od = ox * ox + oz * oz; if (od < 0.5 && od > 1e-4) { od = Math.sqrt(od); this.move(c, ox / od * 1.5, oz / od * 1.5, dt); } }
-      if (d < 0.75 && this.grace <= 0 && !p.inside && !this.drive) { this.bust(); return; }
+      if (d < 0.75 && this.grace <= 0 && !p.inside && !this.drive && !p.onRoof) { this.bust(); return; }
     } else {
       if (!c.goal || (Math.abs(c.x - c.goal.x) + Math.abs(c.z - c.goal.z)) < 2.5) { c.goal = this.roadSpot(); w.bfs(c.df, c.goal.x, c.goal.z); }
       this.steer(c, c.df, 2.3, dt);
@@ -496,12 +499,14 @@ Game.prototype.update = function (dt) {
     this.launchT += dt; var lr = this.w.launch.rocket, lh = Math.max(0, this.launchT - 1.2); p.x = lr.x; p.z = lr.z; p.fly = lh * lh * 1.6; p.moving = false;
     if (this.launchT > 7.5) { this.ev('win'); this.goMoon(true); } return;
   }
-  if (this.tpCd > 0) this.tpCd -= dt;
+  if (this.tpCd > 0) this.tpCd -= dt; if (st !== 'dragon') { var dgr = this.roofAt(this.dragon.x, this.dragon.z) || 0; this.dragon.gnd = dgr; if (this.dragon.alt > dgr) this.dragon.alt = Math.max(dgr, this.dragon.alt - 9 * dt); else this.dragon.alt = dgr; } this.planeTick(dt, st); this.giantTick(dt, st);
   if (this.moon && st === 'play') { this.updateMoon(dt); return; }
   if (st === 'play' && this.moonOpen && (!this.drive || this.drive.moonV) && !(this.tpCd > 0) && Math.abs(p.x - EPAD.x) < 1.3 && Math.abs(p.z - EPAD.z) < 1.3) { this.goMoon(false); return; }
+  if (st === 'airport') { this.updateAirport(dt); return; }
+  if (st === 'plane') { this.updatePlane(dt); return; }
   if (st === 'dragon') {      // riding the dragon: it goes where you steer, climbs and dives, and breathes fire
     var dg = this.dragon, dmx = this.input.mx, dmz = this.input.mz, dl = Math.sqrt(dmx * dmx + dmz * dmz), di; if (dl > 1) { dmx /= dl; dmz /= dl; dl = 1; }
-    if (dl > 0.12) this.turnTo(dg, dmx, dmz, 2.6 * dt); dg.v += ((dl > 0.12 ? 17 * dl : 0) - dg.v) * Math.min(1, dt * 1.6); if (this.fireCd > 0) this.fireCd -= dt;
+    if (dl > 0.12) this.turnTo(dg, dmx, dmz, 1.15 * dt); dg.v += ((dl > 0.12 ? 17 * dl : 0) - dg.v) * Math.min(1, dt * 1.6); if (this.fireCd > 0) this.fireCd -= dt;
     this.dalt = Math.max(3, Math.min(45, this.dalt + (this.input.alt || 0) * 9 * dt + (this.dalt < 12 && this.dclimb > 0 ? 6 * dt : 0))); if (this.dclimb > 0) this.dclimb -= dt;
     dg.x = Math.max(-30, Math.min(SIZE + 30, dg.x + dg.hx * dg.v * dt)); dg.z = Math.max(-30, Math.min(SIZE + 50, dg.z + dg.hz * dg.v * dt)); p.x = dg.x; p.z = dg.z; p.fly = this.dalt; p.dx = dg.hx; p.dz = dg.hz; p.moving = false;
     for (di = this.dfire.length - 1; di >= 0; di--) { var f = this.dfire[di]; f.vy -= 14 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt; if (f.y <= 0.4) { this.dfire.splice(di, 1); if (f.x > 1 && f.z > 1 && f.x < SIZE - 1 && f.z < SIZE - 1) this.explode(f.x, f.z, 3.4, 1); else this.ev('explode', { x: f.x, z: f.z, r: 3.4 }); } }
@@ -533,9 +538,12 @@ Game.prototype.update = function (dt) {
     var zd = Math.abs(p.x - ZAC.x) + Math.abs(p.z - ZAC.z); if (zd > 14) this.pilotAway = true; if (this.pilotAway && zd < 3) this.toggleCar();      // fly back to Zach to hand it back
     return;
   }
-  if (st === 'chute') {       // then bail out and drift down to the beach under a parachute, and the game carries on
-    this.chuteT += dt; var ck = Math.min(1, this.chuteT / 16), ce = ck * ck * (3 - 2 * ck), cu = this.chute; cu.tx = Math.max(3, Math.min(SIZE - 3, cu.tx + this.input.mx * 11 * dt)); cu.tz = Math.max(SIZE + 2.5, Math.min(SIZE + 13, cu.tz + this.input.mz * 11 * dt)); p.x = cu.x + (cu.tx - cu.x) * ce; p.z = cu.z + (cu.tz - cu.z) * ce; p.fly = cu.h * (1 - ck) * (1 - ck * 0.5); p.dx = 0; p.dz = 1; p.moving = false;
-    if (ck >= 1) { p.fly = 0; this.state = 'play'; this.mode = 'robber'; this.heistAlarm = false; this.hot = 0; this.won = true; this.clearWanted(); this.grace = 2; this.ev('landed'); } return;
+  if (st === 'chute') {
+    var cu = this.chute, cmx = this.input.mx, cmz = this.input.mz; cu.t += dt; var open = cu.t > 1.2; cu.vy += ((open ? -4.6 : -18) - cu.vy) * Math.min(1, dt * (open ? 3 : 1.3)); p.fly += cu.vy * dt; if (this.fireCd > 0) this.fireCd -= dt;
+    var csp = open ? 9 : 3; p.x = Math.max(1, Math.min(SIZE - 1, p.x + cmx * csp * dt)); p.z = Math.max(1, Math.min(SIZE + BEACH - 2, p.z + cmz * csp * dt)); p.moving = false;
+    var rfh = this.roofAt(p.x, p.z); if (rfh !== null && p.fly <= rfh) { p.fly = 0; p.onRoof = true; p.bh = rfh; this.state = 'play'; this.grace = 2; this.ev('landed', { roof: true }); return; }
+    if (p.fly <= 0) { p.fly = 0; if (p.z < SIZE - 0.4 && this.hit(p.x, p.z)) { var found = false; for (var cr = 1; cr < 24 && !found; cr++) for (var ca2 = 0; ca2 < 16 && !found; ca2++) { var fx2 = p.x + Math.cos(ca2 * 0.3927) * cr, fz2 = p.z + Math.sin(ca2 * 0.3927) * cr; if (fz2 < SIZE - 0.5 && !this.hit(fx2, fz2)) { p.x = fx2; p.z = fz2; found = true; } } } this.state = 'play'; this.grace = 2; this.ev('landed'); }
+    return;
   }
   if (st === 'busted' || st === 'offer' || st === 'heistfail' || st === 'win' || st === 'over' || st === 'wasted') return;
   this.time += dt; if (this.danceT > 0) { this.danceT -= dt; if (this.danceT <= 0) this.ev('danceoff'); }
@@ -560,7 +568,7 @@ Game.prototype.update = function (dt) {
   var sp = PSPEED * (p.dashT > 0 ? 1.75 : 1) * (this.bag.n > 9 ? 0.93 : 1);
   if (this.drive) {
     var c = this.drive, ox = c.x, oz = c.z; c.v += ((ml > 0.12 ? (c.moonV === 'tank' ? 7 : 12) * ml : 0) - c.v) * Math.min(1, dt * 3.5);
-    if (ml > 0.12) this.turnTo(c, mx, mz, (c.moonV === 'tank' ? 2.4 : 4.2) * dt);
+    if (ml > 0.12) this.turnTo(c, mx, mz, (c.moonV === 'tank' ? 1.5 : 2.1) * Math.min(1, 0.25 + c.v / 6) * dt);
     var cnx = c.x + c.hx * c.v * dt, cnz = c.z + c.hz * c.v * dt, cur = this.carBlocked(c.x, c.z, c.hx, c.hz), bump = false;
     if (!this.carBlocked(cnx, c.z, c.hx, c.hz) || (cur && !this.carHit(cnx, c.z))) c.x = cnx; else bump = true;
     if (!this.carBlocked(c.x, cnz, c.hx, c.hz) || (cur && !this.carHit(c.x, cnz))) c.z = cnz; else bump = true;
@@ -577,7 +585,11 @@ Game.prototype.update = function (dt) {
   p.hidden = !this.drive && !!w.hide[Math.floor(p.z) * SIZE + Math.floor(p.x)] && !p.moving;
   var wasCalm = this.calm; this.calm = !this.drive && p.z > SIZE + 1.5;
   if (this.fireCd > 0 && this.calm) this.fireCd -= dt;
-  if (this.calm && this.nblocks) { var ct = this.colTop(p.x, p.z) * BSZ; if (ct - (p.bh || 0) <= BSZ + 0.05) p.bh = ct; } else p.bh = 0;
+  if (this.ladCd > 0) this.ladCd -= dt;
+  if (p.jh > 0 || p.jv > 0) { p.jv -= 18 * dt; p.jh += p.jv * dt; if (p.jh <= 0) { p.jh = 0; p.jv = 0; } }       // a hop
+  if (p.onRoof) { if (this.drive || this.roofAt(p.x, p.z) === null) { p.onRoof = false; p.bh = 0; } }
+  else if (this.calm && this.nblocks) { var ct = this.colTop(p.x, p.z) * BSZ, fh = (p.bh || 0) + (p.jh || 0); if (ct - fh <= (p.jh > 0 ? 0.05 : BSZ + 0.05)) { if (p.jh > 0 && ct < fh) p.jh = fh - ct; else p.jh = p.jh > 0 && ct >= fh - 0.05 ? 0 : p.jh; p.bh = ct; if (p.jh === 0) p.jv = 0; } }
+  else p.bh = 0;
   this.zacT = (this.zacT || 0) - dt; if (this.calm && this.zacT <= 0 && Math.abs(p.x - ZAC.x) < 2.8 && Math.abs(p.z - ZAC.z) < 2.8) { this.zacT = 7; this.zacN = (this.zacN || 0) + 1; this.ev('zac', { n: this.zacN }); }
   if (this.calm) { if (!wasCalm) { this.maiGiven = false; this.ev('beach'); } if (this.wanted) this.clearWanted(); this.hp = Math.min(100, this.hp + 8 * dt); this.hurtT = 0; this.needs.food = Math.min(100, this.needs.food + dt); this.needs.med = Math.min(100, this.needs.med + dt); this.needs.warm = Math.min(100, this.needs.warm + dt); } else if (wasCalm) { this.build = -1; this.ev('beachoff'); }
   this.combat(dt); if (this.state !== 'play') return;
@@ -639,6 +651,8 @@ Game.prototype.update = function (dt) {
 Game.prototype.tip = function (m) { if (this.time - this.tipT > 1.5) { this.tipT = this.time; this.ev('toast', { m: m }); } };
 Game.prototype.dash = function () { var p = this.p; if (this.calm && this.build >= 0) { var fc = this.frontCell(); if (fc && fc[1] > 0) this.removeBlock(fc[0], fc[1] - 1, fc[2]); return; } if (this.moon) { if (this.mride && this.mride.kind === 'tank') return; if (this.state === 'play' && (p.fly <= 0.05 || p.jumps < 2)) { p.jumps = p.fly <= 0.05 ? 1 : 2; p.vy = p.jumps === 1 ? 7.5 : 6; p.fly = Math.max(p.fly, 0.06); this.ev('jump', { n: p.jumps }); } return; } if (this.state === 'play' && p.dashCd <= 0) { p.dashT = 0.5; p.dashCd = 2.6; this.ev('dash'); } };
 Game.prototype.prime = function () { if (this.state !== 'hotwire') return; this.hot += 7; this.ev('prime'); if (this.hot >= 100) { this.cash += 1000000; this.state = 'launch'; this.launchT = 0; this.ev('launch'); } };
+var APT = { x: -600, z: 600, rects: [[0, 0, 14, 10], [13, 4, 19, 6], [18, 0, 30, 10], [29, 4.2, 40.8, 5.8], [6, 9, 8, 11.2]] };
+var AIR = { x: 20, z: SIZE + 9.5, door: { x: 6, z: SIZE + 6.6 } };
 var DRG = { x: SIZE - 9, z: SIZE + 8 };
 var BSZ = 0.5, BMAX = 800, BRACK = { x: SIZE / 2 - 9, z: SIZE + 4.5 }, BCOL = [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xf4f4f0, 0x8a5a2b, 0xff4d4d, 0x2a2a3a];
 var MOON = { x: -900, z: -900, r: 30 }, EPAD = { x: SIZE / 2 - 20, z: SIZE + 7 }, BEACH = 21, ZAC = { x: SIZE / 2 + 14, z: SIZE + 6.5 };
@@ -709,9 +723,9 @@ Game.prototype.fire = function () {
   if (this.state === 'dragon') { if (!(this.fireCd > 0)) { var dg = this.dragon; this.fireCd = 0.45; this.dfire.push({ x: dg.x + dg.hx * 5, y: this.dalt + 2.4, z: dg.z + dg.hz * 5, vx: dg.hx * (dg.v + 20), vy: -2, vz: dg.hz * (dg.v + 20) }); this.ev('dfire'); } return; }
   if (this.state === 'pilot') { if (this.pilotT - this.beamT > 0.2) { this.beamOn = !this.beamOn; this.ev('beam', { on: this.beamOn }); } this.beamT = this.pilotT; return; }
   if (this.state === 'play' && this.calm && this.build >= 0) { var fc = this.frontCell(); if (this.fireCd <= 0 && fc) { this.fireCd = 0.18; this.placeBlock(fc[0], fc[1], fc[2], this.build); } return; }
-  if (this.state === 'play' && this.calm) { if (!this.maiGiven && Math.abs(p.x - ZAC.x) < 3.6 && Math.abs(p.z - ZAC.z) < 3.6) { this.maiGiven = true; this.ev('maitai'); } return; } if (this.state !== 'play' || p.inside || this.fireCd > 0 || this.calm) return;
+  if (this.state === 'play' && this.calm) { if (!this.maiGiven && Math.abs(p.x - ZAC.x) < 3.6 && Math.abs(p.z - ZAC.z) < 3.6) { this.maiGiven = true; this.ev('maitai'); } return; } var airS = this.state === 'ufo' || this.state === 'plane' || this.state === 'chute'; if ((this.state !== 'play' && !airS) || p.inside || this.fireCd > 0 || this.calm) return;
   if (this.drive && this.drive.moonV === 'tank') { var tc2 = this.drive; this.fireCd = 0.6; this.proj.push({ k: 'rocket', x: tc2.x + tc2.hx * 3, z: tc2.z + tc2.hz * 3, y: 1.9, vx: tc2.hx * 22, vz: tc2.hz * 22, life: 2.4 }); this.ev('whoosh'); return; }     // the tank's own gun
-  var W = this.weapon, av = this.manual ? this.aimV : null, t = av ? null : this.aim(W === 0 ? 20 : 12), ox = av ? av.x : p.x, oz = av ? av.z : p.z, dx = av ? av.dx : (t ? t.x - p.x : p.dx), dz = av ? av.dz : (t ? t.z - p.z : p.dz), d = Math.sqrt(dx * dx + dz * dz) || 1; dx /= d; dz /= d;
+  var W = airS ? 0 : this.weapon, av = this.manual ? this.aimV : null, t = av ? null : this.aim(W === 0 ? 20 : 12), ox = av ? av.x : p.x, oz = av ? av.z : p.z, dx = av ? av.dx : (t ? t.x - p.x : p.dx), dz = av ? av.dz : (t ? t.z - p.z : p.dz), d = Math.sqrt(dx * dx + dz * dz) || 1; dx /= d; dz /= d;
   if (W === 3) {         // the broom: sweeps the street, and shoves whatever is in front of you
     this.fireCd = 0.38; p.dx = dx; p.dz = dz; var bt = this.targets(), bh = null, bdist = 1.9;
     for (var b2 = 0; b2 < bt.length; b2++) { var ex = bt[b2].x - ox, ez = bt[b2].z - oz, ed = Math.sqrt(ex * ex + ez * ez) || 1; if (ed < bdist && (ex * dx + ez * dz) / ed > 0.2) { bdist = ed; bh = bt[b2]; } }
@@ -746,7 +760,7 @@ Game.prototype.combat = function (dt) {
   for (i = 0; i < this.mobs.length; i++) {
     m = this.mobs[i]; if (m.dead > 0) { m.dead -= dt; if (m.dead <= 0) this.spawnMob(m); continue; } if (m.beach) { m.moving = false; m.hunt = false; continue; }   // anyone set down on the sand just stays and relaxes
     var dx = p.x - m.x, dz = p.z - m.z, d = Math.sqrt(dx * dx + dz * dz) || 1, bear = m.kind === 'bear';
-    var was = m.hunt; if (m.fedT > 0) m.fedT -= dt; m.hunt = !(m.fedT > 0) && !this.calm && !p.inside && !p.hidden && d < (m.boss ? 17 : (bear ? 8 : 10)); if (m.hunt) hunting = true;
+    var was = m.hunt; if (m.fedT > 0) m.fedT -= dt; m.hunt = !(m.fedT > 0) && !this.calm && !p.onRoof && !p.inside && !p.hidden && d < (m.boss ? 17 : (bear ? 8 : 10)); if (m.hunt) hunting = true;
     if (m.boss && m.hunt && !was && this.time - this.gemmaT > 20) { this.gemmaT = this.time; this.ev('gemma'); }
     if (bear) {
       var prey = null, pd = 4.5; for (var z2 = 0; z2 < this.mobs.length; z2++) { var o = this.mobs[z2]; if (o.kind !== 'zombie' || o.dead > 0) continue; var od = Math.hypot(o.x - m.x, o.z - m.z); if (od < pd) { pd = od; prey = o; } }
@@ -756,8 +770,8 @@ Game.prototype.combat = function (dt) {
     if (m.hunt) {
       var sp = bear ? PSPEED * (m.charge > 0 ? 1.08 : 0.55) : PSPEED * (m.boss ? 0.68 : 0.5);
       if (d < 1.8 && w.los(m.x, m.z, p.x, p.z)) this.move(m, dx / d * sp, dz / d * sp, dt); else this.steer(m, this.pdf, sp, dt);
-      if (bear && d < 1.1 && this.grace <= 0 && !this.drive) { var lost = Math.floor(this.cash / 2); this.cash -= lost; this.grace = 4; m.fedT = 12; m.hunt = false; this.ev('dominated', { name: m.otter ? 'JULIA' : 'GEMMA', lost: lost, x: p.x, z: p.z }); }      // the big animals do not hurt you: they take half your money
-      else if (!bear && d < 0.75 && this.grace <= 0 && !this.drive) { this.hp -= 26 * dt; this.hurtT = 4; this.lastBite = m.kind; this.ev('hurt'); }
+      if (bear && d < 1.1 && this.grace <= 0 && !this.drive && !p.onRoof) { var lost = Math.floor(this.cash / 2); this.cash -= lost; this.grace = 4; m.fedT = 12; m.hunt = false; this.ev('dominated', { name: m.otter ? 'JULIA' : 'GEMMA', lost: lost, x: p.x, z: p.z }); }      // the big animals do not hurt you: they take half your money
+      else if (!bear && d < 0.75 && this.grace <= 0 && !this.drive && !p.onRoof) { this.hp -= 26 * dt; this.hurtT = 4; this.lastBite = m.kind; this.ev('hurt'); }
     } else {
       if (!m.goal || Math.abs(m.x - m.goal.x) + Math.abs(m.z - m.goal.z) < 2.5) { m.goal = this.roadSpot(); w.bfs(m.df, m.goal.x, m.goal.z); }
       this.steer(m, m.df, bear ? 1.7 : 1.2, dt);
@@ -805,8 +819,10 @@ Game.prototype.toggleCar = function () {
     this.state = 'play'; this.ufo.on = false; this.ufo.next = 90; p.fly = 0; p.x = ZAC.x - 1.5; p.z = ZAC.z + 1.5; this.grace = 2; this.cargo = 0; this.ev('ufoland'); return;
   }
   if (this.state === 'play' && this.calm && this.build >= 0) { this.build = -1; this.ev('bstop'); return; }
-  if (this.state === 'dragon') { var dg = this.dragon; this.state = 'play'; p.fly = 0; dg.x = DRG.x; dg.z = DRG.z; dg.hx = -1; dg.hz = 0; dg.v = 0; this.dfire = []; p.x = DRG.x - 4; p.z = DRG.z + 2; this.grace = 2; this.ev('dland'); return; }
-  if (this.state === 'play' && this.calm && Math.abs(p.x - DRG.x) < 6 && Math.abs(p.z - DRG.z) < 6) { this.state = 'dragon'; this.build = -1; this.dalt = 0.5; this.dclimb = 3; this.dfire = []; this.fireCd = 0.5; this.ev('dride'); return; }
+  if (this.state === 'play' && !this.drive && !this.calm) { var ld = this.nearLadder(); if (ld) { if (p.onRoof) { p.onRoof = false; p.bh = 0; p.x = ld.bx; p.z = ld.bz; this.ev('ladder', { down: true }); } else { p.onRoof = true; p.x = ld.tx; p.z = ld.tz; p.bh = ld.h; this.ev('ladder', { h: ld.h }); } this.ladCd = 1; return; } }
+  if (this.state === 'plane') { var pl = this.plane; if (pl.phase === 'board') { pl.phase = 'idle'; this.state = 'play'; p.fly = 0; p.x = AIR.door.x + 2.5; p.z = AIR.door.z + 1; this.tpCd = 3; this.ev('carout'); } else if (pl.alt > 6) { p.x = Math.max(2, Math.min(SIZE - 2, pl.x)); p.z = Math.max(2, Math.min(SIZE + 12, pl.z)); p.fly = pl.alt - 1; pl.phase = 'away'; pl.T = 14; this.state = 'chute'; this.chute = { t: 0, vy: 0 }; this.ev('jumped'); var gi = this.giant; if (!gi.on) { gi.on = true; gi.t = 0; gi.x = -6; gi.z = SIZE * 0.5; gi.tx = SIZE * 0.5; gi.tz = SIZE * 0.5; this.ev('giant'); } } return; }
+  if (this.state === 'dragon') { var dg = this.dragon; dg.v = 0; dg.alt = this.dalt; dg.x = Math.max(2, Math.min(SIZE - 2, dg.x)); dg.z = Math.max(2, Math.min(SIZE + 12, dg.z)); this.dfire = []; p.x = dg.x; p.z = dg.z; p.fly = this.dalt + 2; this.state = 'chute'; this.chute = { t: 0, vy: 0 }; this.ev('jumped'); return; }
+  if (this.state === 'play' && !this.drive && !(this.dragon.alt > (this.dragon.gnd || 0) + 1) && Math.abs((p.bh || 0) - (this.dragon.gnd || 0)) < 2.5 && Math.abs(p.x - this.dragon.x) < 6 && Math.abs(p.z - this.dragon.z) < 6) { this.state = 'dragon'; p.onRoof = false; p.bh = 0; this.clearWanted(); this.build = -1; this.dalt = this.dragon.alt + 0.5; this.dclimb = 3; this.dfire = []; this.fireCd = 0.5; this.ev('dride'); return; }
   if (this.nearRack()) { this.build = 0; this.ev('bstart'); return; }
   if (this.nearZach()) { this.state = 'pilot'; this.cargo = 0; this.beamOn = true; this.ualt = 14; this.pilotT = 0; this.beamT = -1; this.pilotAway = false; this.ev('ufofly'); return; }
   if (this.state !== 'play') return;
@@ -824,9 +840,74 @@ Game.prototype.mug = function () {        // "give me your money"
   if (this.mode === 'robber' && !this.wanted) for (var i = 0; i < this.cops.length; i++) if (Math.abs(this.cops[i].x - p.x) + Math.abs(this.cops[i].z - p.z) < 14) { this.startChase(1); break; }
   return true;
 };
+// The airport at the west end of the beach. Walk into the terminal to board. Walk up the aisle to the cockpit to fly it yourself,
+// or stay in your seat and it leaves in thirty seconds. Once it is up, the car button jumps you out with a parachute.
+Game.prototype.planeTick = function (dt, st) {
+  var pl = this.plane, p = this.p;
+  if (pl.phase === 'away') { pl.T -= dt; pl.x += pl.hx * pl.v * dt; pl.z += pl.hz * pl.v * dt; pl.alt += 3 * dt; if (pl.T <= 0) { pl.phase = 'idle'; pl.x = AIR.x; pl.z = AIR.z; pl.hx = 1; pl.hz = 0; pl.v = 0; pl.alt = 0; pl.a = 0.2; pl.pilot = false; } }
+  if (st === 'play' && pl.phase === 'idle' && !this.drive && !(this.tpCd > 0) && Math.abs(p.x - AIR.door.x) < 1.2 && Math.abs(p.z - AIR.door.z) < 1.2) { this.state = 'airport'; this.build = -1; this.secured = false; this.clearWanted(); p.x = APT.x + 7; p.z = APT.z + 9.4; p.dx = 0; p.dz = -1; p.bh = 0; this.ev('airport'); }
+};
+// Jump out of the plane and a giant wakes up: a cactus as tall as the towers, in sneakers, out for a walk.
+Game.prototype.giantTick = function (dt, st) {
+  var gi = this.giant, p = this.p, i; if (!gi.on) return; gi.t += dt;
+  var dx = gi.tx - gi.x, dz = gi.tz - gi.z, d = Math.sqrt(dx * dx + dz * dz) || 1; if (d < 3) { if (gi.t > 110) { gi.on = false; this.ev('giantgone'); return; } if (gi.t > 95) { gi.tx = SIZE + 30; gi.tz = SIZE * 0.4; } else { gi.tx = 8 + this.rnd() * (SIZE - 16); gi.tz = 8 + this.rnd() * (SIZE - 16); } return; }
+  this.turnTo(gi, dx, dz, 0.9 * dt); gi.x += gi.hx * 3.4 * dt; gi.z += gi.hz * 3.4 * dt; gi.step -= dt;
+  if (gi.step <= 0) {
+    gi.step = 0.95; gi.foot = !gi.foot; var fx = gi.x + gi.hz * (gi.foot ? 2 : -2), fz = gi.z - gi.hx * (gi.foot ? 2 : -2), pd = Math.hypot(p.x - fx, p.z - fz); this.ev('stomp', { x: fx, z: fz, d: pd });
+    var all = this.mobs.concat(this.peds); for (i = 0; i < all.length; i++) { var e = all[i]; if (e.dead > 0 || e.aboard || e.beach) continue; if (Math.abs(e.x - fx) < 2.6 && Math.abs(e.z - fz) < 2.6) { e.dead = e.kind === 'ped' ? 15 : (e.kind === 'bear' || e.boss ? 60 : 12); this.ev('boom', { x: e.x, z: e.z, kind: e.kind, look: e.look || 0, otter: !!e.otter }); } }
+    if (st === 'play' && pd < 2.8 && !this.drive && !p.onRoof && !p.inside && !this.moon && this.grace <= 0) { this.hp -= 30; this.hurtT = 4; this.lastBite = 'blast'; this.grace = 2; this.ev('stomped'); this.ev('hurt'); }
+  }
+};
+Game.prototype.aptOk = function (x, z) { var lx = x - APT.x, lz = z - APT.z, r = 0.3; for (var i = 0; i < APT.rects.length; i++) { var q = APT.rects[i]; if (lx > q[0] + r && lx < q[2] - r && lz > q[1] + r && lz < q[3] - r) return true; } return false; };
+Game.prototype.updateAirport = function (dt) {
+  var p = this.p, pl = this.plane, mx = this.input.mx, mz = this.input.mz, ml = Math.sqrt(mx * mx + mz * mz); if (ml > 1) { mx /= ml; mz /= ml; ml = 1; }
+  if (ml > 0.12) { var nx = p.x + mx * PSPEED * 0.9 * dt, nz = p.z + mz * PSPEED * 0.9 * dt; if (this.aptOk(nx, p.z)) p.x = nx; if (this.aptOk(p.x, nz)) p.z = nz; p.dx = mx / ml; p.dz = mz / ml; p.moving = true; } else p.moving = false;
+  var lx = p.x - APT.x, lz = p.z - APT.z;
+  if (!this.secured && lx > 16) { this.secured = true; this.ev('security'); }
+  if (lz > 10.5) { this.state = 'play'; p.x = AIR.door.x; p.z = AIR.door.z + 1.8; this.tpCd = 2.5; this.ev('aptout'); return; }
+  if (lx > 40.2) { if (pl.phase !== 'idle') { p.x -= 1; this.ev('toast', { m: 'The plane is out. Back in a moment' }); return; } this.state = 'plane'; pl.phase = 'board'; pl.T = 20; pl.a = 0.04; pl.pilot = false; pl.manual = false; pl.t = 0; this.ev('board'); }
+};
+Game.prototype.updatePlane = function (dt) {
+  var pl = this.plane, p = this.p, mx = this.input.mx, mz = this.input.mz, ml = Math.sqrt(mx * mx + mz * mz), along = mx * pl.hx + mz * pl.hz; if (this.fireCd > 0) this.fireCd -= dt;
+  if (pl.phase === 'board' || !pl.manual) { pl.a = Math.max(0, Math.min(1, pl.a + along * 0.45 * dt)); var wasP = pl.pilot; pl.pilot = pl.a > 0.93; if (pl.pilot && !wasP) this.ev('cockpit'); }
+  if (pl.phase === 'board') { pl.T -= dt; if (pl.T <= 0 || (pl.pilot && pl.T < 18 && this.input.alt > 0.5)) { pl.phase = 'fly'; pl.manual = pl.pilot; pl.t = 0; this.ev('takeoff', { manual: pl.manual }); } }
+  else {
+    pl.t += dt; if (!pl.manual && pl.pilot) { pl.manual = true; this.ev('cockpit'); }
+    pl.v += ((pl.manual ? 16 + 12 * Math.min(1, ml + 0.4) : 24) - pl.v) * Math.min(1, dt * 0.6);
+    if (pl.manual) { if (ml > 0.2) this.turnTo(pl, mx, mz, 0.75 * dt); pl.alt = Math.max(pl.t < 5 ? 0 : 8, Math.min(60, pl.alt + ((this.input.alt || 0) * 9 + (pl.t < 6 ? 5 : 0)) * dt)); pl.x = Math.max(-90, Math.min(SIZE + 90, pl.x + pl.hx * pl.v * dt)); pl.z = Math.max(-90, Math.min(SIZE + 90, pl.z + pl.hz * pl.v * dt)); }
+    else { var cx = SIZE / 2, cz = SIZE / 2, an = Math.atan2(pl.z - cz, pl.x - cx) - 0.55, rr = SIZE * 0.42; this.turnTo(pl, cx + Math.cos(an) * rr - pl.x, cz + Math.sin(an) * rr - pl.z, 0.55 * dt); pl.alt += ((pl.v > 15 ? 34 : 0) - pl.alt) * Math.min(1, dt * 0.35); pl.x += pl.hx * pl.v * dt; pl.z += pl.hz * pl.v * dt;
+      if (pl.t > 100) { pl.phase = 'idle'; pl.x = AIR.x; pl.z = AIR.z; pl.hx = 1; pl.hz = 0; pl.v = 0; pl.alt = 0; this.state = 'play'; p.fly = 0; p.x = AIR.door.x + 2.5; p.z = AIR.door.z + 1; this.tpCd = 3; this.ev('arrived'); return; } }
+  }
+  p.x = pl.x + pl.hx * (pl.a * 8 - 3.5); p.z = pl.z + pl.hz * (pl.a * 8 - 3.5); p.fly = pl.alt; p.dx = pl.hx; p.dz = pl.hz; p.moving = false;
+};
+Game.prototype.nearLadder = function () { var p = this.p, i, L; if (this.state !== 'play' || this.drive) return null; for (i = 0; i < this.ladders.length; i++) { L = this.ladders[i]; if (this.w.lots[L.i].dead) continue; if (p.onRoof ? (Math.abs(p.x - L.tx) < 1.3 && Math.abs(p.z - L.tz) < 1.3) : (Math.abs(p.x - L.bx) < 1.2 && Math.abs(p.z - L.bz) < 1.2)) return L; } return null; };
+Game.prototype.jump = function () { var p = this.p; if (this.moon) { this.dash(); return; } if (this.state === 'play' && !this.drive && !(p.jh > 0)) { p.jv = 6.6; p.jh = 0.01; this.ev('hop'); } };
+// Rooftops. Every building's roof can be walked on. Some buildings have a ladder up the outside, and plank bridges join roofs in the same block.
+Game.prototype.roofH = function (l) { return l.h + (l.h > 5 && !l.use ? 0.28 : 0.2); };
+Game.prototype.roofIn = function (l) { return l.h > 5 && !l.use ? 0.95 : 0.4; };
+Game.prototype.roofAt = function (x, z) {
+  var L = this.w.lots, i, l, m; if (x < 0 || z < 0 || x > SIZE || z > SIZE) return null;
+  for (i = 0; i < L.length; i++) { l = L[i]; if (l.dead) continue; m = this.roofIn(l); if (x > l.x + m && x < l.x + l.w - m && z > l.z + m && z < l.z + l.d - m) return this.roofH(l); }
+  for (i = 0; i < this.bridges.length; i++) { var b = this.bridges[i]; if (x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1 && !L[b.i].dead && !L[b.j].dead) { var t = b.ax ? (x - b.x0) / (b.x1 - b.x0) : (z - b.z0) / (b.z1 - b.z0); return b.ha + (b.hb - b.ha) * t; } }
+  return null;
+};
+Game.prototype.buildRoofs = function () {
+  var L = this.w.lots, i, j, A, B, self = this;
+  for (i = 0; i < L.length; i++) for (j = 0; j < L.length; j++) {
+    if (i === j) continue; A = L[i]; B = L[j]; if (A.blk !== B.blk) continue; var ma = this.roofIn(A), mb = this.roofIn(B), ha = this.roofH(A), hb = this.roofH(B); if (Math.abs(ha - hb) > 6) continue;
+    var gx = B.x - (A.x + A.w), z0 = Math.max(A.z + ma, B.z + mb), z1 = Math.min(A.z + A.d - ma, B.z + B.d - mb);
+    if (gx >= 0 && gx <= 3 && z1 - z0 >= 1.3) { var zc = (z0 + z1) / 2; this.bridges.push({ ax: 1, x0: A.x + A.w - ma - 0.2, x1: B.x + mb + 0.2, z0: zc - 0.6, z1: zc + 0.6, ha: ha, hb: hb, i: i, j: j }); continue; }
+    var gz = B.z - (A.z + A.d), x0 = Math.max(A.x + ma, B.x + mb), x1 = Math.min(A.x + A.w - ma, B.x + B.w - mb);
+    if (gz >= 0 && gz <= 3 && x1 - x0 >= 1.3) { var xc = (x0 + x1) / 2; this.bridges.push({ ax: 0, z0: A.z + A.d - ma - 0.2, z1: B.z + mb + 0.2, x0: xc - 0.6, x1: xc + 0.6, ha: ha, hb: hb, i: i, j: j }); }
+  }
+  for (i = 0; i < L.length; i++) {
+    A = L[i]; if (A.use || A.h > 18 || i % 3) continue; var m = this.roofIn(A) + 0.35, h = this.roofH(A), c = [[A.x + 0.8, A.z + A.d + 0.5, A.x + 0.8, A.z + A.d - m, 0, 1], [A.x + 0.8, A.z - 0.5, A.x + 0.8, A.z + m, 0, -1], [A.x + A.w + 0.5, A.z + 0.8, A.x + A.w - m, A.z + 0.8, 1, 0], [A.x - 0.5, A.z + 0.8, A.x + m, A.z + 0.8, -1, 0]];
+    for (j = 0; j < 4; j++) { var q = c[j]; if (!self.hit(q[0], q[1]) && self.w.isRoad(Math.floor(q[0] + q[4] * 1.2), Math.floor(q[1] + q[5] * 1.2)) | 1 && self.roofAt(q[0], q[1]) === null && !self.hit(q[0] + q[4] * 0.6, q[1] + q[5] * 0.6)) { this.ladders.push({ bx: q[0], bz: q[1], tx: q[2], tz: q[3], ox: q[4], oz: q[5], i: i, h: h, f: j }); break; } }
+  }
+};
 // Building on the beach: half-metre blocks on a grid, stacked like you would expect.
 Game.prototype.nearRack = function () { return this.state === 'play' && !!this.calm && Math.abs(this.p.x - BRACK.x) < 2.6 && Math.abs(this.p.z - BRACK.z) < 2.6; };
-Game.prototype.blockOk = function (ix, iy, iz) { var wx = ix * BSZ, wz = iz * BSZ; if (Math.abs(wx - DRG.x) < 7 && Math.abs(wz - DRG.z) < 5) return false; return iy >= 0 && iy < 24 && wx >= 0.5 && wx <= SIZE - 1 && wz >= SIZE + 1 && wz <= SIZE + 14.5 && !(Math.abs(wx - BRACK.x) < 2.2 && Math.abs(wz - BRACK.z) < 1); };
+Game.prototype.blockOk = function (ix, iy, iz) { var wx = ix * BSZ, wz = iz * BSZ; if (wx < 40) return false; if (Math.abs(wx - DRG.x) < 7 && Math.abs(wz - DRG.z) < 5) return false; return iy >= 0 && iy < 24 && wx >= 0.5 && wx <= SIZE - 1 && wz >= SIZE + 1 && wz <= SIZE + 14.5 && !(Math.abs(wx - BRACK.x) < 2.2 && Math.abs(wz - BRACK.z) < 1); };
 Game.prototype.placeBlock = function (ix, iy, iz, c) { var k = ix + ',' + iy + ',' + iz; if (!this.blockOk(ix, iy, iz) || this.blocks[k] !== undefined || this.nblocks >= BMAX) return false; this.blocks[k] = c; this.nblocks++; this.ev('block', { n: this.nblocks }); return true; };
 Game.prototype.removeBlock = function (ix, iy, iz) { var k = ix + ',' + iy + ',' + iz; if (this.blocks[k] === undefined) return false; delete this.blocks[k]; this.nblocks--; this.ev('unblock'); return true; };
 Game.prototype.colTop = function (x, z) { var ix = Math.floor(x / BSZ), iz = Math.floor(z / BSZ), n = 0; while (n < 24 && this.blocks[ix + ',' + n + ',' + iz] !== undefined) n++; return n; };
@@ -1220,6 +1301,33 @@ Game.prototype.updateMoon = function (dt) {
     vbx(b, 0.05, 1.5, 0.05, FR, 0.6, 2.0, 1.3); vbx(b, 0.7, 0.5, 0.06, FR, 0.6, 2.9, 1.3); vbx(b, 0.5, 0.34, 0.06, 0xb9c0cc, 0.6, 2.9, 1.36); vbx(b, 0.08, 0.08, 0.3, GOLD, 0.6, 2.9, 1.5); vbx(b, 0.05, 1.0, 0.05, FR, -0.6, 1.9, 1.3); vbx(b, 0.2, 0.16, 0.26, TR, -0.6, 2.46, 1.34); vbx(b, 0.12, 0.12, 0.12, 0xff4d4d, 0.6, 3.22, 1.3);
     return vehMesh(b);
   }
+  function buildPlane() {        // a small airliner: outside in one mesh, cabin and cockpit in another that shows while you are aboard
+    var g = new THREE.Group(), b = new Builder(), W = 0xf4f4f0, BL = 0x2d4a6e, PK = 0xff4fa3, GL = 0x9fd8ff, DK = 0x23262e, k, sd;
+    vbx(b, 2.5, 2.4, 13, W, 0, 2.2, 0); vbx(b, 2.52, 0.3, 13, PK, 0, 1.7, 0); vbx(b, 2.1, 2.0, 1.5, W, 0, 2.15, 7.2); vbx(b, 1.5, 1.4, 1.1, W, 0, 2.0, 8.4); vbx(b, 0.8, 0.8, 0.6, DK, 0, 1.9, 9.2); vbx(b, 2.14, 0.5, 0.3, BL, 0, 2.75, 7.6); vbx(b, 1.9, 1.9, 2.2, W, 0, 2.5, -7.5); vbx(b, 1.2, 1.3, 1.6, W, 0, 2.8, -9.2);
+    vbx(b, 0.26, 3.2, 2.6, PK, 0, 4.9, -8.2); vbx(b, 0.28, 1.0, 1.6, W, 0, 6.0, -8.7); vbx(b, 5.4, 0.2, 1.5, W, 0, 3.2, -8.6); vbx(b, 15.5, 0.32, 3.0, W, 0, 1.55, 0.2, 0xdfe6f5); vbx(b, 15.5, 0.1, 0.5, PK, 0, 1.7, -1.1);
+    for (sd = -1; sd <= 1; sd += 2) { vbx(b, 1.0, 1.0, 2.4, 0xb9c0cc, sd * 3.8, 0.85, 0.9); vbx(b, 0.8, 0.8, 0.2, DK, sd * 3.8, 0.85, 2.1); vbx(b, 0.2, 0.5, 1.0, W, sd * 3.8, 1.4, 0.6); vbx(b, 0.5, 0.9, 1.4, W, sd * 7.5, 2.1, -0.3); for (k = 0; k < 9; k++) vbx(b, 0.04, 0.4, 0.5, GL, sd * 1.26, 2.7, -4.4 + k * 1.15); vbx(b, 0.2, 1.1, 0.2, DK, sd * 1.6, 0.6, -0.6); vbx(b, 0.3, 0.6, 0.6, DK, sd * 1.6, 0.3, -0.6); }
+    vbx(b, 0.2, 1.0, 0.2, DK, 0, 0.6, 6.4); vbx(b, 0.26, 0.5, 0.5, DK, 0, 0.25, 6.4); vbx(b, 0.05, 1.7, 0.9, BL, -1.27, 1.95, 5.0);
+    var ext = b.mesh(new THREE.MeshLambertMaterial({ vertexColors: true })); ext.castShadow = true; g.add(ext); g.ext = ext;
+    var ib = new Builder(), SEAT = 0x2d4a6e, r;
+    vbx(ib, 2.3, 0.08, 14, 0x55506a, 0, 1.05, 0.4, 0x6b6590); vbx(ib, 2.3, 0.08, 14, 0xdfe6f5, 0, 3.3, 0.4); vbx(ib, 0.5, 0.02, 12, PK, 0, 1.1, 0);
+    for (sd = -1; sd <= 1; sd += 2) { vbx(ib, 0.08, 0.75, 14, 0xdfe6f5, sd * 1.16, 1.45, 0.4); vbx(ib, 0.08, 0.7, 14, 0xdfe6f5, sd * 1.16, 2.95, 0.4); for (k = 0; k < 13; k++) vbx(ib, 0.08, 0.8, 0.3, 0xdfe6f5, sd * 1.16, 2.2, -5.2 + k * 1.15); vbx(ib, 0.5, 0.3, 12, 0xc9ccd4, sd * 0.9, 3.05, 0);
+      for (r = 0; r < 7; r++) { var sz = -4.6 + r * 1.3; vbx(ib, 0.7, 0.14, 0.6, SEAT, sd * 0.68, 1.5, sz, 0x3f6fd0); vbx(ib, 0.7, 0.9, 0.12, SEAT, sd * 0.68, 1.95, sz - 0.3, 0x3f6fd0); vbx(ib, 0.5, 0.2, 0.14, W, sd * 0.68, 2.4, sz - 0.3); vbx(ib, 0.08, 0.3, 0.5, DK, sd * 0.3, 1.6, sz); }
+      vbx(ib, 0.8, 2.2, 0.1, 0xc9ccd4, sd * 0.8, 2.2, 4.9); vbx(ib, 0.7, 0.14, 0.6, DK, sd * 0.6, 1.5, 5.9); vbx(ib, 0.7, 1.0, 0.12, DK, sd * 0.6, 2.0, 5.55); vbx(ib, 0.06, 0.5, 0.06, DK, sd * 0.6, 1.75, 6.5); vbx(ib, 0.36, 0.2, 0.08, DK, sd * 0.6, 2.05, 6.45); vbx(ib, 0.1, 1.2, 0.1, DK, sd * 1.05, 2.6, 7.0); }
+    vbx(ib, 2.2, 0.5, 0.7, DK, 0, 1.75, 7.0); vbx(ib, 2.0, 0.1, 0.5, 0x3a3f55, 0, 2.05, 6.95); for (k = 0; k < 8; k++) vbx(ib, 0.14, 0.1, 0.04, [0x35e8ff, 0x5dfc8a, 0xffd23f, 0xff4d4d][k % 4], -0.8 + k * 0.23, 1.95, 6.62); vbx(ib, 2.2, 0.12, 0.1, DK, 0, 3.15, 7.2); vbx(ib, 2.3, 2.3, 0.1, 0xc9ccd4, 0, 2.2, -6.5);
+    g.inner = ib.mesh(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })); g.inner.visible = false; g.add(g.inner); return g;
+  }
+  function buildGiant() {         // twenty-four metres of cactus with sunglasses, a flower, and enormous sneakers
+    var g = new THREE.Group(), b = new Builder(), GR = 0x3c9147, G2 = 0x2f7a3a, G3 = 0x55b860, k, sd;
+    vbx(b, 5, 15, 5, GR, 0, 15.5, 0, G3); vbx(b, 4, 1.2, 4, GR, 0, 23.5, 0, G3); for (k = -2; k <= 2; k++) { vbx(b, 0.4, 15, 0.3, G2, k * 1.1, 15.5, 2.5); vbx(b, 0.4, 15, 0.3, G2, k * 1.1, 15.5, -2.5); vbx(b, 0.3, 15, 0.4, G2, 2.5, 15.5, k * 1.1); vbx(b, 0.3, 15, 0.4, G2, -2.5, 15.5, k * 1.1); }
+    for (sd = -1; sd <= 1; sd += 2) { vbx(b, 3.2, 1.8, 1.8, GR, sd * 4, 15 + sd * 1.5, 0, G3); vbx(b, 1.9, 5.5 + sd, 1.9, GR, sd * 5.2, 18.3 + sd * 1.5, 0, G3); vbx(b, 1.3, 0.5, 1.3, 0xff4fa3, sd * 5.2, 21.4 + sd * 2, 0); }
+    vbx(b, 4.4, 1.3, 0.3, 0x111111, 0, 20, 2.56); vbx(b, 1.8, 1.5, 0.4, 0x111111, -1.2, 20, 2.6); vbx(b, 1.8, 1.5, 0.4, 0x111111, 1.2, 20, 2.6); vbx(b, 0.5, 0.4, 0.42, 0x35e8ff, -1.6, 20.3, 2.62); vbx(b, 0.5, 0.4, 0.42, 0x35e8ff, 0.8, 20.3, 2.62);
+    vbx(b, 2.6, 0.4, 0.3, 0x14041f, 0, 17.4, 2.56); vbx(b, 0.5, 0.5, 0.3, 0x14041f, -1.4, 17.8, 2.56); vbx(b, 0.5, 0.5, 0.3, 0x14041f, 1.4, 17.8, 2.56);
+    vbx(b, 1.4, 0.5, 1.4, 0xffd23f, 0, 24.5, 0); [[1.3, 0], [-1.3, 0], [0, 1.3], [0, -1.3]].forEach(function (o) { vbx(b, 1.3, 0.4, 1.3, 0xff4fa3, o[0], 24.4, o[1], 0xff8ac4); });
+    for (k = 0; k < 40; k++) { var a = k * 2.4, yy = 9 + (k * 7 % 14); vbx(b, 0.14, 0.14, 0.5, 0xf4f4f0, Math.cos(a) * 1.8, yy, 2.7); vbx(b, 0.5, 0.14, 0.14, 0xf4f4f0, 2.7, yy + 0.5, Math.sin(a) * 1.8); vbx(b, 0.5, 0.14, 0.14, 0xf4f4f0, -2.7, yy - 0.5, Math.cos(a) * 1.8); }
+    var body = b.mesh(new THREE.MeshLambertMaterial({ vertexColors: true })); g.add(body); g.body = body;
+    g.legs = [-1, 1].map(function (s2) { var lb = new Builder(), L = new THREE.Group(); vbx(lb, 1.9, 7, 1.9, 0x2f7a3a, 0, -3.5, 0); vbx(lb, 2.6, 1.3, 4.2, 0xf4f4f0, 0, -7.4, 0.8, 0xffffff); vbx(lb, 2.7, 0.5, 4.4, 0xff4fa3, 0, -7.85, 0.8); vbx(lb, 2.62, 0.4, 1.2, 0x35e8ff, 0, -7.0, 2.2); vbx(lb, 1.2, 0.3, 1.6, 0x23262e, 0, -6.7, 0.6); L.add(lb.mesh(new THREE.MeshLambertMaterial({ vertexColors: true }))); L.position.set(s2 * 1.6, 8.1, 0); g.add(L); return L; });
+    return g;
+  }
   function buildDragon() {          // a big green dragon, nose to tail about fourteen metres, with a saddle
     var g = new THREE.Group(), b = new Builder(), GRN = 0x2f9e5a, DKG = 0x1f7a44, CRM = 0xe9d6a0, ORG = 0xff8a2b, k, sd;
     vbx(b, 2.0, 1.6, 5.0, GRN, 0, 2.3, 0, 0x3fb86c); vbx(b, 1.6, 0.3, 4.6, CRM, 0, 1.42, 0); vbx(b, 2.2, 1.2, 2.2, GRN, 0, 2.3, 0.9, 0x3fb86c);
@@ -1274,14 +1382,14 @@ Game.prototype.updateMoon = function (dt) {
     flat.box(-200, 0.02, SIZE + 12.5, 400 + SIZE, 0.05, 3.2, 0xe2c48a, 0xe9cf9a);                 // wet sand
     flat.box(-200, 0.03, SIZE + 15.6, 400 + SIZE, 0.04, 9, 0x5fd6e0, 0x7fe3ea);                  // shallows you can wade in
     var UMB = [0xff4fa3, 0x35e8ff, 0xffd23f, 0x5dfc8a, 0xff8a2b];
-    for (k = 0; k < 14; k++) { var ux = 4 + k * (SIZE - 8) / 13 + rnd() * 3, uz = SIZE + 4 + rnd() * 6, uc = UMB[k % 5];
+    for (k = 0; k < 14; k++) { var ux = 4 + k * (SIZE - 8) / 13 + rnd() * 3, uz = ux < 80 ? SIZE + 12.4 + rnd() * 1.4 : SIZE + 4 + rnd() * 6, uc = UMB[k % 5];
       flat.box(ux - 0.05, 0, uz - 0.05, 0.1, 2.2, 0.1, 0xf4f4f0); flat.box(ux - 1.1, 2.2, uz - 1.1, 2.2, 0.14, 2.2, uc); flat.box(ux - 0.7, 2.34, uz - 0.7, 1.4, 0.14, 1.4, 0xf4f4f0); flat.box(ux - 0.3, 2.48, uz - 0.3, 0.6, 0.12, 0.6, uc);
       flat.box(ux + 0.5, 0.08, uz - 0.5, 0.9, 0.04, 1.9, UMB[(k + 2) % 5]); flat.box(ux - 1.5, 0.08, uz - 0.2, 0.7, 0.3, 1.6, 0xf4f4f0); flat.box(ux - 1.5, 0.3, uz - 0.2, 0.7, 0.5, 0.2, 0xf4f4f0);
       if (k % 3 === 0) { flat.box(ux + 2.2, 0.08, uz + 1.5, 0.9, 0.5, 0.9, 0xe9cf9a); flat.box(ux + 2.4, 0.58, uz + 1.7, 0.5, 0.4, 0.5, 0xe9cf9a); flat.box(ux + 2.55, 0.98, uz + 1.85, 0.2, 0.3, 0.2, 0xe9cf9a); }      // sandcastle
       if (k % 3 === 1) neon.box(ux + 2, 0.08, uz + 2, 0.5, 0.5, 0.5, UMB[(k + 1) % 5]); }                                                                                                        // beach ball
     for (k = 0; k < 40; k++) flat.box(rnd() * SIZE, 0.08, SIZE + 1.5 + rnd() * 13, 0.18, 0.06, 0.18, [0xffb6c8, 0xf4f4f0, 0xff8a2b][k % 3]);                                                // shells
     for (k = 0; k < 30; k++) { flat.box(SIZE / 2 - 1.5, 0.5, SIZE + 9 + k, 3, 0.14, 0.9, k % 2 ? 0x9a6a3c : 0x8a5a2b); if (k % 4 === 0) { flat.box(SIZE / 2 - 1.6, -0.2, SIZE + 9 + k, 0.24, 1.6, 0.24, 0x5a3a1c); flat.box(SIZE / 2 + 1.36, -0.2, SIZE + 9 + k, 0.24, 1.6, 0.24, 0x5a3a1c); neon.box(SIZE / 2 + 1.36, 1.4, SIZE + 9 + k, 0.24, 0.2, 0.24, 0xfff2c0); } }   // pier with lanterns
-    for (k = 0; k < 26; k++) palm(-30 + k * 7 + rnd() * 3, SIZE + 3 + rnd() * 9, 3 + rnd() * 2);
+    for (k = 0; k < 26; k++) (function () { var ppx = -30 + k * 7 + rnd() * 3, ppz = SIZE + 3 + rnd() * 9; if (ppx > -2 && ppx < 80) ppz = SIZE + 12.6 + rnd() * 1.6; palm(ppx, ppz, 3 + rnd() * 2); })();
     for (k = 0; k <= NB; k++) for (var q = 1; q < SIZE - 1; q += 3) { if ((q % PITCH) < RW) continue; flat.box(k * PITCH + RW / 2 - 0.08, 0, q, 0.16, 0.02, 1.4, 0xe8e2c8); flat.box(q, 0, k * PITCH + RW / 2 - 0.08, 1.4, 0.02, 0.16, 0xe8e2c8); }
     for (k = 0; k <= NB; k++) for (var q2 = 0; q2 <= NB; q2++) for (var cw = 0; cw < RW; cw++) { flat.box(k * PITCH + 0.3 + cw * 0.95, 0, q2 * PITCH + RW - 0.1, 0.5, 0.02, 0.7, 0xf2f2f2); flat.box(k * PITCH + RW - 0.1, 0, q2 * PITCH + 0.3 + cw * 0.95, 0.7, 0.02, 0.5, 0xf2f2f2); }
     w.blocks.forEach(function (b) {
@@ -1307,6 +1415,26 @@ Game.prototype.updateMoon = function (dt) {
       else if (k < 26) aoB.box(mhx - 0.8, 0.004, mhz - 0.5, 1.6 + rnd(), 0.012, 1 + rnd(), 0);
       else { var pw = 1 + rnd() * 1.6, pd2 = 0.7 + rnd() * 1.2; pudB.box(mhx - pw / 2, 0.006, mhz - pd2 / 2, pw, 0.012, pd2, 0x1b2a4a); pudB.box(mhx - pw / 3 + 0.3, 0.006, mhz - pd2 / 2 - 0.25, pw * 0.6, 0.012, pd2 * 0.7, 0x1b2a4a); pudB.box(mhx - pw / 2 - 0.2, 0.006, mhz, pw * 0.5, 0.012, pd2 * 0.6, 0x1b2a4a); }
     }
+    (function () { var ax = 2, az = SIZE + 1.6, W = 0xf4f4f0, GLS = 0x9fd8ff, DKK = 0x3a3f55, q;
+      flat.box(ax, 0.08, az, 8, 0.5, 5, DKK); flat.box(ax, 0.58, az, 8, 2.2, 0.2, W); flat.box(ax, 0.58, az, 0.2, 2.2, 5, W); flat.box(ax + 7.8, 0.58, az, 0.2, 2.2, 5, W); flat.box(ax, 0.58, az + 4.8, 3.2, 2.2, 0.2, W); flat.box(ax + 4.8, 0.58, az + 4.8, 3.2, 2.2, 0.2, W); flat.box(ax + 3.2, 2.3, az + 4.8, 1.6, 0.5, 0.2, W);
+      glass.box(ax + 0.4, 1.0, az + 4.9, 2.4, 1.2, 0.06, GLS); glass.box(ax + 5.2, 1.0, az + 4.9, 2.4, 1.2, 0.06, GLS); flat.box(ax - 0.3, 2.78, az - 0.3, 8.6, 0.3, 5.9, 0xff4fa3, 0xf4f4f0); flat.box(ax + 2.9, 0.08, az + 5, 2.2, 0.06, 1.6, 0x35e8ff); neon.box(ax + 3.1, 2.84, az + 5.05, 1.8, 0.1, 0.06, 0x35e8ff);
+      for (q = 0; q < 3; q++) { flat.box(ax + 0.8 + q * 2.4, 0.58, az + 1.2, 1.6, 0.4, 0.5, 0x2d4a6e); flat.box(ax + 0.8 + q * 2.4, 0.98, az + 1.2, 1.6, 0.5, 0.12, 0x2d4a6e); }
+      flat.box(13, 0.08, SIZE + 1.8, 1.8, 7.5, 1.8, W, DKK); glass.box(12.6, 7.58, SIZE + 1.4, 2.6, 1.3, 2.6, GLS); flat.box(12.5, 8.88, SIZE + 1.3, 2.8, 0.25, 2.8, 0xff4fa3); flat.box(13.8, 9.13, SIZE + 2.6, 0.1, 1.6, 0.1, DKK); neon.box(13.72, 10.7, SIZE + 2.52, 0.26, 0.26, 0.26, 0xff3030);
+      flat.box(11, 0.082, SIZE + 8.2, 64, 0.02, 3.4, 0x3a3552, 0x45405f); for (q = 0; q < 15; q++) flat.box(13 + q * 4.2, 0.083, SIZE + 9.8, 2, 0.022, 0.2, 0xf4f4f0); for (q = 0; q < 5; q++) { flat.box(11.6, 0.083, SIZE + 8.5 + q * 0.6, 1.6, 0.022, 0.3, 0xf4f4f0); flat.box(72.6, 0.083, SIZE + 8.5 + q * 0.6, 1.6, 0.022, 0.3, 0xf4f4f0); }
+      flat.box(10.2, 0.08, SIZE + 7.4, 0.1, 3.4, 0.1, DKK); neon.box(10.25, 3.1, SIZE + 7.3, 1.2, 0.36, 0.3, 0xff8a2b);
+    })();
+    G.ladders.forEach(function (L) {        // a caged ladder up the wall
+      var wx = L.bx - L.ox * 0.38, wz = L.bz - L.oz * 0.38, sx = L.ox ? 0 : 0.26, sz = L.ox ? 0.26 : 0, top = 0.15 + L.h + 1.1, y;
+      flat.box(wx - sx - 0.03, 0.15, wz - sz - 0.03, 0.06, top - 0.15, 0.06, 0xffd23f); flat.box(wx + sx - 0.03, 0.15, wz + sz - 0.03, 0.06, top - 0.15, 0.06, 0xffd23f);
+      for (y = 0.45; y < top - 0.1; y += 0.5) flat.box(wx - sx - 0.02, y, wz - sz - 0.02, sx * 2 + 0.04, 0.04, sz * 2 + 0.04, 0xc9ccd4);
+      for (y = 2.6; y < top; y += 2.6) { flat.box(wx - sx - 0.02 + L.ox * 0.42, y, wz - sz - 0.02 + L.oz * 0.42, sx * 2 + 0.04, 0.05, sz * 2 + 0.04, 0xffd23f); flat.box(wx - sx - 0.02, y, wz - sz - 0.02, L.ox ? L.ox * 0.44 : 0.04, 0.05, L.oz ? L.oz * 0.44 : 0.04, 0xffd23f); flat.box(wx + sx - 0.02, y, wz + sz - 0.02, L.ox ? L.ox * 0.44 : 0.04, 0.05, L.oz ? L.oz * 0.44 : 0.04, 0xffd23f); }
+      neon.box(L.bx - 0.3, 0.16, L.bz - 0.3, 0.6, 0.02, 0.6, 0xffd23f);
+    });
+    G.bridges.forEach(function (b) {        // plank bridge with rope rails, stepped where the roofs differ in height
+      var n = 3, q; for (q = 0; q < n; q++) { var t0 = q / n, t1 = (q + 1) / n, h = 0.15 + b.ha + (b.hb - b.ha) * (t0 + t1) / 2 - 0.1;
+        if (b.ax) { var xa = b.x0 + (b.x1 - b.x0) * t0, xw = (b.x1 - b.x0) / n; flat.box(xa, h, b.z0, xw + 0.02, 0.1, b.z1 - b.z0, q % 2 ? 0x9a6a3c : 0x8a5a2b); flat.box(xa, h + 0.1, b.z0, xw + 0.02, 0.8, 0.05, 0x5a3a1c); flat.box(xa, h + 0.1, b.z1 - 0.05, xw + 0.02, 0.8, 0.05, 0x5a3a1c); }
+        else { var za = b.z0 + (b.z1 - b.z0) * t0, zw = (b.z1 - b.z0) / n; flat.box(b.x0, h, za, b.x1 - b.x0, 0.1, zw + 0.02, q % 2 ? 0x9a6a3c : 0x8a5a2b); flat.box(b.x0, h + 0.1, za, 0.05, 0.8, zw + 0.02, 0x5a3a1c); flat.box(b.x1 - 0.05, h + 0.1, za, 0.05, 0.8, zw + 0.02, 0x5a3a1c); } }
+    });
     for (k = 0; k < 60; k++) { var rpx = rnd() * SIZE, rpz = SIZE + 1.2 + rnd() * 11; flat.box(rpx, 0.081, rpz, 1.5 + rnd() * 3, 0.004, 0.12, 0xf9e8bc); }       // wind ripples in the sand
     // buildings
     w.lots.forEach(function (l, li) {
@@ -1514,6 +1642,30 @@ Game.prototype.updateMoon = function (dt) {
       var bl = new THREE.Sprite(new THREE.SpriteMaterial({ map: pixelTex(128, 24, function (x) { x.fillStyle = '#14041f'; x.fillRect(0, 0, 128, 24); x.fillStyle = '#ffd23f'; x.font = 'bold 14px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('BUILDING BLOCKS', 64, 13); }), depthTest: false })); bl.scale.set(3.4, 0.64, 1); bl.position.set(BRACK.x, 2.2, BRACK.z); bl.renderOrder = 12; world.add(bl); })();
     try { var sv = JSON.parse(localStorage.getItem('breadrun-blocks') || 'null'); if (sv && typeof sv === 'object') { var svn = 0; for (var sk2 in sv) { if (svn >= BMAX) break; G.blocks[sk2] = sv[sk2] | 0; svn++; } G.nblocks = svn; } } catch (e3) {}
     syncBlocks(false);
+    R.giant = buildGiant(); R.giant.visible = false; world.add(R.giant);
+    R.plane = buildPlane(); world.add(R.plane);
+    (function () {        // the terminal interior
+      var g = new THREE.Group(), b = new Builder(), W = 0xe9ecf4, W2 = 0xcfd4e2, FL = 0xd9dce6, FL2 = 0xc4c8d6, BLU = 0x2d4a6e, PK = 0xff4fa3, DK = 0x23262e, a, c, q;
+      function bx(x, y, z, w2, h, d, hex, top) { b.box(x, y, z, w2, h, d, hex, top); }
+      for (a = 0; a < 14; a++) for (c = 0; c < 10; c++) bx(a, -0.04, c, 1, 0.04, 1, (a + c) % 2 ? FL : FL2); for (a = 18; a < 30; a++) for (c = 0; c < 10; c++) bx(a, -0.04, c, 1, 0.04, 1, (a + c) % 2 ? 0x55608a : 0x4b5580);
+      bx(13.5, -0.04, 4, 5, 0.04, 2, 0x8d94a0); bx(29.5, -0.04, 4.2, 11.3, 0.04, 1.6, 0x4a3a6a); bx(6, -0.04, 10, 2, 0.04, 1, FL);
+      bx(-0.3, 0, -0.3, 14.6, 3.8, 0.3, W, W2); bx(-0.3, 0, 0, 0.3, 3.8, 10, W, W2); bx(-0.3, 0, 10, 6.3, 3.8, 0.3, W, W2); bx(8, 0, 10, 6.3, 3.8, 0.3, W, W2); bx(6, 2.6, 10, 2, 1.2, 0.3, W);
+      bx(14, 0, 0, 0.3, 3.8, 4, W, W2); bx(14, 0, 6, 0.3, 3.8, 4, W, W2); bx(14, 0, 3.7, 4, 3.0, 0.3, W2); bx(14, 0, 6, 4, 3.0, 0.3, W2); bx(17.7, 0, 0, 0.3, 3.8, 4, W, W2); bx(17.7, 0, 6, 0.3, 3.8, 4, W, W2);
+      bx(18, 0, -0.3, 12.3, 1.0, 0.3, W, W2); bx(18, 2.9, -0.3, 12.3, 0.9, 0.3, W); for (q = 0; q < 7; q++) bx(18 + q * 2, 1.0, -0.3, 0.2, 1.9, 0.3, W2); bx(18, 0, 10, 12.3, 3.8, 0.3, W, W2); bx(30, 0, 0, 0.3, 3.8, 4.2, W, W2); bx(30, 0, 5.8, 0.3, 3.8, 4.2, W, W2); bx(30, 2.6, 4.2, 0.3, 1.2, 1.6, PK);
+      bx(30.3, 0, 3.9, 10.5, 2.6, 0.3, 0xb9c0cc, 0x8d94a0); bx(30.3, 0, 5.8, 10.5, 2.6, 0.3, 0xb9c0cc, 0x8d94a0); for (q = 0; q < 5; q++) { bx(31 + q * 2, 0, 4.16, 0.1, 2.6, 0.06, PK); bx(31 + q * 2, 0, 5.78, 0.1, 2.6, 0.06, PK); } bx(40.6, 0, 3.9, 0.3, 2.6, 0.5, W); bx(40.6, 0, 5.6, 0.3, 2.6, 0.5, W); bx(40.6, 2.2, 4.2, 0.3, 0.4, 1.6, BLU);
+      for (q = 0; q < 4; q++) { bx(1.6 + q * 3, 0, 1.4, 2, 1.05, 0.7, BLU, 0x3f6fd0); bx(2.0 + q * 3, 1.05, 1.5, 0.5, 0.4, 0.08, DK); bx(2.9 + q * 3, 0, 2.3, 0.5, 0.25, 0.9, 0x8d94a0, DK); bx(1.5 + q * 3, 2.7, 0.02, 2.2, 0.6, 0.06, DK); }
+      for (q = 0; q < 6; q++) { bx(1.5 + q * 2, 0, 4.2, 0.08, 0.9, 0.08, 0xd9c36a); bx(1.5 + q * 2, 0, 5.4, 0.08, 0.9, 0.08, 0xd9c36a); if (q < 5) { bx(1.54 + q * 2, 0.8, 4.22, 2, 0.05, 0.04, PK); bx(1.54 + q * 2, 0.8, 5.42, 2, 0.05, 0.04, PK); } }
+      bx(0.4, 0, 7.2, 0.7, 0.6, 0.7, 0x8a5a3c); bx(0.5, 0.6, 7.3, 0.5, 1.0, 0.5, 0x3c9147); bx(12.6, 0, 7.2, 0.7, 0.6, 0.7, 0x8a5a3c); bx(12.7, 0.6, 7.3, 0.5, 1.0, 0.5, 0x3c9147); for (q = 0; q < 3; q++) { bx(9.4 + q * 1.1, 0, 8.2, 0.9, 0.45, 0.6, BLU); bx(9.4 + q * 1.1, 0.45, 8.7, 0.9, 0.5, 0.1, BLU); }
+      bx(15.6, 0, 4.0, 0.14, 2.3, 0.14, DK); bx(15.6, 0, 5.86, 0.14, 2.3, 0.14, DK); bx(15.6, 2.2, 4.0, 0.14, 0.16, 2.0, DK); bx(14.4, 0, 2.2, 3.2, 0.8, 0.9, 0x8d94a0, DK); bx(15.3, 0.8, 2.2, 1.2, 0.8, 0.9, 0x4a4f5c); bx(14.6, 0.8, 2.4, 0.5, 0.14, 0.5, 0xc9ccd4); bx(16.8, 0.8, 2.4, 0.5, 0.14, 0.5, 0xc9ccd4);
+      for (q = 0; q < 3; q++) for (a = 0; a < 5; a++) { bx(19.5 + a * 1.0, 0, 1.6 + q * 2.6, 0.8, 0.42, 0.6, BLU, 0x3f6fd0); bx(19.5 + a * 1.0, 0.42, 1.6 + q * 2.6 - 0.02, 0.8, 0.5, 0.1, BLU); } bx(27.6, 0, 6.8, 1.8, 1.05, 0.7, PK, 0xff8ac4); bx(28.2, 1.05, 6.9, 0.5, 0.4, 0.08, DK); bx(26, 0, 8.6, 0.7, 0.6, 0.7, 0x8a5a3c); bx(26.1, 0.6, 8.7, 0.5, 1.1, 0.5, 0x3c9147);
+      g.add(b.mesh(new THREE.MeshLambertMaterial({ vertexColors: true })));
+      var nb = new Builder(); for (q = 0; q < 4; q++) nb.box(1.6 + q * 3, 2.76, 0.09, 2.0, 0.46, 0.02, [0x35e8ff, 0xffd23f, 0x5dfc8a, 0xff4fa3][q]); nb.box(15.62, 2.22, 4.14, 0.1, 0.1, 1.72, 0x5dfc8a); nb.box(9, 2.2, 0.02, 4, 1.2, 0.04, 0x14141c); for (q = 0; q < 5; q++) nb.box(9.2, 3.1 - q * 0.2, 0.06, 2.4 + (q * 7 % 3) * 0.4, 0.1, 0.02, q % 2 ? 0xffd23f : 0x35e8ff); for (q = 0; q < 6; q++) nb.box(19 + q * 2, 1.05, -0.2, 1.8, 1.8, 0.04, 0x8fd0ff); nb.box(31, 2.5, 4.9, 9, 0.06, 0.2, 0xfff2c0);
+      g.add(nb.mesh(new THREE.MeshBasicMaterial({ vertexColors: true })));
+      [['DEPARTURES', 7, 3.3, 9.6, '#35e8ff'], ['SECURITY', 14.3, 3.3, 5, '#5dfc8a'], ['GATE 1', 29.7, 3.3, 5, '#ff4fa3'], ['TO THE PLANE', 35, 2.3, 5, '#ffd23f']].forEach(function (d) { var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: pixelTex(128, 24, function (x) { x.fillStyle = '#14041f'; x.fillRect(0, 0, 128, 24); x.fillStyle = d[4]; x.font = 'bold 15px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(d[0], 64, 13); }) })); sp.scale.set(2.6, 0.5, 1); sp.position.set(d[1], d[2], d[3]); g.add(sp); });
+      [[3, 0.9, 0xff4fa3, 0], [16.9, 3.2, 0x24407a, -1.57], [28.4, 6.3, 0x35e8ff, 3.14]].forEach(function (d, q2) { var ch = makeChar({ shirt: d[2], pants: 0x23262e, hair: [0x6b3a1c, 0x1c1410, 0xf2d16b][q2], badge: q2 === 1, hat: q2 === 1 ? 0x16264d : undefined }); ch.position.set(d[0], 0, d[1]); ch.rotation.y = d[3]; ch.ghost.visible = false; g.add(ch); });
+      g.position.set(APT.x, 0, APT.z); world.add(g); R.apt = g;
+    })();
+    var apt = new THREE.Sprite(new THREE.SpriteMaterial({ map: pixelTex(128, 24, function (x) { x.fillStyle = '#14041f'; x.fillRect(0, 0, 128, 24); x.fillStyle = '#35e8ff'; x.font = 'bold 15px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('AIRPORT  BOARD', 64, 13); }), depthTest: false })); apt.scale.set(4.4, 0.82, 1); apt.position.set(AIR.door.x, 4.2, AIR.door.z); apt.renderOrder = 12; world.add(apt);
     R.dragon = buildDragon(); world.add(R.dragon); R.dfire = [];
     R.dtag = new THREE.Sprite(new THREE.SpriteMaterial({ map: pixelTex(128, 24, function (x) { x.fillStyle = '#14041f'; x.fillRect(0, 0, 128, 24); x.fillStyle = '#5dfc8a'; x.font = 'bold 14px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('RIDE THE DRAGON', 64, 13); }), depthTest: false })); R.dtag.scale.set(4.4, 0.82, 1); R.dtag.position.set(DRG.x, 6.4, DRG.z); R.dtag.renderOrder = 12; world.add(R.dtag);
     R.tall = new THREE.Group(); (function () { var M = new THREE.MeshBasicMaterial({ color: 0x06060a, fog: false }), E = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }); function tb(par, w2, h, d, x, y, z, mat) { var geo = new THREE.BoxGeometry(w2, h, d); geo.translate(0, -h / 2, 0); var m = new THREE.Mesh(geo, mat || M); m.position.set(x, y, z); par.add(m); return m; }
@@ -1605,7 +1757,7 @@ Game.prototype.updateMoon = function (dt) {
   function keyMove() { if (joy.id !== -1 || !G) return; G.input.mx = (keys.arrowright || keys.d ? 1 : 0) - (keys.arrowleft || keys.a ? 1 : 0); G.input.mz = (keys.arrowdown || keys.s ? 1 : 0) - (keys.arrowup || keys.w ? 1 : 0); }
   window.addEventListener('keydown', function (e) {
     var k = e.key.toLowerCase(); if (k === ' ' || k.indexOf('arrow') === 0) e.preventDefault(); if (keys[k]) return; keys[k] = true; keyMove(); if (!G || !started) return;
-    if (k === ' ') { if (G.state === 'rob') G.grab(); else if (G.state === 'hotwire') G.prime(); else G.dash(); } else if (k === 'e' || k === 'enter') G.toggleCar(); else if (k === 'q') G.nextWeapon(); else if (k === 'm') G.mug();
+    if (k === ' ') { if (G.state === 'rob') G.grab(); else if (G.state === 'hotwire') G.prime(); else G.dash(); } else if (k === 'e' || k === 'enter') G.toggleCar(); else if (k === 'q') G.nextWeapon(); else if (k === 'm') G.mug(); else if (k === 'b') G.jump();
   });
   window.addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; keyMove(); });
   function press(el, fn) { el.addEventListener('pointerdown', function (e) { e.preventDefault(); initAudio(); if (AC && AC.state === 'suspended') AC.resume(); fn(); }); }
@@ -1683,8 +1835,21 @@ Game.prototype.updateMoon = function (dt) {
     else if (t === 'bstart') toast(vr ? 'TRIGGER: PLACE.  LEFT TRIGGER: REMOVE.' : 'BUILD: FIRE PLACES, DASH REMOVES, WEAPON BUTTON CHANGES COLOUR', 6, '#ffd23f');
     else if (t === 'bstop') toast('DONE BUILDING', 1.4, '#ffd23f');
     else if (t === 'bcol') tone(700, 0.05, 0.1, 'square');
+    else if (t === 'airport') { toast('SECURITY ON THE RIGHT, THEN GATE 1', 4.5, '#35e8ff'); jingle([659, 523], 0.3, 'sine'); if (vr) tpFade = 0.2; }
+    else if (t === 'security') { toast('BEEP. YOU ARE CLEAR. HAVE A NICE FLIGHT', 2.5, '#5dfc8a'); tone(1200, 0.12, 0.2, 'square'); tone(1600, 0.2, 0.2, 'square', null, 0.14); }
+    else if (t === 'aptout') { if (vr) tpFade = 0.2; }
+    else if (t === 'board') { if (vr) tpFade = 0.2; toast(vr ? 'SIT TIGHT, OR WALK FORWARD TO FLY IT' : 'ON BOARD. SIT TIGHT, OR WALK FORWARD TO FLY IT. LEAVES IN 20', 5, '#35e8ff'); jingle([523, 659, 784], 0.14, 'sine'); }
+    else if (t === 'cockpit') toast(vr ? 'YOUR PLANE. RIGHT STICK UP: TAKE OFF' : 'YOUR PLANE. R: TAKE OFF AND CLIMB. C: DESCEND', 5, '#ffd23f');
+    else if (t === 'takeoff') { toast(ev.manual ? 'ROLLING. STEER WITH THE LEFT STICK' : 'TAKING OFF. A: JUMP WITH A PARACHUTE', 4.5, '#35e8ff'); tone(80, 5, 0.3, 'sawtooth', 320); }
+    else if (t === 'arrived') toast('LANDED BACK AT THE AIRPORT', 2.5, '#35e8ff');
+    else if (t === 'ladder') { tone(ev.down ? 500 : 300, 0.3, 0.12, 'square', ev.down ? 250 : 600); if (!ev.down && !R.roofTip) { R.roofTip = true; toast(vr ? 'ON THE ROOF. A AT A LADDER TO GO DOWN' : 'ON THE ROOF. NOTHING CAN REACH YOU. LADDERS GO DOWN, BRIDGES CROSS', 5, '#ffd23f'); } if (vr) tpFade = 0.18; }
+    else if (t === 'hop') tone(380, 0.12, 0.08, 'sine', 620);
+    else if (t === 'giant') toast('SOMETHING HUGE JUST WOKE UP', 4, '#5dfc8a');
+    else if (t === 'giantgone') toast('THE GIANT CACTUS WANDERS OFF', 3, '#5dfc8a');
+    else if (t === 'stomp') { var sk = Math.max(0, 1 - ev.d / 60); shake = Math.max(shake, sk * 0.9); tone(46, 0.5, 0.15 + sk * 0.4, 'sine', 28); debris(ev.x, 0.3, ev.z, 16, [0x8d94a0, 0x55506a, 0xd9c9a8], 6, 3); smoke(ev.x, 0.5, ev.z, 3, 3); if (vr && sk > 0.2) { buzz(padL, sk, 120); buzz(padR, sk, 120); } }
+    else if (t === 'stomped') toast('STOMPED! STAY CLEAR OF THE SNEAKERS', 2.5, '#ff4d4d');
     else if (t === 'dride') { toast(vr ? 'TRIGGER: FIRE.  RIGHT STICK: HEIGHT.' : 'DRAGON! FIRE BREATHES FIRE.  R / C: UP AND DOWN.', 5, '#5dfc8a'); tone(90, 1.2, 0.35, 'sawtooth', 240); tone(140, 0.9, 0.2, 'square', 60, 0.3); }
-    else if (t === 'dland') { toast('THE DRAGON TAKES YOU HOME', 2.2, '#5dfc8a'); tone(200, 0.8, 0.2, 'sawtooth', 70); }
+
     else if (t === 'dfire') { tone(260, 0.5, 0.3, 'sawtooth', 60); tone(900, 0.3, 0.08, 'square', 200); }
     else if (t === 'moon') { toast(ev.first ? 'THE MOON! JUMP, BOUNCE, GRAB THE STARS' : 'BACK ON THE MOON', 4, '#35e8ff'); jingle([392, 523, 659, 784, 1047], 0.13, 'sine'); }
     else if (t === 'toearth') { toast(ev.veh ? 'YOU BROUGHT THE ' + ev.veh.toUpperCase() + ' HOME. DRIVE IT ANYWHERE.' : 'BACK ON EARTH. THE RING ON THE BEACH GOES TO THE MOON.', 4, '#35e8ff'); jingle([1047, 784, 523], 0.13, 'sine'); }
@@ -1745,7 +1910,8 @@ Game.prototype.updateMoon = function (dt) {
     else if (t === 'prime') tone(120 + G.hot * 5, 0.08, 0.15, 'sawtooth');
     else if (t === 'launch') { $('hot').classList.remove('on'); toast(vr ? 'YOU ARE IN THE ROCKET. HOLD ON.' : 'IGNITION', 3, '#ffb62e'); tone(60, 6, 0.3, 'sawtooth', 220); }
     else if (t === 'win') { toast('YOU WIN. NEXT STOP: THE MOON', 3, '#5dfc8a'); jingle([523, 659, 784, 1047, 1319], 0.12); }
-    else if (t === 'landed') { toast('YOU WIN. ' + fmt(G.cash) + '. KEEP PLAYING.', 5, '#ffd23f'); jingle([784, 988, 1175], 0.14, 'sine'); }
+    else if (t === 'jumped') { toast(vr ? 'FREE FALL! STEER WITH THE LEFT STICK' : 'FREE FALL! STEER TO LAND', 2.5, '#35e8ff'); tone(900, 1.2, 0.2, 'sawtooth', 200); }
+    else if (t === 'landed') { toast('TOUCHDOWN', 1.6, '#5dfc8a'); jingle([784, 988, 1175], 0.14, 'sine'); }
     else if (t === 'over') dialog('THE CUPBOARD IS BARE', 'You kept them going for ' + days() + (days() === 1 ? ' day' : ' days') + ' and carried home ' + G.delivered + ' things. The family moves in with Aunt Dee across the river.', 'Final take: ' + fmt(G.cash) + '.', [['Try again', function () { $('title').classList.add('on'); started = false; }]]);
   }
 
@@ -1763,8 +1929,8 @@ Game.prototype.updateMoon = function (dt) {
     if (started) { var steps = 2; for (var s2 = 0; s2 < steps; s2++) G.update(sdt / steps); while (G.events.length) handle(G.events.shift()); }
     var p = G.p, w = G.w, i, L = w.launch;
     // characters
-    R.player.visible = !vr && (!p.inside || G.state === 'inside') && !G.drive && !G.mride && G.state !== 'dragon' && G.state !== 'pilot' && G.state !== 'launch' && G.state !== 'win'; animChar(R.player, p, dt, p.dashT > 0 ? 1.6 : 1); R.player.position.y += (p.fly || 0) + (p.bh || 0); if (p.fly && G.state === 'ufo') R.player.rotation.y += dt * 3;
-    R.chute.visible = G.state === 'chute'; if (R.chute.visible) { R.chute.position.set(p.x, p.fly + (vr ? 3.6 : 3.0), p.z); R.chute.rotation.z = Math.sin(clock * 1.3) * 0.06; }
+    R.player.visible = !vr && (!p.inside || G.state === 'inside') && !G.drive && !G.mride && G.state !== 'dragon' && G.state !== 'plane' && G.state !== 'pilot' && G.state !== 'launch' && G.state !== 'win'; animChar(R.player, p, dt, p.dashT > 0 ? 1.6 : 1); R.player.position.y += (p.fly || 0) + (p.bh || 0) + (p.jh || 0); if (p.fly && G.state === 'ufo') R.player.rotation.y += dt * 3;
+    R.chute.visible = G.state === 'chute' && G.chute.t > 1.2; if (R.chute.visible) { R.chute.position.set(p.x, p.fly + (vr ? 3.6 : 3.0), p.z); R.chute.rotation.z = Math.sin(clock * 1.3) * 0.06; }
     var isCop = G.mode === 'cop'; if (R.lastMode !== G.mode) { R.lastMode = G.mode; var np = makeChar(isCop ? { shirt: 0x24407a, pants: 0x1b2233, shoes: 0x111111, hair: 0x1c1410, shades: true, hat: 0x16264d, badge: true, scale: 1 } : { shirt: 0xff4fa3, dots: 0xffe14f, pants: 0xf4ead2, shorts: true, hair: 0x1c1410, shades: true, hat: 0xf4f4f0, backwards: true, scale: 1 }); np.position.copy(R.player.position); np.rotation.y = R.player.rotation.y; np.add(R.bag); world.remove(R.player); world.add(np); R.player = np; R.player.ghost.material.color.setHex(isCop ? 0x3f8cff : 0x39ff7a); }
     R.bag.visible = G.bag.n > 0; R.bag.scale.setScalar(0.7 + G.bag.n * 0.07); R.player.ghost.material.opacity = p.hidden ? 0.2 : 0.6;
     syncList(R.cops, G.cops.length, function () { var c = makeChar({ shirt: 0x24407a, pants: 0x1b2233, shoes: 0x111111, skin: [0xe8b88a, 0x8a5a3c, 0xc98f62][R.cops.length % 3], hat: 0x16264d, shades: true, badge: true }); c.light = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.2), new THREE.MeshBasicMaterial({ color: 0xff3030 })); c.light.position.y = 1.72; c.add(c.light); return c; });
@@ -1783,7 +1949,7 @@ Game.prototype.updateMoon = function (dt) {
       if (mb.lift) { mc.position.y += mb.lift; mc.rotation.y = clock * 0.45 + i; }
     }
     if (fireHeld || keys.f || keys.j) G.fire(); if (!vr) G.input.alt = (keys.r ? 1 : 0) - (keys.c ? 1 : 0);
-    if (vr) { var far2 = 55 * 55; for (i = 0; i < R.pedC.length; i++) if ((G.peds[i].x - p.x) * (G.peds[i].x - p.x) + (G.peds[i].z - p.z) * (G.peds[i].z - p.z) > far2) R.pedC[i].visible = false; for (i = 0; i < R.mobC.length; i++) if ((G.mobs[i].x - p.x) * (G.mobs[i].x - p.x) + (G.mobs[i].z - p.z) * (G.mobs[i].z - p.z) > far2) R.mobC[i].visible = false; for (i = 0; i < G.cops.length; i++) if ((G.cops[i].x - p.x) * (G.cops[i].x - p.x) + (G.cops[i].z - p.z) * (G.cops[i].z - p.z) > far2) R.cops[i].visible = false; }
+    if (vr) { var far2 = 38 * 38; for (i = 0; i < R.pedC.length; i++) if ((G.peds[i].x - p.x) * (G.peds[i].x - p.x) + (G.peds[i].z - p.z) * (G.peds[i].z - p.z) > far2) R.pedC[i].visible = false; for (i = 0; i < R.mobC.length; i++) if ((G.mobs[i].x - p.x) * (G.mobs[i].x - p.x) + (G.mobs[i].z - p.z) * (G.mobs[i].z - p.z) > far2) R.mobC[i].visible = false; for (i = 0; i < G.cops.length; i++) if ((G.cops[i].x - p.x) * (G.cops[i].x - p.x) + (G.cops[i].z - p.z) * (G.cops[i].z - p.z) > far2) R.cops[i].visible = false; }
     for (i = 0; i < DN; i++) { if (dLife[i] <= 0) continue; var da = i * 3; dLife[i] -= dt; dVel[da + 1] -= 22 * dt; dPos[da] += dVel[da] * dt; dPos[da + 1] += dVel[da + 1] * dt; dPos[da + 2] += dVel[da + 2] * dt; if (dPos[da + 1] < 0.12) { dPos[da + 1] = 0.12; dVel[da + 1] *= -0.35; dVel[da] *= 0.6; dVel[da + 2] *= 0.6; } dummy.position.set(dPos[da], dPos[da + 1], dPos[da + 2]); dummy.rotation.set(dSpin[i] + clock * 3, dSpin[i], 0); dummy.scale.setScalar(dLife[i] <= 0 ? 0 : Math.min(1, dLife[i] * 2)); dummy.updateMatrix(); R.deb.setMatrixAt(i, dummy.matrix); }
     R.deb.instanceMatrix.needsUpdate = true;
     for (i = 0; i < R.tracers.length; i++) if (R.tracers[i].life > 0) { R.tracers[i].life -= dt; if (R.tracers[i].life <= 0) R.tracers[i].visible = false; }
@@ -1816,9 +1982,11 @@ Game.prototype.updateMoon = function (dt) {
     var building = G.build >= 0 && G.calm && G.state === 'play'; if (building && !vr) { var fcl = G.frontCell(); bT.place = fcl; bT.hit = null; } if (!building) bT.place = bT.hit = null;
     R.ghost.visible = building && !!bT.place; if (R.ghost.visible) { R.ghost.position.set(bT.place[0] * BSZ + BSZ / 2, 0.08 + bT.place[1] * BSZ + BSZ / 2, bT.place[2] * BSZ + BSZ / 2); R.ghost.material.color.setHex(BCOL[G.build]); R.ghost.material.opacity = 0.35 + 0.2 * Math.sin(clock * 8); }
     if (G.danceT > 0) { danceBeat -= dt; if (danceBeat <= 0) { danceBeat = 1.92; var DN2 = [392, 0, 494, 392, 587, 0, 494, 587, 659, 0, 587, 494, 440, 494, 392, 0]; DN2.forEach(function (f, q) { if (f) tone(f, 0.11, 0.09, 'square', null, q * 0.12); if (q % 4 === 0) tone(70, 0.12, 0.3, 'sine', 40, q * 0.12); if (q % 4 === 2) tone(1800, 0.04, 0.05, 'sawtooth', 900, q * 0.12); }); } }
+    (function () { var gi = G.giant; R.giant.visible = gi.on; if (!gi.on) return; var ph = (0.95 - gi.step) / 0.95 * Math.PI, sw = Math.sin(ph) * 0.42 * (gi.foot ? 1 : -1); R.giant.position.set(gi.x, Math.abs(Math.sin(ph)) * 0.5, gi.z); R.giant.rotation.y = Math.atan2(gi.hx, gi.hz); R.giant.legs[0].rotation.x = sw; R.giant.legs[1].rotation.x = -sw; R.giant.body.rotation.z = Math.sin(ph) * 0.035 * (gi.foot ? 1 : -1); })();
+    (function () { var pl = G.plane, ta3 = Math.atan2(pl.hx, pl.hz), d3 = ta3 - R.plane.rotation.y; while (d3 > Math.PI) d3 -= 6.2832; while (d3 < -Math.PI) d3 += 6.2832; R.plane.rotation.y += d3 * Math.min(1, dt * 5); R.plane.rotation.z += ((pl.alt > 3 ? -d3 * 2.2 : 0) - R.plane.rotation.z) * Math.min(1, dt * 2); R.plane.position.set(pl.x, pl.alt, pl.z); R.plane.inner.visible = G.state === 'plane'; R.plane.ext.visible = !(vr && G.state === 'plane'); if (pl.v > 8 && Math.random() < dt * 14) smoke(pl.x - pl.hx * 9, pl.alt + 2.4, pl.z - pl.hz * 9, 1, 0.8); })();
     (function () { var dg = G.dragon, fly = G.state === 'dragon', fl = fly ? Math.sin(clock * 5.2) : Math.sin(clock * 1.4) * 0.25, ta2 = Math.atan2(dg.hx, dg.hz), dd = ta2 - R.dragon.rotation.y; while (dd > Math.PI) dd -= 6.2832; while (dd < -Math.PI) dd += 6.2832;
-      R.dragon.rotation.y += dd * Math.min(1, dt * 6); R.dragon.rotation.z += ((fly ? -dd * 1.6 : 0) - R.dragon.rotation.z) * Math.min(1, dt * 4); R.dragon.position.set(dg.x, (fly ? G.dalt : 0.08) + (fly ? Math.sin(clock * 5.2 + 1.2) * 0.35 : 0), dg.z);
-      R.dragon.wings[0].rotation.z = fly ? 0.15 + fl * 0.6 : 1.05 + fl * 0.1; R.dragon.wings[1].rotation.z = fly ? -0.15 - fl * 0.6 : -1.05 - fl * 0.1; R.dtag.visible = !fly && G.calm;
+      R.dragon.rotation.y += dd * Math.min(1, dt * 6); R.dragon.rotation.z += ((fly ? -dd * 1.6 : 0) - R.dragon.rotation.z) * Math.min(1, dt * 4); R.dragon.position.set(dg.x, (fly ? G.dalt : 0.08 + (dg.alt || 0)) + (fly ? Math.sin(clock * 5.2 + 1.2) * 0.35 : 0), dg.z); if (dg.alt > 0.5) fl = Math.sin(clock * 5.2); R.dtag.position.set(dg.x, 6.4, dg.z);
+      R.dragon.wings[0].rotation.z = fly ? 0.15 + fl * 0.6 : 1.05 + fl * 0.1; R.dragon.wings[1].rotation.z = fly ? -0.15 - fl * 0.6 : -1.05 - fl * 0.1; R.dtag.visible = !fly && !(dg.alt > 0.5) && Math.abs(p.x - dg.x) + Math.abs(p.z - dg.z) < 40;
       syncList(R.dfire, G.dfire.length, function () { return new THREE.Mesh(new THREE.IcosahedronGeometry(0.7, 0), new THREE.MeshBasicMaterial({ color: 0xff8a2b })); });
       for (var q = 0; q < G.dfire.length; q++) { var f = G.dfire[q]; R.dfire[q].position.set(f.x, f.y, f.z); R.dfire[q].rotation.x += dt * 9; R.dfire[q].material.color.setHex(Math.random() < 0.5 ? 0xffe14f : 0xff5a1f); if (Math.random() < 0.9) debris(f.x, f.y, f.z, 2, [0xffe14f, 0xff5a1f, 0xff8a2b], 3); } })();
     (function () { var tl = G.tall, on = tl.on && G.state === 'play'; tallK += ((on ? 1 : 0) - tallK) * Math.min(1, dt * 0.9); R.tall.visible = on && Math.random() > 0.035; if (!on) return;
@@ -1859,7 +2027,7 @@ Game.prototype.updateMoon = function (dt) {
     R.beacons.visible = false; if (vr) { vrCamera(dt, G.state === 'launch'); } else {
     var hgt = portrait ? 21 : 15.5, backz = portrait ? 8.5 : 7.5, zoom = G.state === 'inside' ? 0.6 : (G.drive ? 1.35 : (G.wanted || G.heistAlarm ? 1.22 : 1));
     if (G.state === 'launch') { want.set(L.rocket.x - 14, 14 + R.rocket.position.y * 0.5, L.rocket.z + 26); camLook.lerp(tmpV.set(L.rocket.x, R.rocket.position.y + 5, L.rocket.z), 1 - Math.exp(-3 * dt)); }
-    else { want.set(p.x, hgt * zoom + (p.fly || 0) * 0.8, p.z + backz * zoom + (p.fly ? 6 : 0)); camLook.lerp(tmpV.set(p.x, 0.6 + (p.fly || 0) * 0.5, p.z - 0.5), 1 - Math.exp(-9 * dt)); }
+    else { want.set(p.x, hgt * zoom + ((p.fly || 0) + (p.bh > 2 ? p.bh : 0)) * 0.8, p.z + backz * zoom + (p.fly ? 6 : 0)); camLook.lerp(tmpV.set(p.x, 0.6 + ((p.fly || 0) + (p.bh > 2 ? p.bh : 0)) * 0.5, p.z - 0.5), 1 - Math.exp(-9 * dt)); }
     camPos.lerp(want, 1 - Math.exp(-5 * dt)); camera.position.copy(camPos); if (shake > 0) { shake -= dt; camera.position.x += (Math.random() - 0.5) * shake * 2.2; camera.position.z += (Math.random() - 0.5) * shake * 2.2; } camera.lookAt(camLook); }
     if (vr) camLook.set(p.x, 0, p.z);
     var sx = Math.round(camLook.x / 2) * 2, sz = Math.round(camLook.z / 2) * 2; sun.target.position.set(sx, 0, sz - 4); sun.position.set(sx, 0, sz - 4).addScaledVector(SUNDIR, 90);
@@ -1876,7 +2044,7 @@ Game.prototype.updateMoon = function (dt) {
     music(dt);
     $('wanted').textContent = G.wanted ? 'WANTED ' + '★'.repeat(G.wanted) : (isCop ? 'ON DUTY' : (G.mode === 'heist' ? (G.heistAlarm ? 'ALARM' : 'HEIST') : (p.hidden ? 'HIDDEN' : '')));
     var goal = 'Rob a store';
-    if (G.tall.on && G.state === 'play') goal = 'RUN. It cannot follow you onto the beach'; else if (G.state === 'dragon') goal = 'Riding the dragon. Steer, climb, breathe fire'; else if (G.moon) goal = G.mride ? (G.mride.kind === 'tank' ? 'Tank: fire to shoot' : 'Buggy: jump off the pads') : 'The Moon. Jump twice, bounce on pads, drive the tanks and buggies. Blue ring goes home'; else if (G.mode === 'robber') goal = G.wanted ? (p.hidden ? 'Stay still...' : 'Lose the cops. Hide in a bush or bin') : (G.bag.n >= BAGMAX ? 'Bag full. Get home' : (G.bag.n ? 'Take it home, or grab more' : 'Rob a store'));
+    if (G.state === 'airport') goal = G.secured ? 'Gate 1, then down the jet bridge' : 'Through security on the right'; else if (G.state === 'plane') goal = G.plane.phase === 'board' ? (G.plane.pilot ? 'In the cockpit. Climb to take off' : 'Takeoff in ' + Math.ceil(G.plane.T) + '. Walk forward for the cockpit') : (G.plane.manual ? 'You are flying. Jump any time' : 'Passenger. Jump any time, or ride it home'); else if (G.state === 'chute') goal = 'Steer the parachute'; else if (G.tall.on && G.state === 'play') goal = 'RUN. It cannot follow you onto the beach'; else if (G.state === 'dragon') goal = 'Riding the dragon. Steer, climb, breathe fire'; else if (G.moon) goal = G.mride ? (G.mride.kind === 'tank' ? 'Tank: fire to shoot' : 'Buggy: jump off the pads') : 'The Moon. Jump twice, bounce on pads, drive the tanks and buggies. Blue ring goes home'; else if (G.mode === 'robber') goal = G.wanted ? (p.hidden ? 'Stay still...' : 'Lose the cops. Hide in a bush or bin') : (G.bag.n >= BAGMAX ? 'Bag full. Get home' : (G.bag.n ? 'Take it home, or grab more' : 'Rob a store'));
     else if (isCop) goal = G.robber ? (G.robber.phase === 'in' ? 'Robbery at ' + G.robber.s.name : 'Chase the suspect') : 'On patrol. Wait for a call';
     else goal = G.heistAlarm ? 'Reach the rocket hatch!' : 'Sneak to the rocket. Stay out of the light';
     if (G.state === 'ufo') goal = 'Beamed up. Enjoy the view'; else if (G.ufo.on && G.state === 'play') goal = 'UFO! It only gives up at the beach';
@@ -1885,7 +2053,7 @@ Game.prototype.updateMoon = function (dt) {
     if ($('goal').textContent !== goal) $('goal').textContent = goal;
     var showPlay = G.state === 'play' || G.state === 'inside', nc = G.state === 'play' && (G.drive || G.nearCar());
     $('mug').style.display = G.canMug() && !vr ? 'block' : 'none';
-    var nz2 = G.state === 'pilot' || G.nearZach(); if (nz2) nc = true; var nrk = G.state === 'play' && G.calm && (G.build >= 0 || G.nearRack()); if (nrk) nc = true; var ndr = G.state === 'dragon' || (G.state === 'play' && G.calm && Math.abs(p.x - DRG.x) < 6 && Math.abs(p.z - DRG.z) < 6); if (ndr) nc = true; var mnear = G.moon && G.state === 'play' && (G.mride || G.mveh.some(function (v) { return Math.abs(v.x - p.x) < 3 && Math.abs(v.z - p.z) < 3; })); if (mnear) nc = true; $('carb').style.display = nc ? 'block' : 'none'; if (nc) { var ctx2 = ndr ? (G.state === 'dragon' ? 'LAND' : 'RIDE') : nrk ? (G.build >= 0 ? 'STOP' : 'BUILD') : mnear ? (G.mride ? 'GET OUT' : 'RIDE') : G.state === 'pilot' ? 'LAND' : (nz2 ? 'FLY UFO' : (G.drive ? 'EXIT' : 'HIJACK')); if ($('carb').textContent !== ctx2) $('carb').textContent = ctx2; }
+    var nz2 = G.state === 'pilot' || G.nearZach(); if (nz2) nc = true; var nrk = G.state === 'play' && G.calm && (G.build >= 0 || G.nearRack()); if (nrk) nc = true; var npl = G.state === 'plane'; if (npl) nc = true; var nld = !G.calm && !!G.nearLadder(); if (nld) nc = true; var ndr = G.state === 'dragon' || (G.state === 'play' && !G.drive && Math.abs(p.x - G.dragon.x) < 6 && Math.abs(p.z - G.dragon.z) < 6); if (ndr) nc = true; var mnear = G.moon && G.state === 'play' && (G.mride || G.mveh.some(function (v) { return Math.abs(v.x - p.x) < 3 && Math.abs(v.z - p.z) < 3; })); if (mnear) nc = true; $('carb').style.display = nc ? 'block' : 'none'; if (nc) { var ctx2 = nld ? (p.onRoof ? 'CLIMB DOWN' : 'CLIMB UP') : npl ? (G.plane.phase === 'board' ? 'GET OFF' : 'JUMP') : ndr ? (G.state === 'dragon' ? 'JUMP' : 'RIDE') : nrk ? (G.build >= 0 ? 'STOP' : 'BUILD') : mnear ? (G.mride ? 'GET OUT' : 'RIDE') : G.state === 'pilot' ? 'LAND' : (nz2 ? 'FLY UFO' : (G.drive ? 'EXIT' : 'HIJACK')); if ($('carb').textContent !== ctx2) $('carb').textContent = ctx2; }
     $('sus').style.display = inn ? 'grid' : 'none'; if (inn) { $('susB').style.width = Math.min(100, inn.susp) + '%'; var stx = inn.watched ? 'CLERK SEES YOU' : 'SUSPICION'; if ($('susT').textContent !== stx) $('susT').textContent = stx; }
     var ftx = inn ? 'THREAT' : 'FIRE'; if ($('fire').textContent !== ftx) $('fire').textContent = ftx;
     $('dash').disabled = p.dashCd > 0; $('dash').style.display = $('fire').style.display = showPlay && !G.drive ? '' : 'none'; $('wpn').style.display = G.state === 'play' && !G.drive ? '' : 'none'; stick.style.display = showPlay && started ? '' : 'none';
@@ -1908,7 +2076,7 @@ Game.prototype.updateMoon = function (dt) {
     var raw = G.time / 300 + 0.42, tod = raw % 1, night = sm3(0.52, 0.66, tod) * (1 - sm3(0.9, 0.99, tod)), noon = sm3(0.02, 0.14, tod) * (1 - sm3(0.3, 0.44, tod)), di = Math.floor(raw), kind = di % 4 === 1 ? 'rain' : (di % 4 === 3 ? 'snow' : 'clear'); nightF = night;
     if (kind !== 'clear') wKind = kind; wAmt += ((kind === 'clear' ? 0 : 1) - wAmt) * Math.min(1, dt * 0.4);
     night *= 1 - calmK * 0.55; wAmt *= 1 - calmK * Math.min(1, dt * 2);
-    if (G.state === 'inside') { night = 0; noon = Math.min(noon, 0.2); }      // shops are always lit
+    if (G.state === 'inside' || G.state === 'airport') { night = 0; noon = Math.min(noon, 0.2); }      // shops are always lit
     if (G.moon) { hemi.intensity = 0.42; hemi.color.setHex(0xdfe6ff); sun.intensity = 0.6; sun.color.setHex(0xffffff); scene.fog.color.setHex(0x05050c); scene.fog.far = 420; sky.material.color.setHex(0x05050c); sunDisc.visible = sunHalo.visible = false; wx.visible = false; return; }
     hemi.intensity = 0.58 - 0.24 * night + 0.1 * noon + 0.16 * calmK; mixc(hemi.color, 0xffc9b0, 0x6f7fd0, night); hemi.color.lerp(cB.setHex(0xe8f2ff), noon);
     sun.intensity = (0.78 - 0.6 * night + 0.1 * noon + 0.15 * calmK) * (1 - wAmt * 0.35); mixc(sun.color, 0xffa868, 0xfff4e0, noon);
@@ -1917,7 +2085,7 @@ Game.prototype.updateMoon = function (dt) {
     R.gp.material.opacity = 0.4 + 0.6 * night; R.gp.material.size = 3.4 + 2.4 * night; R.poolMesh.material.opacity = 0.08 + 0.42 * night; winMat.emissiveIntensity = 0.55 + 0.8 * night;
     if (tallK > 0.01) { hemi.intensity *= 1 - 0.5 * tallK; sun.intensity *= 1 - 0.65 * tallK; scene.fog.color.lerp(cB.setHex(0x08060f), tallK * 0.75); scene.fog.far *= 1 - 0.55 * tallK; mixc(sky.material.color, sky.material.color.getHex(), 0x1a1030, tallK * 0.7); }
     pudK += ((wAmt > 0.3 && wKind === 'rain' ? 1 : 0) - pudK) * Math.min(1, dt * (wAmt > 0.3 ? 0.25 : 0.04)); R.pud.visible = pudK > 0.02; R.pud.material.opacity = pudK * 0.8;       // puddles fill while it rains and dry slowly after
-    wx.visible = wAmt > 0.03 && G.state !== 'inside'; if (!wx.visible) return;
+    wx.visible = wAmt > 0.03 && G.state !== 'inside' && G.state !== 'airport'; if (!wx.visible) return;
     var snow = wKind === 'snow', fall = (snow ? 3.2 : 30) * dt; wx.material.size = snow ? 0.26 : 0.1; wx.material.opacity = wAmt * (snow ? 0.95 : 0.6); wx.material.color.setHex(snow ? 0xffffff : 0xbcd4ff); wx.position.set(p.x, 0, p.z);
     for (var i = 0; i < WN; i++) { var a = i * 3; wP[a + 1] -= fall; if (snow) wP[a] += Math.sin(clock + i) * dt * 1.2; if (wP[a + 1] < 0) { wP[a + 1] = 20; wP[a] = (Math.random() - 0.5) * 36; wP[a + 2] = (Math.random() - 0.5) * 36; } } wGeo.attributes.position.needsUpdate = true;
   }
@@ -1977,6 +2145,7 @@ Game.prototype.updateMoon = function (dt) {
   vbox(cockpit, 1.56, 0.24, 0.36, 0x3a3f55, 0, 0.9, 0.74); vbox(cockpit, 0.34, 0.12, 0.04, 0x35e8ff, -0.36, 0.98, 0.56, true); vbox(cockpit, 0.14, 0.12, 0.04, 0xffd23f, 0.0, 0.98, 0.56, true); vbox(cockpit, 0.3, 0.16, 0.04, 0x1a1a22, 0.42, 0.96, 0.56);   // dash, gauges, radio
   cockWheel = new THREE.Group(); cockWheel.position.set(-0.36, 1.0, 0.44); cockWheel.rotation.x = -0.5; cockpit.add(cockWheel);
   (function () { var rim = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.028, 8, 22), new THREE.MeshLambertMaterial({ color: 0x14141c })); cockWheel.add(rim); var sp1 = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.04, 0.03), new THREE.MeshLambertMaterial({ color: 0x2a2a3a })); cockWheel.add(sp1); var sp2 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.18, 0.03), new THREE.MeshLambertMaterial({ color: 0x2a2a3a })); sp2.position.y = -0.09; cockWheel.add(sp2); })();
+  vbox(cockpit, 0.56, 0.14, 0.56, 0x3a3046, -0.36, 0.5, 0.0); vbox(cockpit, 0.56, 0.14, 0.56, 0x3a3046, 0.36, 0.5, 0.0); vbox(cockpit, 0.5, 0.2, 0.16, 0x4a3e5a, 0.36, 1.2, -0.42); vbox(cockpit, 0.5, 0.2, 0.16, 0x4a3e5a, -0.36, 1.2, -0.42); vbox(cockpit, 0.18, 0.3, 0.9, 0x23262e, 0, 0.5, 0.25); vbox(cockpit, 0.05, 0.3, 0.05, 0x8d94a0, 0, 0.78, 0.4); vbox(cockpit, 0.09, 0.09, 0.09, 0xff4fa3, 0, 0.95, 0.4); vbox(cockpit, 1.4, 0.5, 0.2, 0x3a3046, 0, 0.6, -0.72); vbox(cockpit, 0.04, 0.5, 0.04, 0x8d94a0, 0.72, 1.3, -0.3);      // seats, console, gear stick, rear bench
   vbox(cockWheel, 0.07, 0.09, 0.08, 0xe8b88a, 0.18, 0.03, -0.02); vbox(cockWheel, 0.065, 0.065, 0.3, 0xff4fa3, 0.2, -0.06, -0.17).rotation.x = -0.5;      // your left hand stays on the wheel
   [-0.76, 0.76].forEach(function (x) { vbox(cockpit, 0.07, 0.9, 0.07, 0x3a3f55, x, 1.42, 0.92).rotation.x = 0.35; vbox(cockpit, 0.08, 0.5, 1.7, 0x5a5f78, x, 0.66, 0.0); vbox(cockpit, 0.07, 0.7, 0.07, 0x3a3f55, x, 1.5, -0.7); vbox(cockpit, 0.26, 0.14, 0.05, 0x1a1a22, x * 1.22, 1.05, 0.7); });   // pillars, doors, mirrors
   vbox(cockpit, 1.56, 0.06, 1.5, 0x3a3f55, 0, 1.88, 0.0); vbox(cockpit, 1.56, 0.06, 0.08, 0x3a3f55, 0, 1.8, 0.78); vbox(cockpit, 0.2, 0.07, 0.03, 0x1a1a22, 0, 1.72, 0.7);                    // roof, header, rear-view mirror
@@ -1996,7 +2165,8 @@ Game.prototype.updateMoon = function (dt) {
   var palC = document.createElement('canvas'); palC.width = 512; palC.height = 96; var palX = palC.getContext('2d'), palTex = new THREE.CanvasTexture(palC), pal3 = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.116), new THREE.MeshBasicMaterial({ map: palTex, transparent: true, depthTest: false, depthWrite: false, fog: false })); pal3.position.set(0, -0.4, -1.05); pal3.renderOrder = 64; pal3.visible = false; camera.add(pal3);
   function calmB() { return G.build >= 0 && !!G.calm && G.state === 'play'; }
   var bhand = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.11), new THREE.MeshLambertMaterial({ color: 0xffffff })); bhand.position.set(0, 0.07, -0.05); bhand.visible = false; gunRoot.add(bhand);
-  var drWas = false, drPrev = 0, eul = new THREE.Euler(), cockWas = false, mapHold = false, carHint = false, hackBtn = new THREE.Group(), hackCap, hackOn = false, hackDown = false, pod = new THREE.Group();
+  var handR2 = makeHand(true, false); handR2.position.set(0, -0.01, 0); handR2.visible = false; gunRoot.add(handR2);
+  var drView = false, drWas = false, drPrev = 0, eul = new THREE.Euler(), cockWas = false, mapHold = false, carHint = false, hackBtn = new THREE.Group(), hackCap, hackOn = false, hackDown = false, pod = new THREE.Group();
   vbox(hackBtn, 0.3, 0.9, 0.3, 0x3a3f55, 0, 0.45, 0); vbox(hackBtn, 0.36, 0.04, 0.36, 0xffd23f, 0, 0.91, 0); hackCap = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.07, 14), new THREE.MeshBasicMaterial({ color: 0xff2030 })); hackCap.position.y = 0.965; hackBtn.add(hackCap); hackBtn.visible = false; scene.add(hackBtn);
   vbox(pod, 1.7, 0.06, 1.7, 0x2a2a3a, 0, 0.02, 0); vbox(pod, 1.7, 0.06, 1.7, 0xf4f4f0, 0, 2.3, 0); vbox(pod, 1.7, 2.3, 0.06, 0xf4f4f0, 0, 1.15, 0.85);                                   // floor, ceiling, back wall
   [-0.85, 0.85].forEach(function (x) { vbox(pod, 0.06, 0.9, 1.7, 0xf4f4f0, x, 0.45, 0); vbox(pod, 0.06, 0.5, 1.7, 0xf4f4f0, x, 2.05, 0); vbox(pod, 0.06, 0.9, 0.3, 0xe5463a, x, 1.35, 0.7); vbox(pod, 0.06, 0.9, 0.3, 0xe5463a, x, 1.35, -0.7); });   // side walls with long windows
@@ -2063,20 +2233,23 @@ Game.prototype.updateMoon = function (dt) {
       }
       return;
     }
-    if (G.state === 'dragon') { if (trigR || (heldR && primeT <= 0)) { G.fire(); primeT = 0.2; } primeT -= dt; if (aB) G.toggleCar(); G.input.alt = Rg && Rg.axes.length > 3 ? -Rg.axes[3] : 0; return; }
+    if (G.state === 'plane') { if (heldR) G.fire(); if (aB) G.toggleCar(); G.input.alt = Rg && Rg.axes.length > 3 ? -Rg.axes[3] : 0; return; }
+    if (G.state === 'ufo' || G.state === 'chute') { if (heldR) G.fire(); return; }
+    if (G.state === 'dragon') { if (bB) { drView = !drView; toast(drView ? 'OUTSIDE VIEW' : 'RIDER VIEW', 1.2); } if (trigR || (heldR && primeT <= 0)) { G.fire(); primeT = 0.2; } primeT -= dt; if (aB) G.toggleCar(); G.input.alt = Rg && Rg.axes.length > 3 ? -Rg.axes[3] : 0; return; }
     if (G.state === 'pilot') { if (trigR) G.fire(); if (aB) G.toggleCar(); G.input.alt = Rg && Rg.axes.length > 3 ? -Rg.axes[3] : 0; return; } G.input.alt = 0;
     if (G.state !== 'play') return;
     if (G.calm && (gripR || gripL)) { for (var rh = 0; rh < 2; rh++) { if (!(rh === vrRi ? gripR : gripL)) continue; hands[rh].getWorldPosition(tmpV); for (var rq = 0; rq < R.rack.length; rq++) if (tmpV.distanceTo(R.rack[rq].position) < 0.45) { var was2 = G.build; G.build = rq; if (was2 < 0) G.ev('bstart'); else G.ev('bcol', { c: rq }); buzz(rh === vrRi ? padR : padL, 0.6, 50); } } }
-    if (calmB()) { if (trigR && bT.place) { if (G.placeBlock(bT.place[0], bT.place[1], bT.place[2], G.build)) buzz(padR, 0.5, 30); } if (bB) G.nextWeapon(); if (trigL && bT.hit) { if (G.removeBlock(bT.hit[0], bT.hit[1], bT.hit[2])) buzz(padL, 0.5, 30); } if (aB) G.toggleCar(); return; }
+    if (calmB()) { if (gripR) G.jump(); if (trigR && bT.place) { if (G.placeBlock(bT.place[0], bT.place[1], bT.place[2], G.build)) buzz(padR, 0.5, 30); } if (bB) G.nextWeapon(); if (trigL && bT.hit) { if (G.removeBlock(bT.hit[0], bT.hit[1], bT.hit[2])) buzz(padL, 0.5, 30); } if (aB) G.toggleCar(); return; }
     if (heldR) { if (G.aimV) { G.p.dx = G.aimV.dx; G.p.dz = G.aimV.dz; } G.fire(); }
+    if (gripR) G.jump();
     if (trigL) { if (!G.mug()) G.dash(); } if (aB) G.toggleCar(); if (bB) G.nextWeapon();
   }
   function vrCamera(dt, lifting) {
-    var p = G.p, L = G.w.launch, tx = p.x, tz = p.z, ty = G.state === 'inside' ? 0.04 : (G.drive ? (G.drive.moonV === 'tank' ? 1.5 : G.drive.moonV ? 0.55 : -0.5) : (G.w.isRoad(Math.floor(p.x), Math.floor(p.z)) ? 0 : 0.15));
-    if (p.fly) ty = p.fly - 0.6; if (p.bh) ty += p.bh; if (G.state === 'dragon') { var dh = Math.atan2(G.dragon.hx, G.dragon.hz); if (!drWas) { eul.setFromQuaternion(camera.quaternion, 'YXZ'); vrYaw = dh + Math.PI - eul.y; } else { var dd2 = dh - drPrev; while (dd2 > Math.PI) dd2 -= 6.2832; while (dd2 < -Math.PI) dd2 += 6.2832; vrYaw += dd2; } drPrev = dh; drWas = true; ty = p.fly + 2.75; tx = p.x + G.dragon.hx * 0.2; tz = p.z + G.dragon.hz * 0.2; } else drWas = false; if (G.moon) ty = (p.fly || 0) + (G.mride ? (G.mride.kind === 'tank' ? 1.5 : 0.55) : 0); if (G.state === 'pilot') { tx = p.x + Math.sin(vrYaw) * 17; tz = p.z + Math.cos(vrYaw) * 17; ty = G.ualt - 5; } if (lifting) ty = p.fly + 2.2; pod.visible = lifting;
+    var p = G.p, L = G.w.launch, tx = p.x, tz = p.z, ty = G.state === 'inside' || G.state === 'airport' ? 0 : (G.drive ? (G.drive.moonV === 'tank' ? 1.5 : G.drive.moonV ? 0.55 : -0.5) : (G.w.isRoad(Math.floor(p.x), Math.floor(p.z)) ? 0 : 0.15));
+    if (p.fly) ty = p.fly - 0.6; if (p.bh || p.jh) ty += (p.bh || 0) + (p.jh || 0); if (G.state === 'dragon') { var dh = Math.atan2(G.dragon.hx, G.dragon.hz); if (!drWas) { eul.setFromQuaternion(camera.quaternion, 'YXZ'); vrYaw = dh + Math.PI - eul.y; } else { var dd2 = dh - drPrev; while (dd2 > Math.PI) dd2 -= 6.2832; while (dd2 < -Math.PI) dd2 += 6.2832; vrYaw += dd2; } drPrev = dh; drWas = true; ty = p.fly + 2.75; tx = p.x + G.dragon.hx * 0.2; tz = p.z + G.dragon.hz * 0.2; if (drView) { tx = p.x - G.dragon.hx * 17; tz = p.z - G.dragon.hz * 17; ty = p.fly + 6; } } else if (G.state === 'plane') { var ph = Math.atan2(G.plane.hx, G.plane.hz); if (!drWas) { eul.setFromQuaternion(camera.quaternion, 'YXZ'); vrYaw = ph + Math.PI - eul.y; } else { var pd3 = ph - drPrev; while (pd3 > Math.PI) pd3 -= 6.2832; while (pd3 < -Math.PI) pd3 += 6.2832; vrYaw += pd3; } drPrev = ph; drWas = true; ty = G.plane.alt + 1.08; } else drWas = false; if (G.moon) ty = (p.fly || 0) + (G.mride ? (G.mride.kind === 'tank' ? 1.5 : 0.55) : 0); if (G.state === 'pilot') { tx = p.x + Math.sin(vrYaw) * 17; tz = p.z + Math.cos(vrYaw) * 17; ty = G.ualt - 5; } if (lifting) ty = p.fly + 2.2; pod.visible = lifting;
     if (lifting) { rig.position.y = ty + (Math.random() - 0.5) * 0.03; altT -= dt; if (altT <= 0) { altT = 0.2; altX.fillStyle = '#14041f'; altX.fillRect(0, 0, 256, 64); altX.fillStyle = '#5dfc8a'; altX.font = 'bold 30px monospace'; altX.textAlign = 'center'; altX.textBaseline = 'middle'; altX.fillText(G.launchT < 1.2 ? 'IGNITION' : 'ALT ' + Math.round(p.fly * 40) + ' M', 128, 34); altTex.needsUpdate = true; buzz(padL, 0.7, 180); buzz(padR, 0.7, 180); } }
     wayfind(); wrist.scale.setScalar(mapHold ? 2.8 : 1); wrist.position.y = mapHold ? 0.2 : 0.06;
-    var nzv = G.nearZach(), ncv = nzv || (G.state === 'play' && !G.drive && !!G.nearCar()); if (G.moon) ncv = false; var nrv = G.nearRack() && G.build < 0; if (nrv) ncv = true; var ndv = G.state === 'play' && G.calm && Math.abs(p.x - DRG.x) < 6 && Math.abs(p.z - DRG.z) < 6; if (ndv) ncv = true; if (ncv && !carHint) toast(ndv ? 'PRESS A TO RIDE THE DRAGON' : nrv ? 'PRESS A TO BUILD' : nzv ? 'PRESS A TO FLY THE UFO' : 'PRESS A TO TAKE THE CAR', 2.5, '#ffd23f'); carHint = ncv;
+    var nzv = G.nearZach(), ncv = nzv || (G.state === 'play' && !G.drive && !!G.nearCar()); if (G.moon) ncv = false; var nrv = G.nearRack() && G.build < 0; if (nrv) ncv = true; var ndv = G.state === 'play' && !G.drive && Math.abs(p.x - G.dragon.x) < 6 && Math.abs(p.z - G.dragon.z) < 6; if (ndv) ncv = true; var nlv = !G.calm && !!G.nearLadder(); if (nlv) ncv = true; if (ncv && !carHint) toast(nlv ? (p.onRoof ? 'PRESS A TO CLIMB DOWN' : 'PRESS A TO CLIMB THE LADDER') : ndv ? 'PRESS A TO RIDE THE DRAGON' : nrv ? 'PRESS A TO BUILD' : nzv ? 'PRESS A TO FLY THE UFO' : 'PRESS A TO TAKE THE CAR', 2.5, '#ffd23f'); carHint = ncv;
     hackBtn.visible = G.state === 'hotwire';
     if (hackBtn.visible) {
       if (!hackOn) { camera.getWorldPosition(tmpV); camera.getWorldDirection(lpos); var fl2 = Math.hypot(lpos.x, lpos.z) || 1; hackBtn.position.set(tmpV.x + lpos.x / fl2 * 0.5, rig.position.y, tmpV.z + lpos.z / fl2 * 0.5); toast('PUSH THE RED BUTTON', 2.5, '#ff4fa3'); }
@@ -2089,7 +2262,7 @@ Game.prototype.updateMoon = function (dt) {
     var sp = Math.hypot(p.x - lastPX, p.z - lastPZ) / Math.max(dt, 0.001); lastPX = p.x; lastPZ = p.z; vrSpeed += (Math.min(1, sp / 6) - vrSpeed) * Math.min(1, dt * 6);
     if (tpFade > 0) tpFade -= dt; vig3.material.opacity = Math.max(tpFade > 0 ? 1 : 0, vignOn ? Math.min(0.95, vrSpeed * 1.1) : 0);
     // aim: a ray out of the gun barrel, a crosshair where it lands, and the shot follows it
-    var aiming = started && !curDialog && G.state === 'play'; G.aimV = null;
+    var aiming = started && !curDialog && (G.state === 'play' || G.state === 'ufo' || G.state === 'plane' || G.state === 'chute'); G.aimV = null;
     if (aiming) {
       // the bazooka can be steadied with the left hand: it points from your right hand to your left
       twoH = false; hands[vrRi].getWorldDirection(gdir); gdir.negate();
@@ -2120,7 +2293,7 @@ Game.prototype.updateMoon = function (dt) {
     }
     hud3.visible = hudOn && started && !curDialog; hudT -= dt; if (hud3.visible && hudT <= 0) { hudT = 0.2; drawHud(); }
     // the gun in your right hand
-    var calmNow = !!G.calm && G.state === 'play'; for (var gi = 0; gi < 4; gi++) guns[gi].visible = gi === G.weapon && !calmNow && !G.moon && G.state !== 'pilot' && G.state !== 'dragon'; mai.visible = calmNow && !G.drive && !G.maiGiven && G.build < 0; bhand.visible = calmB(); if (bhand.visible) bhand.material.color.setHex(BCOL[G.build]); var GRIP0 = calmNow ? [0, 0, -0.03] : GRIP[G.weapon]; handR.position.set(GRIP0[0], GRIP0[1], GRIP0[2]); handR.visible = G.state !== 'pilot'; handL.visible = !G.drive && G.state !== 'pilot'; wrist.visible = wrist.visible && G.state !== 'pilot'; if (handR.parent !== gunRoot) gunRoot.add(handR);   // the fist moves with the weapon, so it always looks held
+    var calmNow = !!G.calm && G.state === 'play'; for (var gi = 0; gi < 4; gi++) guns[gi].visible = gi === G.weapon && !calmNow && !G.moon && G.state !== 'pilot' && G.state !== 'dragon'; mai.visible = calmNow && !G.drive && !G.maiGiven && G.build < 0; bhand.visible = calmB(); if (bhand.visible) bhand.material.color.setHex(BCOL[G.build]); var GRIP0 = calmNow ? [0, 0, -0.03] : GRIP[G.weapon]; handR.position.set(GRIP0[0], GRIP0[1], GRIP0[2]); var bare = !!G.moon || G.state === 'airport' || (G.state === 'play' && !!G.calm && G.build < 0 && !!G.maiGiven); handR.visible = G.state !== 'pilot' && !bare; handR2.visible = bare; handL.visible = !G.drive && G.state !== 'pilot'; wrist.visible = wrist.visible && G.state !== 'pilot'; if (handR.parent !== gunRoot) gunRoot.add(handR);   // the fist moves with the weapon, so it always looks held
     vrKick *= Math.max(0, 1 - dt * 14); gunRoot.position.z = vrKick; if (!twoH) gunRoot.rotation.set(vrKick * 5, 0, 0); muzzle.position.set(0, G.weapon === 1 ? 0.06 : 0.012, gunTip[G.weapon]); if (flashT > 0) flashT -= dt; muzzle.visible = flashT > 0; muzzle.scale.setScalar(1 + Math.random());
 
     // the driver's seat
