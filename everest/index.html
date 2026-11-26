@@ -52,7 +52,7 @@
 <div id="stage"></div>
 <div id="read" class="serif"><div id="alt"></div><div id="spd"></div><div id="mpinfo"></div></div>
 <div id="btns"><button id="skibtn">SKIS ON</button><button id="menubtn">MENU</button></div>
-<div id="menu"><button id="racebtn">RACE</button><button id="mpbtn">TOGETHER</button><button id="yetibtn">BE THE YETI</button><button id="trailbtn">BACK TO THE TRAIL</button><button id="topbtn">SUMMIT</button><button id="viewbtn">VIEW: EYES</button><button id="skybtn">SKY: AUTO</button><button id="vrbtn">ENTER VR</button></div>
+<div id="menu"><button id="racebtn">RACE</button><button id="mpbtn">TOGETHER</button><button id="yetibtn">BE THE YETI</button><button id="trailbtn">BACK TO THE TRAIL</button><button id="topbtn">SUMMIT</button><button id="viewbtn">VIEW: EYES</button><button id="skybtn">SKY: AUTO</button><button id="vrbtn">ENTER VR</button><button id="hubbtn">ALL GAMES</button></div>
 <div id="racebar"><div id="rctext"></div><button id="rcyes">JOIN</button><button id="rcno">NO THANKS</button></div>
 <button id="throwbtn">SNOW BALL</button><button id="boostbtn">ROCKET</button>
 <div id="msg" class="serif"></div>
@@ -1070,14 +1070,14 @@ var vm = { open: false, idx: 0, mode: 0, code: [0, 0, 0, 0], pos: 0, ready: true
 function vmItems() {
   var inRoom = MP.code && NET.on;
   return [[inRoom ? 'Room ' + MP.code + '  (' + (MP.count + 1) + ' here)  Change' : 'Play with friends', 'join'],
-    [RC.st >= 2 && RC.st <= 4 ? 'Leave the race' : RC.st === 1 ? 'Join the race' : 'Start a race', 'race'], [P.yeti ? 'Stop being the yeti' : 'Be the yeti', 'yeti'], ['Back to the trail', 'trail'], ['Back to the summit', 'top'], [SKYNAME[SKY.mode].replace('SKY: ', 'Sky: '), 'sky'], ['Close', 'close']];
+    [RC.st >= 2 && RC.st <= 4 ? 'Leave the race' : RC.st === 1 ? 'Join the race' : 'Start a race', 'race'], [P.yeti ? 'Stop being the yeti' : 'Be the yeti', 'yeti'], ['Back to the trail', 'trail'], ['Back to the summit', 'top'], [SKYNAME[SKY.mode].replace('SKY: ', 'Sky: '), 'sky'], ['All games (leave Mountain Run)', 'hub'], ['Close', 'close']];
 }
 function vmDraw() {
   var it = vmItems(), key = vm.mode + '|' + vm.idx + '|' + vm.pos + '|' + vm.code.join('') + '|' + (MP.stat || '') + '|' + it.map(function (q) { return q[0]; }).join('~'); if (key === vm.key) return; vm.key = key;
   var c = vm.ctx, i; c.clearRect(0, 0, 640, 560); c.fillStyle = 'rgba(8,26,96,0.9)'; c.fillRect(0, 0, 640, 560); c.strokeStyle = '#ffd23f'; c.lineWidth = 6; c.strokeRect(3, 3, 634, 554); c.textAlign = 'center';
   if (vm.mode === 0) {
     c.fillStyle = '#fff'; c.font = 'italic 44px Georgia, serif'; c.fillText('Mountain Run', 320, 56);
-    for (i = 0; i < it.length; i++) { if (i === vm.idx) { c.fillStyle = '#ffd23f'; c.fillRect(30, 76 + i * 54, 580, 48); } c.fillStyle = i === vm.idx ? '#241a00' : '#fff'; c.font = '600 29px system-ui, sans-serif'; c.fillText(it[i][0], 320, 110 + i * 54); }
+    for (i = 0; i < it.length; i++) { if (i === vm.idx) { c.fillStyle = '#ffd23f'; c.fillRect(30, 74 + i * 50, 580, 45); } c.fillStyle = i === vm.idx ? '#241a00' : '#fff'; c.font = '600 28px system-ui, sans-serif'; c.fillText(it[i][0], 320, 106 + i * 50); }
     c.fillStyle = '#cfe0ff'; c.font = '24px system-ui, sans-serif'; c.fillText('Stick: up and down    A or X: choose    B or Y: close', 320, 530);
   } else {
     c.fillStyle = '#fff'; c.font = 'italic 36px Georgia, serif'; c.fillText('Everyone uses the same 4 letters', 320, 70);
@@ -1097,6 +1097,7 @@ function vmPick() {
   else if (a === 'sky') setSky((SKY.mode + 1) % 4);
   else if (a === 'top') { vmToggle(false); toSummit(); say('Back on top', 2); }
   else if (a === 'trail') { vmToggle(false); toTrail(); }
+  else if (a === 'hub') { vmToggle(false); toHub(); }
   else vmToggle(false);
 }
 function vmStick(x, y) {       // one step per push of the stick
@@ -1150,6 +1151,7 @@ function boost() {
   if (!started || P.lost || P.down > 0 || P.mode !== 'ski' || P.boostCd > 0 || RC.st === 2 || RC.st === 3) return;
   P.boost = 3; P.boostCd = 20; say('Rocket boost!', 1.2); rocketSnd(); buzz(0, 1, 400); buzz(1, 1, 400);
 }
+function toHub() { try { netClose(); } catch (e) {} if (xrSession) { try { xrSession.end(); } catch (e) {} } setTimeout(function () { location.href = '../'; }, xrSession ? 500 : 0); }
 function toTrail() {       // stuck on a cliff or lost: put me back on the route, right where I had got to
   if (P.lost || RC.st === 2 || RC.st === 3) return; var a = clamp(nearestOnRoute(P.x, P.z).arc, 3, ROUTE_LEN - 100), was = P.done; teleport(a, false); P.down = 0; P.done = was; cam3ok = false; say('Back on the trail', 2);
 }
@@ -1202,6 +1204,7 @@ cvs.addEventListener('pointerup', pUp); cvs.addEventListener('pointercancel', pU
 cvs.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 $('skibtn').addEventListener('click', function () { if (started) toggleSkis(); });
 $('trailbtn').addEventListener('click', function () { if (started) toTrail(); });
+$('hubbtn').addEventListener('click', toHub);
 $('topbtn').addEventListener('click', function () { if (started) { toSummit(); say('Back on top', 2); } });
 
 // ---- VR ----
