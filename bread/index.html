@@ -98,6 +98,11 @@
   #hot .card { text-align: center; }
   #fuel { background: var(--danger); color: #fff; border-color: var(--danger); font-family: var(--font-display); font-size: 22px; padding: 24px 8px; }
   body.invr > *:not(#stage) { display: none !important; }
+  #menub { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 40; font-size: 12px; font-weight: 800; letter-spacing: 1px; padding: 7px 14px; border-radius: 999px; background: var(--panel); color: #fff; border: 2px solid rgba(255, 255, 255, 0.25); }
+  body #mini { display: none !important; }
+  body #mini.open { display: grid !important; position: fixed !important; left: 50% !important; top: 50% !important; bottom: auto !important; transform: translate(-50%, -50%) !important; width: min(84vw, 300px) !important; max-width: none !important; max-height: 86vh; overflow-y: auto; gap: 8px !important; padding: 14px; z-index: 9000; background: #14041f; border: 2px solid #35e8ff; border-radius: 14px; }
+  body #mini.open button { font-size: 15px !important; padding: 11px 12px !important; color: #fff; text-align: left; border-radius: 10px; }
+  #minih { font-weight: 900; letter-spacing: 2px; color: #35e8ff; text-align: center; font-size: 17px; } #mini #hubb { background: #ffd23f; color: #241a00; font-weight: 800; } #mini #minix { text-align: center !important; }
   #vrbtn, #vigbtn { display: none; } #vrbtn { background: var(--hot) !important; color: #fff !important; }
   #fail { position: fixed; inset: 0; display: none; place-items: center; padding: 24px; text-align: center; color: #14161f; }
   @media (orientation: landscape) and (max-height: 560px) {
@@ -120,7 +125,8 @@
   <div id="stats"><span>Bag <b id="sBag">0/14</b></span><span>Day <b id="sDay">1</b></span></div>
   <div id="wanted"></div>
 </div>
-<div id="mini"><button id="snd" type="button">Sound: On</button><button id="hideui" type="button">Hide</button><button id="lofi" type="button">Pixels: Fine</button><button id="glowb" type="button">Glow: On</button><button id="camb" type="button">Cam: Top</button><button id="wvbtn" type="button">Waves: On</button><button id="mpbtn" type="button">Together</button><button id="vrbtn" type="button">Enter VR</button><button id="vigbtn" type="button">Vignette: On</button></div>
+<button id="menub" type="button">MENU</button>
+<div id="mini"><div id="minih">MENU</div><button id="snd" type="button">Sound: On</button><button id="hideui" type="button">Hide</button><button id="lofi" type="button">Pixels: Fine</button><button id="glowb" type="button">Glow: On</button><button id="camb" type="button">Cam: Top</button><button id="wvbtn" type="button">Waves: On</button><button id="mpbtn" type="button">Play together</button><button id="vrbtn" type="button">Enter VR</button><button id="vigbtn" type="button">Vignette: On</button><button id="hubb" type="button">Back to all games</button><button id="minix" type="button">Close</button></div>
 <div id="money"><span id="bill">$</span><span id="cashbig">$0</span></div>
 <div id="rate"></div>
 <div id="map" class="panel"><canvas id="mapc" width="464" height="464" role="button" aria-label="City map. Tap to enlarge"></canvas></div>
@@ -1840,6 +1846,10 @@ Game.prototype.updateMoon = function (dt) {
     if (first) { want.set(bx + fx * ahead, by + eye, bz + fz * ahead); camPos.copy(want); tmpV.set(bx + fx * 20, by + eye - (G.state === 'pilot' ? 9 : 0.6), bz + fz * 20); camLook.copy(tmpV); R.player.visible = false; }
     else { want.set(bx - fx * dist, by + up, bz - fz * dist); camLook.lerp(tmpV.set(bx + fx * (follow ? 2.5 : 5), by + 1.3, bz + fz * (follow ? 2.5 : 5)), 1 - Math.exp(-12 * dt)); camPos.lerp(want, 1 - Math.exp(-9 * dt)); }
   }
+  $('menub').addEventListener('click', function () { $('mini').classList.toggle('open'); }); $('minix').addEventListener('click', function () { $('mini').classList.remove('open'); });
+  $('mpbtn').addEventListener('click', function () { $('mini').classList.remove('open'); }); $('vrbtn').addEventListener('click', function () { $('mini').classList.remove('open'); });
+  function goHub() { var go = function () { location.href = '../'; }, xs = renderer.xr.getSession && renderer.xr.getSession(); if (xs) xs.end().then(go, go); else go(); }
+  $('hubb').addEventListener('click', goHub); var hubHold = 0, hubMsg = false;
   $('camb').addEventListener('click', camCycle); $('wvbtn').addEventListener('click', wavesToggle); press($('jumpb'), function () { G.jump(); });
   ['upb', 'dnb'].forEach(function (id, k) { var el = $(id); el.addEventListener('pointerdown', function (e) { e.preventDefault(); altBtn = k ? -1 : 1; }); ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { el.addEventListener(n, function () { altBtn = 0; }); }); });
   window.addEventListener('keydown', function (e) {
@@ -2426,6 +2436,7 @@ Game.prototype.updateMoon = function (dt) {
     }
     tpRing.visible = tpLine.visible = canTp && tpAim; smx += (wantX - smx) * Math.min(1, dt * 7); smz += (wantZ - smz) * Math.min(1, dt * 7); G.input.mx = smx; G.input.mz = smz; if (G.drive && L) { carS += ((sx || 0) - carS) * Math.min(1, dt * 7); carT += ((-sy || 0) - carT) * Math.min(1, dt * 7); G.input.car = { s: carS, t: carT }; } else { G.input.car = null; carS = carT = 0; }   // ease in and out instead of lurching
     if (Rg) { var rx = ax(Rg)[0]; if (Math.abs(rx) > 0.65 && snapReady) { vrYaw -= (rx > 0 ? 1 : -1) * Math.PI / 6; snapReady = false; } else if (Math.abs(rx) < 0.3) snapReady = true; }   // 30 degree snap turn
+    if (L && L.buttons[3] && L.buttons[3].pressed) { hubHold += dt; if (hubHold > 0.25 && !hubMsg) { hubMsg = true; toast('KEEP HOLDING TO GO BACK TO THE GAME HUB', 1.6, '#ffd23f'); } if (hubHold > 1.8) { hubHold = -99; goHub(); } } else { hubHold = 0; hubMsg = false; }       /* hold the left stick down to leave for the game hub */
     if (yB) { vignOn = !vignOn; toast('Comfort vignette ' + (vignOn ? 'on' : 'off'), 1.4); }
     tpMode = false;       // teleport movement is switched off for now
     if (xB) wavesToggle();
@@ -2542,7 +2553,7 @@ Game.prototype.updateMoon = function (dt) {
     if (G.wanted) { x.fillStyle = '#ff4d4d'; x.font = 'bold 28px sans-serif'; x.fillText('WANTED ' + '\u2605'.repeat(G.wanted), 28, y + 36); }
     x.drawImage(mapC, 474, 18, 276, 276);
     x.fillStyle = '#ffd23f'; x.font = 'bold 28px sans-serif'; y = wrap(G.inn && !G.inn.alarm && !G.inn.threat ? 'Touch the money to take it. Right trigger threatens the clerk. Leave by the door' : $('goal').textContent, 28, 344, 712, 34);
-    { x.fillStyle = '#8f9bb3'; x.font = '19px sans-serif'; x.fillText('A car/ladder/ride  B weapon  X waves on/off  R-GRIP jump  L-GRIP map', 28, 492); }
+    { x.fillStyle = '#8f9bb3'; x.font = '19px sans-serif'; x.fillText('A car/ride  B weapon  X waves  R-GRIP jump  L-GRIP map  HOLD L-STICK: game hub', 28, 492); }
     ptex.needsUpdate = true;
   }
   build(7, 'medium'); resize(); renderer.setAnimationLoop(tick);
