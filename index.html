@@ -800,6 +800,11 @@ Game.prototype.combat = function (dt) {
       if (prey && (!m.hunt || pd < d)) { this.move(m, (prey.x - m.x) / pd * 4.4, (prey.z - m.z) / pd * 4.4, dt); if (pd < 0.9) this.kill(prey); continue; }
       m.charge -= dt; if (m.charge < -3) m.charge = 1.4;
     }
+    var fb = null, fbd = m.boss ? 17 : (bear ? 8 : 10); if (this.friends && !(m.fedT > 0)) for (var fi = 0; fi < this.friends.length; fi++) { var ff = this.friends[fi]; if (ff.safe) continue; var fd0 = Math.hypot(ff.x - m.x, ff.z - m.z); if (fd0 < fbd) { fbd = fd0; fb = ff; } }
+    if (fb && (!m.hunt || fbd < d)) {       /* playing together: a friend is closer, so go for them. Their own game decides what a bite costs them */
+      m.hunt = false; var fsp = bear ? PSPEED * (m.charge > 0 ? 1.08 : 0.55) : PSPEED * (m.boss ? 0.68 : 0.5); fb.t = (fb.t || 0) - dt; if (fb.t <= 0) { w.bfs(fb.df, Math.floor(fb.x), Math.min(SIZE - 1, Math.floor(fb.z))); fb.t = 0.35; }
+      if (fbd < 1.8 && w.los(m.x, m.z, fb.x, fb.z)) { if (fbd > 0.6) this.move(m, (fb.x - m.x) / fbd * fsp, (fb.z - m.z) / fbd * fsp, dt); } else this.steer(m, fb.df, fsp, dt); continue;
+    }
     if (m.hunt) {
       var sp = bear ? PSPEED * (m.charge > 0 ? 1.08 : 0.55) : PSPEED * (m.boss ? 0.68 : 0.5);
       if (d < 1.8 && w.los(m.x, m.z, p.x, p.z)) this.move(m, dx / d * sp, dz / d * sp, dt); else this.steer(m, this.pdf, sp, dt);
@@ -1143,7 +1148,7 @@ Game.prototype.updateMoon = function (dt) {
     var n = 0, gn = 0, k, q, ga = R.glowG.attributes.position.array; for (k in G.blocks) { if (n + gn >= BMAX) break; q = k.split(','); dummy.position.set(q[0] * BSZ + BSZ / 2, 0.08 + q[1] * BSZ + BSZ / 2, q[2] * BSZ + BSZ / 2); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1); dummy.updateMatrix();
       if (G.blocks[k] === 1) { R.blkGlow.setMatrixAt(gn, dummy.matrix); ga[gn * 3] = dummy.position.x; ga[gn * 3 + 1] = dummy.position.y; ga[gn * 3 + 2] = dummy.position.z; gn++; } else { R.blk.setMatrixAt(n, dummy.matrix); R.blk.setColorAt(n, tc.setHex(BCOL[G.blocks[k]] || 0xffffff)); n++; } }
     R.blk.count = n; R.blk.instanceMatrix.needsUpdate = true; if (R.blk.instanceColor) R.blk.instanceColor.needsUpdate = true; R.blkGlow.count = gn; R.blkGlow.instanceMatrix.needsUpdate = true; R.glowG.setDrawRange(0, gn); R.glowG.attributes.position.needsUpdate = true;
-    if (save) try { localStorage.setItem('breadrun-blocks', JSON.stringify(G.blocks)); } catch (e) {}
+    if (save && !(MP.peer && !MP.host)) try { localStorage.setItem('breadrun-blocks', JSON.stringify(G.blocks)); } catch (e) {}
   }
   var tallK = 0, tallBeat = 0, tipAt = -9, vrShadow = false, carS = 0, carT = 0, plIn = false, danceBeat = 0, bT = { place: null, hit: null }, palEl = document.createElement('div'), palWas = -2;
   palEl.style.cssText = 'position:fixed;left:50%;bottom:8px;transform:translateX(-50%);display:none;gap:6px;padding:6px 8px;background:rgba(20,4,31,0.8);border-radius:12px;z-index:5;pointer-events:none'; document.body.appendChild(palEl);
@@ -1769,10 +1774,10 @@ Game.prototype.updateMoon = function (dt) {
   Array.prototype.forEach.call($('diff').children, function (b) { b.addEventListener('click', function () { diffPick = b.dataset.d; Array.prototype.forEach.call($('diff').children, function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); }); });
 
   // ---- playing together: every player runs their own city from the same seed, and they see each other in it ----
-  var curSeed = 7, curDiff = 'medium', MP = { peer: null, conns: [], host: false, code: '', id: Math.random().toString(36).slice(2, 8), buds: {}, sendT: 0, five: 0, n: 0 };
+  var curSeed = 7, curDiff = 'medium', MP = { peer: null, conns: [], host: false, code: '', id: Math.random().toString(36).slice(2, 8), buds: {}, sendT: 0, five: 0, n: 0, rx: false, snap: null, pend: {}, wT: 0 };
   function mpStat(t, bad) { $('mpstat').textContent = t; $('mpstat').style.color = bad ? '#ff8a8a' : '#5dfc8a'; }
   function mpLoad(cb) { if (window.Peer) return cb(); mpStat('Connecting...'); var sc = document.createElement('script'); sc.src = window.__peerSrc || 'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js'; sc.onload = cb; sc.onerror = function () { mpStat('Could not connect. Check the internet', true); }; document.head.appendChild(sc); }
-  function mpReset() { if (MP.peer) { try { MP.peer.destroy(); } catch (e) {} } MP.peer = null; MP.conns = []; for (var k in MP.buds) world.remove(MP.buds[k].g); MP.buds = {}; }
+  function mpReset() { MP.snap = null; MP.pend = {}; if (G) G.friends = null; if (MP.peer) { try { MP.peer.destroy(); } catch (e) {} } MP.peer = null; MP.conns = []; for (var k in MP.buds) world.remove(MP.buds[k].g); MP.buds = {}; }
   function mpHost(tries) {
     mpLoad(function () {
       mpReset(); MP.host = true; MP.code = ''; for (var i = 0; i < 4; i++) MP.code += 'ABCDEFGHJKLMNPQRSTUVWXYZ'.charAt(Math.floor(Math.random() * 24));
@@ -1791,14 +1796,34 @@ Game.prototype.updateMoon = function (dt) {
     });
   }
   function mpConn(c) {
-    c.on('open', function () { MP.conns.push(c); if (MP.host) { c.send({ t: 'hello', seed: curSeed, diff: curDiff }); toast('A FRIEND JOINED!', 3, '#5dfc8a'); jingle([523, 659, 784, 1047], 0.09); mpStat('Friends connected: ' + MP.conns.length + '   Code ' + MP.code); } else mpStat('Joined ' + MP.code + '!'); });
+    c.on('open', function () { MP.conns.push(c); if (MP.host) { var dl = []; G.w.lots.forEach(function (l, li) { if (l.dead) dl.push(li); }); c.send({ t: 'hello', seed: curSeed, diff: curDiff, dead: dl, blocks: G.blocks }); toast('A FRIEND JOINED!', 3, '#5dfc8a'); jingle([523, 659, 784, 1047], 0.09); mpStat('Friends connected: ' + MP.conns.length + '   Code ' + MP.code); } else mpStat('Joined ' + MP.code + '!'); });
     c.on('data', function (d) { mpData(d, c); });
-    c.on('close', function () { var i = MP.conns.indexOf(c); if (i >= 0) MP.conns.splice(i, 1); for (var k in MP.buds) if (MP.buds[k].via === c) { world.remove(MP.buds[k].g); delete MP.buds[k]; } toast(MP.host ? 'A FRIEND LEFT' : 'LOST THE CONNECTION', 3, '#ffd23f'); mpStat(MP.host ? 'Friends connected: ' + MP.conns.length + '   Code ' + MP.code : 'Disconnected', !MP.host); });
+    c.on('close', function () { var i = MP.conns.indexOf(c); if (i >= 0) MP.conns.splice(i, 1); for (var k in MP.buds) if (MP.buds[k].via === c) { world.remove(MP.buds[k].g); delete MP.buds[k]; } if (!MP.host) { MP.snap = null; G.mobs.forEach(function (m) { if (m.netDead) { m.netDead = false; m.dead = 0.1; } }); G.peds.forEach(function (m) { if (m.netDead) { m.netDead = false; m.dead = 0.1; } }); } toast(MP.host ? 'A FRIEND LEFT' : 'LOST THE CONNECTION', 3, '#ffd23f'); mpStat(MP.host ? 'Friends connected: ' + MP.conns.length + '   Code ' + MP.code : 'Disconnected', !MP.host); });
   }
   function mpData(d, c) {
     if (!d || typeof d !== 'object') return;
-    if (d.t === 'hello' && !MP.host) { startGame(d.seed, d.diff); $('mp').style.display = 'none'; $('mpbtn').textContent = 'With ' + MP.code; toast('YOU ARE IN THE SAME CITY. FIND YOUR FRIEND', 4, '#5dfc8a'); return; }
+    if (d.t === 'hello' && !MP.host) { startGame(d.seed, d.diff); (d.dead || []).forEach(mpCollapse); if (d.blocks && typeof d.blocks === 'object') { G.blocks = {}; G.nblocks = 0; for (var bk in d.blocks) { if (G.nblocks >= BMAX) break; G.blocks[bk] = d.blocks[bk] | 0; G.nblocks++; } syncBlocks(false); } $('mp').style.display = 'none'; $('mpbtn').textContent = 'With ' + MP.code; toast('YOU ARE IN THE SAME CITY. FIND YOUR FRIEND', 4, '#5dfc8a'); return; }
+    if (d.t === 'w' && !MP.host) { MP.snap = d; if (typeof d.tm === 'number' && Math.abs(G.time - d.tm) > 1) G.time = d.tm; return; }
+    if (d.t === 'k' && MP.host) { var kl = d.l === 'p' ? G.peds : G.mobs, ke = kl[d.i]; if (!ke) return; if (d.l === 'f') { ke.fedT = 12; return; } if (ke.dead <= 0) { ke.dead = d.l === 'p' ? 15 : (ke.boss || ke.kind === 'bear' ? 600 : 12); G.ev('boom', { x: ke.x, z: ke.z, kind: ke.kind, look: ke.look || 0, otter: !!ke.otter }); } return; }
+    if (d.t === 'e') { MP.rx = true; try { if (d.k === 'col') mpCollapse(d.i); else if (d.k === 'bp' && d.b) { var pk = d.b[0] + ',' + d.b[1] + ',' + d.b[2]; if (G.blocks[pk] === undefined && G.nblocks < BMAX) { G.blocks[pk] = d.b[3] | 0; G.nblocks++; syncBlocks(false); } } else if (d.k === 'br' && d.b) { var rk = d.b[0] + ',' + d.b[1] + ',' + d.b[2]; if (G.blocks[rk] !== undefined) { delete G.blocks[rk]; G.nblocks--; syncBlocks(false); } } } catch (e9) {} MP.rx = false; if (MP.host) mpSend(d, c); return; }
     if (d.t === 's' && d.id && d.id !== MP.id) { var b = MP.buds[d.id]; if (!b) b = MP.buds[d.id] = mpBud(d); b.d = d; b.at = clock; b.via = c; if (MP.host) for (var i = 0; i < MP.conns.length; i++) if (MP.conns[i] !== c && MP.conns[i].open) MP.conns[i].send(d); }
+  }
+  function mpSend(msg, except) { for (var i = 0; i < MP.conns.length; i++) if (MP.conns[i] !== except && MP.conns[i].open) MP.conns[i].send(msg); }
+  function mpCollapse(i) { var l = G.w.lots[i]; if (!l || l.dead) return; l.dead = true; for (var k = 0; k < G.w.stores.length; k++) if (G.w.stores[k].lot === l) { G.w.stores[k].cool = 1e9; G.w.stores[k].dead = true; } var was = MP.rx; MP.rx = true; handle({ t: 'collapse', i: i, bonus: 0 }); MP.rx = was; }
+  function mpEv(ev) {       /* things that happen here and should happen for everyone */
+    if (ev.t === 'collapse') mpSend({ t: 'e', k: 'col', i: ev.i });
+    else if (ev.t === 'dominated' && !MP.host) { var bi = -1, bd = 6; G.mobs.forEach(function (m, i) { if (m.kind !== 'bear') return; var dd = Math.hypot(m.x - G.p.x, m.z - G.p.z); if (dd < bd) { bd = dd; bi = i; } }); if (bi >= 0) mpSend({ t: 'k', l: 'f', i: bi }); }
+  }
+  (function () { var pb0 = Game.prototype.placeBlock, rb0 = Game.prototype.removeBlock;
+    Game.prototype.placeBlock = function (x, y, z, c) { var r = pb0.call(this, x, y, z, c); if (r && !MP.rx && MP.conns.length) mpSend({ t: 'e', k: 'bp', b: [x, y, z, c] }); return r; };
+    Game.prototype.removeBlock = function (x, y, z) { var r = rb0.call(this, x, y, z); if (r && !MP.rx && MP.conns.length) mpSend({ t: 'e', k: 'br', b: [x, y, z] }); return r; }; })();
+  function mpPack(list) { var o = [], i, e; for (i = 0; i < list.length; i++) { e = list[i]; o.push(Math.round(e.x * 10), Math.round(e.z * 10), Math.round(Math.atan2(e.dx || 0, e.dz || 0) * 100), (e.dead > 0 ? 1 : 0) | (e.beach ? 2 : 0) | (e.moving ? 4 : 0) | (e.aboard || e.lift > 0 ? 8 : 0)); } return o; }
+  function mpApply(list, a, tag, dt) {       /* a joined player's zombies, bears and people are wherever the host says they are */
+    var n = Math.min(list.length, Math.floor(a.length / 4)), i, e, al = Math.min(1, dt * 9);
+    for (i = 0; i < n; i++) { e = list[i]; var tx = a[i * 4] / 10, tz = a[i * 4 + 1] / 10, an = a[i * 4 + 2] / 100, fl = a[i * 4 + 3], key = tag + i, gone = (fl & 1) || (fl & 8);
+      if (gone) { if (e.dead <= 0 && (fl & 1) && !(MP.pend[key] > clock)) G.ev('boom', { x: e.x, z: e.z, kind: e.kind, look: e.look || 0, otter: !!e.otter }); e.dead = 5; e.netDead = true; continue; }
+      if (e.dead > 0) { if (e.netDead) { e.dead = 0; e.netDead = false; e.hp = e.boss ? 14 : (e.kind === 'bear' ? 6 : (e.kind === 'zombie' ? 2 : 1)); e.nx = tx; e.nz = tz; } else { if (!(MP.pend[key] > clock)) { MP.pend[key] = clock + 2.5; mpSend({ t: 'k', l: tag, i: i }); } continue; } }
+      if (e.nx === undefined || Math.abs(tx - e.nx) > 8 || Math.abs(tz - e.nz) > 8) { e.nx = tx; e.nz = tz; } e.nx += (tx - e.nx) * al; e.nz += (tz - e.nz) * al; e.x = e.nx; e.z = e.nz; e.dx = Math.sin(an); e.dz = Math.cos(an); e.beach = !!(fl & 2); if (tag === 'p') e.moving = !!(fl & 4); }
   }
   function mpBud(d) {
     var COLS = [0x35e8ff, 0xffd23f, 0x5dfc8a, 0xb06bff, 0xff8a2b], n = MP.n++, col = COLS[n % 5], g = new THREE.Group(), ch = makeChar({ shirt: col, pants: 0x23262e, shoes: 0xf4f4f0, hair: 0x1c1410, hat: col, backwards: true, scale: 1 }); ch.ghost.visible = false; g.add(ch);
@@ -1808,10 +1833,13 @@ Game.prototype.updateMoon = function (dt) {
   function mpVeh(b, kind) { if (b.veh[kind]) return b.veh[kind]; var m; if (kind === 'car') m = buildCar(1); else if (kind === 'plane') { m = buildPlane(); if (m.inner) m.inner.visible = false; } else if (kind === 'dragon') m = buildDragon(); else { m = new THREE.Group(); var d1 = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.2, 0.7, 14), new THREE.MeshLambertMaterial({ color: 0x9aa1b0 })), d2 = new THREE.Mesh(new THREE.SphereGeometry(1.4, 12, 8), new THREE.MeshBasicMaterial({ color: b.col, transparent: true, opacity: 0.7 })); d2.position.y = 0.5; m.add(d1); m.add(d2); } b.g.add(m); b.veh[kind] = m; return m; }
   function mpTick(dt) {
     if (!MP.peer) return; var p = G.p, k, live = 0;
+    if (MP.host && started) { var fr = []; for (k in MP.buds) { var hb = MP.buds[k], hd = hb.d; if (!hb.fr) hb.fr = { df: new Int16Array(SIZE * SIZE), t: 0 }; hb.fr.x = hd.x; hb.fr.z = hd.z; hb.fr.safe = !!hd.safe || clock - hb.at > 3 || hd.x < 1 || hd.z < 1 || hd.x > SIZE - 1 || hd.z > SIZE - 1; fr.push(hb.fr); } G.friends = fr;
+      MP.wT -= dt; if (MP.wT <= 0 && MP.conns.length) { MP.wT = 0.12; mpSend({ t: 'w', tm: Math.round(G.time * 10) / 10, m: mpPack(G.mobs), p: mpPack(G.peds) }); } }
+    else if (!MP.host && MP.snap && started && MP.conns.length) { G.friends = null; mpApply(G.mobs, MP.snap.m || [], 'm', dt); mpApply(G.peds, MP.snap.p || [], 'p', dt); }
     MP.sendT -= dt; if (MP.sendT <= 0 && MP.conns.length && started) { MP.sendT = 0.1;
       var v = G.drive ? 'car' : (G.state === 'plane' && G.plane.phase === 'fly') ? 'plane' : G.state === 'dragon' ? 'dragon' : G.state === 'pilot' ? 'ufo' : '', sx = p.x, sz = p.z, hx = p.dx, hz = p.dz, sy = (p.fly || 0) + (p.bh || 0) + (p.jh || 0);
       if (v === 'car') { sx = G.drive.x; sz = G.drive.z; hx = G.drive.hx; hz = G.drive.hz; sy = 0; } else if (v === 'plane') { sx = G.plane.x; sz = G.plane.z; hx = G.plane.hx; hz = G.plane.hz; sy = G.plane.alt; } else if (v === 'dragon') { sx = G.dragon.x; sz = G.dragon.z; hx = G.dragon.hx; hz = G.dragon.hz; sy = Math.max(0, (p.fly || 0) - 2); }
-      var msg = { t: 's', id: MP.id, x: Math.round(sx * 100) / 100, z: Math.round(sz * 100) / 100, y: Math.round(sy * 100) / 100, dx: Math.round(hx * 100) / 100, dz: Math.round(hz * 100) / 100, mv: !!p.moving, v: v, moon: !!G.moon, hid: G.state === 'inside' || (G.state === 'plane' && !v) || G.state === 'launch' || G.state === 'ufo' };
+      var msg = { t: 's', id: MP.id, x: Math.round(sx * 100) / 100, z: Math.round(sz * 100) / 100, y: Math.round(sy * 100) / 100, dx: Math.round(hx * 100) / 100, dz: Math.round(hz * 100) / 100, mv: !!p.moving, v: v, moon: !!G.moon, safe: !!(G.calm || p.onRoof || p.inside || p.hidden || G.moon || G.state !== 'play'), hid: G.state === 'inside' || (G.state === 'plane' && !v) || G.state === 'launch' || G.state === 'ufo' };
       for (k = 0; k < MP.conns.length; k++) if (MP.conns[k].open) MP.conns[k].send(msg); }
     for (k in MP.buds) { var b = MP.buds[k], d = b.d, e = b.e, a = Math.min(1, dt * 10); if (clock - b.at > 6 || d.hid || d.moon !== !!G.moon) { b.g.visible = false; continue; } b.g.visible = true; live++;
       if (Math.abs(d.x - e.x) > 30 || Math.abs(d.z - e.z) > 30) { e.x = d.x; e.z = d.z; b.y = d.y; } e.x += (d.x - e.x) * a; e.z += (d.z - e.z) * a; b.y += (d.y - b.y) * a; e.dx = d.dx; e.dz = d.dz; e.moving = d.mv && !d.v;
@@ -1852,7 +1880,7 @@ Game.prototype.updateMoon = function (dt) {
   function pickDialog(i) { var d = curDialog; if (!d || !d.btns[i]) return; curDialog = null; $('dialog').classList.remove('on'); d.btns[i][1](); }
   function days() { return Math.floor(G.time / 300) + 1; }
   function handle(ev) {
-    var t = ev.t; if (vr) vrFx(t);
+    var t = ev.t; if (vr) vrFx(t); if (MP.conns.length && !MP.rx) mpEv(ev);
     if (t === 'toast') toast(ev.m, 1.4);
     else if (t === 'shot') { for (var ti = 0; ti < R.tracers.length; ti++) if (R.tracers[ti].life <= 0) { var tr = R.tracers[ti], ddx = ev.x1 - ev.x0, ddz = ev.z1 - ev.z0, len = Math.sqrt(ddx * ddx + ddz * ddz) || 0.1; tr.position.set((ev.x0 + ev.x1) / 2, 1.05, (ev.z0 + ev.z1) / 2); tr.scale.z = len; tr.rotation.y = Math.atan2(ddx, ddz); if (vr) { muzzle.getWorldPosition(tmpV); var gl = Math.hypot(ev.x1 - tmpV.x, ev.z1 - tmpV.z) || 0.1; tr.position.set((tmpV.x + ev.x1) / 2, (tmpV.y + 1) / 2, (tmpV.z + ev.z1) / 2); tr.rotation.set(0, 0, 0); tr.lookAt(ev.x1, 1, ev.z1); tr.scale.z = gl; } tr.life = 0.07; tr.visible = true; break; } tone(900, 0.09, 0.16, 'square', 160); tone(140, 0.08, 0.2, 'sawtooth', 60); }
     else if (t === 'hit') debris(ev.x, 0.9, ev.z, 4, [0xffffff, 0xffe14f], 4);
