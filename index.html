@@ -341,7 +341,7 @@ Game.prototype.updateCops = function (dt) {
   if (this.wanted) { this.pdfT -= dt; if (this.pdfT <= 0) { w.bfs(this.pdf, Math.floor(p.x), Math.min(SIZE - 1, Math.floor(p.z))); this.pdfT = 0.25; } }
   var nearest = 1e9;
   for (i = this.cops.length - 1; i >= 0; i--) {
-    c = this.cops[i]; var dx = p.x - c.x, dz = p.z - c.z, d = Math.sqrt(dx * dx + dz * dz);
+    c = this.cops[i]; if (c.beach) { c.moving = false; c.chase = false; continue; } var dx = p.x - c.x, dz = p.z - c.z, d = Math.sqrt(dx * dx + dz * dz);
     if (this.wanted && !c.chase && d < 11 && !p.hidden) c.chase = true;
     if (this.wanted && c.chase) {
       if (d < nearest) nearest = d;
@@ -497,19 +497,25 @@ Game.prototype.update = function (dt) {
     var uu = this.ufo, pmx = this.input.mx, pmz = this.input.mz, pl = Math.sqrt(pmx * pmx + pmz * pmz), pi2; if (pl > 1) { pmx /= pl; pmz /= pl; }
     this.pilotT += dt; this.ualt = Math.max(7, Math.min(22, this.ualt + (this.input.alt || 0) * 6 * dt));
     p.x = Math.max(-25, Math.min(SIZE + 25, p.x + pmx * 15 * dt)); p.z = Math.max(-25, Math.min(SIZE + 45, p.z + pmz * 15 * dt)); p.fly = this.ualt; p.moving = false; uu.on = true; uu.x = p.x; uu.z = p.z; uu.t = 1;
-    var all = this.mobs.concat(this.peds), sand = p.z > SIZE + 0.5;
+    var all = this.mobs.concat(this.peds, this.cops), sand = p.z > SIZE + 0.5;
     for (pi2 = 0; pi2 < all.length; pi2++) {
       var pe = all[pi2]; if (pe.dead > 0) continue;
       if (pe.aboard) { if (this.beamOn) { pe.x = p.x; pe.z = p.z; pe.lift = this.ualt - 1.5; continue; } pe.aboard = false; this.cargo--; pe.lift = this.ualt - 2; pe.fallV = 0; pe.x = p.x + (this.rnd() - 0.5) * 3; pe.z = p.z + (this.rnd() - 0.5) * 3; }   // beam off: everyone aboard is let go
-      var inB = this.beamOn && Math.abs(pe.x - p.x) < 2.3 && Math.abs(pe.z - p.z) < 2.3;
-      if (inB) { pe.beach = false; pe.fallV = 0; pe.lift = (pe.lift || 0) + 4.5 * dt; pe.x += (p.x - pe.x) * Math.min(1, dt * 3); pe.z += (p.z - pe.z) * Math.min(1, dt * 3); pe.moving = false;
+      var hold = pe.lift > 0.3 && !(pe.fallV > 0) ? 3.2 : 2.3, inB = this.beamOn && Math.abs(pe.x - p.x) < hold && Math.abs(pe.z - p.z) < hold;
+      if (inB) { pe.beach = false; pe.fallV = 0; pe.lift = (pe.lift || 0) + 4.5 * dt; pe.x += (p.x - pe.x) * Math.min(1, dt * 4.4); pe.z += (p.z - pe.z) * Math.min(1, dt * 4.4); pe.moving = false;
         if (pe.lift >= this.ualt - 1.5) { pe.aboard = true; this.cargo++; var pv = pe.boss ? 1500 : (pe.kind === 'bear' ? 300 : 100); this.cash += pv; this.ev('suck', { x: pe.x, z: pe.z, kind: pe.kind, n: this.cargo, v: pv }); } }
       else if (pe.lift > 0) {        // let go: over the sand they float down, anywhere else they fall
         var soft = pe.z > SIZE + 0.5; pe.fallV = Math.min(soft ? 4 : 40, (pe.fallV || 0) + 22 * dt); pe.lift -= pe.fallV * dt;
-        if (pe.lift <= 0) { pe.lift = 0; pe.fallV = 0; if (soft) { pe.beach = true; pe.x = Math.max(1, Math.min(SIZE - 1, pe.x)); pe.z = Math.max(SIZE + 1.5, Math.min(SIZE + 13, pe.z)); this.ev('softland', { x: pe.x, z: pe.z }); } else { this.ev('splat', { x: pe.x, z: pe.z, kind: pe.kind }); this.kill(pe); } }
+        if (pe.lift <= 0) { pe.lift = 0; pe.fallV = 0; if (soft) { pe.beach = true; pe.x = Math.max(1, Math.min(SIZE - 1, pe.x)); pe.z = Math.max(SIZE + 1.5, Math.min(SIZE + 13, pe.z)); this.ev('softland', { x: pe.x, z: pe.z }); } else { this.ev('splat', { x: pe.x, z: pe.z, kind: pe.kind }); if (pe.kind === 'cop') { var ci = this.cops.indexOf(pe); if (ci >= 0) this.cops.splice(ci, 1); this.ev('boom', { x: pe.x, z: pe.z, kind: 'cop', look: 0 }); } else this.kill(pe); } }
       }
     }
-    if (this.beamOn) for (pi2 = 0; pi2 < this.cars.length; pi2++) { var pc = this.cars[pi2]; if (pc.ai && !pc.off && Math.abs(pc.x - p.x) < 2.6 && Math.abs(pc.z - p.z) < 2.6) { pc.t = -60; pc.x = -99; pc.z = -99; this.cash += 200; this.ev('suck', { x: p.x, z: p.z, kind: 'car', n: this.cargo, v: 200 }); } }
+    for (pi2 = 0; pi2 < this.cars.length; pi2++) {       // cars ride the beam too
+      var pc = this.cars[pi2]; if (pc.off && !pc.lift && !pc.aboard) continue;
+      if (pc.aboard) { if (this.beamOn) { pc.x = p.x; pc.z = p.z; continue; } pc.aboard = false; pc.lift = this.ualt - 2.5; pc.fallV = 0; }
+      var ch = pc.lift > 0.3 && !(pc.fallV > 0) ? 3.2 : 2.6, cin = this.beamOn && Math.abs(pc.x - p.x) < ch && Math.abs(pc.z - p.z) < ch;
+      if (cin) { pc.ai = false; pc.fallV = 0; pc.lift = (pc.lift || 0) + 3.5 * dt; pc.x += (p.x - pc.x) * Math.min(1, dt * 4.4); pc.z += (p.z - pc.z) * Math.min(1, dt * 4.4); if (pc.lift >= this.ualt - 2.5) { pc.aboard = true; this.cargo++; this.cash += 200; this.ev('suck', { x: p.x, z: p.z, kind: 'car', n: this.cargo, v: 200 }); } }
+      else if (pc.lift > 0) { pc.fallV = Math.min(pc.z > SIZE + 0.5 ? 5 : 40, (pc.fallV || 0) + 22 * dt); pc.lift -= pc.fallV * dt; if (pc.lift <= 0) { pc.lift = 0; pc.fallV = 0; if (pc.z > SIZE + 0.5) this.ev('softland', { x: pc.x, z: pc.z }); else { this.ev('explode', { x: pc.x, z: pc.z, r: 3 }); pc.ai = true; pc.sp = pc.sp || 7; pc.t = -60; pc.x = -99; pc.z = -99; } } }
+    }
     var zd = Math.abs(p.x - ZAC.x) + Math.abs(p.z - ZAC.z); if (zd > 14) this.pilotAway = true; if (this.pilotAway && zd < 3) this.toggleCar();      // fly back to Zach to hand it back
     return;
   }
@@ -751,7 +757,7 @@ Game.prototype.nearZach = function () { return this.state === 'play' && !!this.c
 Game.prototype.toggleCar = function () {
   var p = this.p, w = this.w, i;
   if (this.state === 'pilot') {
-    var all = this.mobs.concat(this.peds); for (i = 0; i < all.length; i++) { var q = all[i]; if (q.dead > 0) continue; if (q.aboard) { q.aboard = false; q.lift = 0; q.beach = true; q.x = ZAC.x - 4 + this.rnd() * 8; q.z = ZAC.z + 2 + this.rnd() * 4; } else if (q.lift > 0) { q.lift = 0; q.fallV = 0; if (q.z > SIZE + 0.5) q.beach = true; } }   // passengers get off on the sand
+    var all = this.mobs.concat(this.peds, this.cops); for (i = 0; i < this.cars.length; i++) { var qc = this.cars[i]; if (qc.lift > 0 || qc.aboard) { qc.lift = 0; qc.aboard = false; qc.ai = true; qc.sp = qc.sp || 7; qc.t = -60; qc.x = -99; qc.z = -99; } } for (i = 0; i < all.length; i++) { var q = all[i]; if (q.dead > 0) continue; if (q.aboard) { q.aboard = false; q.lift = 0; q.beach = true; q.x = ZAC.x - 4 + this.rnd() * 8; q.z = ZAC.z + 2 + this.rnd() * 4; } else if (q.lift > 0) { q.lift = 0; q.fallV = 0; if (q.z > SIZE + 0.5) q.beach = true; } }   // passengers get off on the sand
     this.state = 'play'; this.ufo.on = false; this.ufo.next = 90; p.fly = 0; p.x = ZAC.x - 1.5; p.z = ZAC.z + 1.5; this.grace = 2; this.cargo = 0; this.ev('ufoland'); return;
   }
   if (this.nearZach()) { this.state = 'pilot'; this.cargo = 0; this.beamOn = true; this.ualt = 14; this.pilotT = 0; this.beamT = -1; this.pilotAway = false; this.ev('ufofly'); return; }
@@ -1350,7 +1356,7 @@ Game.prototype.mug = function () {        // "give me your money"
     var isCop = G.mode === 'cop'; if (R.lastMode !== G.mode) { R.lastMode = G.mode; var sc = isCop ? 0x24407a : 0xff4fa3, hc = isCop ? 0x16264d : 0xf4f4f0; R.player.body.material.color.setHex(sc); R.player.slL.material.color.setHex(sc); R.player.slR.material.color.setHex(sc); R.player.hat.material.color.setHex(hc); R.player.brim.material.color.setHex(hc); R.player.ghost.material.color.setHex(isCop ? 0x3f8cff : 0x39ff7a); }
     R.bag.visible = G.bag.n > 0; R.bag.scale.setScalar(0.7 + G.bag.n * 0.07); R.player.ghost.material.opacity = p.hidden ? 0.2 : 0.6;
     syncList(R.cops, G.cops.length, function () { var c = makeChar({ shirt: 0x24407a, pants: 0x1b2233, shoes: 0x111111, skin: [0xe8b88a, 0x8a5a3c, 0xc98f62][R.cops.length % 3], hat: 0x16264d, shades: true, badge: true }); c.light = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.2), new THREE.MeshBasicMaterial({ color: 0xff3030 })); c.light.position.y = 1.72; c.add(c.light); return c; });
-    for (i = 0; i < G.cops.length; i++) { var cp = G.cops[i], hot = cp.chase && G.wanted > 0; animChar(R.cops[i], cp, dt, hot ? 1.3 : 0.5); R.cops[i].light.visible = hot; R.cops[i].light.material.color.setHex(Math.floor(clock * 6 + i) % 2 ? 0xff3030 : 0x3f8cff); R.cops[i].ghost.visible = hot; R.cops[i].ghost.material.color.setHex(0xff3030); }
+    for (i = 0; i < G.cops.length; i++) { var cp = G.cops[i], hot = cp.chase && G.wanted > 0; animChar(R.cops[i], cp, dt, hot ? 1.3 : 0.5); R.cops[i].light.visible = hot; R.cops[i].light.material.color.setHex(Math.floor(clock * 6 + i) % 2 ? 0xff3030 : 0x3f8cff); R.cops[i].ghost.visible = hot; R.cops[i].ghost.material.color.setHex(0xff3030); R.cops[i].visible = !cp.aboard; if (cp.lift) { R.cops[i].position.y += cp.lift; R.cops[i].rotation.y = clock * 0.45 + i; R.cops[i].armL.rotation.x = R.cops[i].armR.rotation.x = Math.PI; } }
     R.robber.visible = !!G.robber && G.robber.phase === 'flee'; if (G.robber) animChar(R.robber, G.robber, dt, 1.2);
     syncList(R.guards, G.guards.length, function () { return makeChar({ shirt: 0x5a5f6b, pants: 0x2b2e38, shoes: 0x111111, hat: 0xffb62e, shades: true }); });
     syncList(R.cones, G.mode === 'heist' ? G.guards.length : 0, function () { var g = new THREE.CircleGeometry(6.2, 12, Math.PI / 2 - 0.64, 1.28); g.rotateX(-Math.PI / 2); return new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.28, depthWrite: false })); });
@@ -1376,7 +1382,7 @@ Game.prototype.mug = function () {        // "give me your money"
     var uf = G.ufo; R.ufo.visible = uf.on; if (uf.on) { var pil = G.state === 'pilot', ud2 = pil ? G.ualt - 14 : 0; R.beam.visible = R.beamRing.visible = !pil || G.beamOn; R.beam.scale.y = (13.4 + ud2) / 13.4; R.beam.position.y = (13.4 - ud2) / 2 + 0.1; R.beamRing.position.y = 0.2 - ud2; R.ufo.position.set(uf.x, ud2 + Math.sin(clock * 2) * 0.3, uf.z); R.ufo.rotation.y = clock * 0.8; R.beam.material.opacity = 0.2 + Math.abs(Math.sin(clock * 6)) * 0.14; for (i = 0; i < 8; i++) R.ufoLights[i].material.color.setHex((i + Math.floor(clock * 6)) % 2 ? 0xff4fa3 : 0xffe14f); if (started && soundOn && Math.random() < 0.05) tone(300 + Math.sin(clock * 5) * 120, 0.25, 0.05, 'sine', 520); }
     var sp3 = R.steam.geometry.attributes.position.array; for (i = 0; i < sp3.length / 3; i++) { var vi = Math.floor(i / 6) * 2, ph = (clock * 0.3 + i * 0.37) % 1; sp3[i * 3] = R.vents[vi] + Math.sin(i * 2.1 + clock) * 0.3 * ph; sp3[i * 3 + 1] = 0.2 + ph * 3.4; sp3[i * 3 + 2] = R.vents[vi + 1] + Math.cos(i * 1.7) * 0.3 * ph; } R.steam.geometry.attributes.position.needsUpdate = true;
     for (i = 0; i < R.flick.length; i++) R.flick[i].visible = Math.sin(clock * (7 + i * 3)) + Math.sin(clock * 23 + i) > -1.2;
-    for (i = 0; i < G.cars.length; i++) { var cs = G.cars[i], cm = R.cars[i]; cm.visible = !cs.off && !(vr && G.drive === cs); cm.position.set(cs.x, 0, cs.z); var cta = Math.atan2(cs.dx, cs.dz), cda = cta - cm.rotation.y; while (cda > Math.PI) cda -= 6.2832; while (cda < -Math.PI) cda += 6.2832; cm.rotation.y += cda * Math.min(1, dt * 10); }
+    for (i = 0; i < G.cars.length; i++) { var cs = G.cars[i], cm = R.cars[i]; cm.visible = (!cs.off || cs.lift > 0) && !cs.aboard && !(vr && G.drive === cs); cm.position.set(cs.x, cs.lift || 0, cs.z); if (cs.lift) cm.rotation.y += dt * 0.5; var cta = Math.atan2(cs.dx, cs.dz), cda = cta - cm.rotation.y; while (cda > Math.PI) cda -= 6.2832; while (cda < -Math.PI) cda += 6.2832; cm.rotation.y += cda * Math.min(1, dt * 10); }
     var inn = G.inn;
     R.clerk.visible = R.ccone.visible = R.shut.visible = !!inn; R.reg.visible = !!(inn && inn.reg && !inn.reg.taken);
     for (i = 0; i < R.items.length; i++) { var itm = inn && inn.items[i]; R.items[i].visible = !!(itm && !itm.taken); if (itm) { R.items[i].position.set(itm.x, (vr ? 1.05 : 0.75) + Math.sin(clock * 4 + i) * 0.06, itm.z); R.items[i].rotation.y = clock * 2 + i; } }
