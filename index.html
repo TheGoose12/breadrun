@@ -392,7 +392,7 @@ Game.prototype.enterStore = function (s) {
   this.state = 'inside'; p.inside = true; p.x = IX + 7.2; p.z = IZ + 9.9; p.dx = 0; p.dz = -1; this.wanted = this.wanted;
   this.inn = { s: s, susp: 0, take: 0, cash: 0, items: [], reg: null, alarm: false, lockT: 0, alarmT: -1, threat: false, watched: false, clerk: { x: IX + 7.2, z: IZ + 0.8, dx: 0, dz: 1, moving: false, t: 1, lx: 7.2, lz: 9.6, cower: false } };
   for (i = 0; i < n; i++) this.inn.items.push({ x: IX + ROOM.spots[order[i]][0], z: IZ + ROOM.spots[order[i]][1], taken: false });
-  for (i = 0; i < 3; i++) this.inn.items.push({ x: IX + 5.6 + i * 1.6, z: IZ + 2.9, taken: false, v: Math.round(s.T.val * 1.5 / 10) * 10 + 20 });   // cash stacked by the till
+  for (i = 0; i < 3; i++) this.inn.items.push({ x: IX + [5.4, 6.3, 9.0][i], z: IZ + 0.85, taken: false, v: Math.round(s.T.val * 1.5 / 10) * 10 + 20 });   // cash stacked by the till
   this.ev('enter', { s: s });
 };
 Game.prototype.roomHit = function (x, z) {
@@ -528,7 +528,14 @@ Game.prototype.update = function (dt) {
   if (this.drive) {
     var c = this.drive, ox = c.x, oz = c.z; c.v += ((ml > 0.12 ? 12 * ml : 0) - c.v) * Math.min(1, dt * 3.5);
     if (ml > 0.12) { var tx = c.hx + (mx / ml - c.hx) * Math.min(1, dt * 7), tz = c.hz + (mz / ml - c.hz) * Math.min(1, dt * 7), tl = Math.sqrt(tx * tx + tz * tz) || 1; c.hx = tx / tl; c.hz = tz / tl; }
-    var cnx = c.x + c.hx * c.v * dt, cnz = c.z + c.hz * c.v * dt; if (!this.carHit(cnx, c.z)) c.x = cnx; if (!this.carHit(c.x, cnz)) c.z = cnz; c.dx = c.hx; c.dz = c.hz;   // cars stay on the road if (Math.hypot(c.x - ox, c.z - oz) < c.v * dt * 0.4) c.v *= 0.6;
+    var cnx = c.x + c.hx * c.v * dt, cnz = c.z + c.hz * c.v * dt, cur = this.carBlocked(c.x, c.z, c.hx, c.hz), bump = false;
+    if (!this.carBlocked(cnx, c.z, c.hx, c.hz) || (cur && !this.carHit(cnx, c.z))) c.x = cnx; else bump = true;
+    if (!this.carBlocked(c.x, cnz, c.hx, c.hz) || (cur && !this.carHit(c.x, cnz))) c.z = cnz; else bump = true;
+    c.dx = c.hx; c.dz = c.hz; if (c.hpc === undefined) c.hpc = 25;
+    if (bump && c.v > 4.5 && this.time - (c.hitT || -9) > 0.45) {
+      c.hitT = this.time; c.hpc--; c.v *= 0.3; this.ev('crash', { x: c.x + c.hx, z: c.z + c.hz, left: c.hpc });
+      if (c.hpc <= 0) { var bx = c.x, bz = c.z; this.toggleCar(); c.ai = true; c.t = -60; c.sp = c.sp || 7; c.x = -99; c.z = -99; c.hpc = 25; this.hp -= 15; this.hurtT = 4; this.lastBite = 'blast'; this.ev('explode', { x: bx, z: bz, r: 3 }); this.ev('carboom'); return; }
+    } else if (bump) c.v *= 0.7;
     p.x = c.x; p.z = c.z; p.moving = false;
     if (c.v > 3) { var T = this.targets(); for (i = 0; i < T.length; i++) if (Math.abs(T[i].x - c.x) < 1 && Math.abs(T[i].z - c.z) < 1) { var te = T[i];
       if (te.kind === 'bear' || te.boss) { if (this.time - (te.carT || -9) < 1) continue; te.carT = this.time; te.carN = (te.carN || 0) + 1; c.v *= 0.6; if (te.carN < 3) { this.ev('thump', { x: te.x, z: te.z, left: 3 - te.carN }); continue; } }   // the big ones take three hits from a car
@@ -544,14 +551,14 @@ Game.prototype.update = function (dt) {
   if (!uf.on) { if (this.mode !== 'heist') { uf.next -= dt; if (uf.next <= 0) { var us, un = 0; do { us = this.roadSpot(); } while ((Math.abs(us.x - p.x) + Math.abs(us.z - p.z) < 18 || Math.abs(us.x - p.x) + Math.abs(us.z - p.z) > 34) && un++ < 60); uf.on = true; uf.x = us.x + 0.5; uf.z = us.z + 0.5; uf.t = 0; this.ev('ufo'); } } }
   else {
     uf.t += dt; var ux = p.x - uf.x, uz = p.z - uf.z, ud = Math.sqrt(ux * ux + uz * uz) || 1, usp = 4.3; uf.x += ux / ud * Math.min(ud, usp * dt); uf.z += uz / ud * Math.min(ud, usp * dt);
-    if (ud < 1.5 && !this.drive && !this.calm) { var best = null, bd = -1, cs = [[2, 2], [SIZE - 3, 2], [2, SIZE - 3], [SIZE - 3, SIZE - 3]]; cs.forEach(function (c) { var d2 = Math.abs(c[0] - p.x) + Math.abs(c[1] - p.z); if (d2 > bd) { bd = d2; best = c; } });
+    if (ud < 1.5 && !this.calm) { if (this.drive) { this.drive.v = 0; this.drive = null; } var best = null, bd = -1, cs = [[2, 2], [SIZE - 3, 2], [2, SIZE - 3], [SIZE - 3, SIZE - 3]]; cs.forEach(function (c) { var d2 = Math.abs(c[0] - p.x) + Math.abs(c[1] - p.z); if (d2 > bd) { bd = d2; best = c; } });
       uf.fx = p.x; uf.fz = p.z; uf.tx = best[0] + 0.5; uf.tz = best[1] + 0.5; uf.t = 0; this.state = 'ufo'; this.wanted = 0; for (i = 0; i < this.cops.length; i++) this.cops[i].chase = false; this.ev('abduct'); return; }
     if (this.calm) { uf.on = false; uf.next = 60 + this.rnd() * 50; this.ev('ufogone'); }
   }
   if (this.mode === 'robber') {
     var nd = this.needs, D = this.D.drain;
     nd.food -= 0.5 * D * dt; nd.med -= 0.27 * D * dt; nd.warm -= 0.34 * D * dt;
-    var rate = 2 + (this.wanted ? 25 * this.wanted : 0); this.cash += rate * dt; if (this.wanted) this.heat += 25 * this.wanted * dt;   // the counter never stops; being chased pays
+    if (this.wanted) this.heat += 25 * this.wanted * dt;   // the counter never stops; being chased pays
     ['food', 'med', 'warm'].forEach(function (k) { if (nd[k] <= 2 && this.cash >= 100) { this.cash -= 100; nd[k] += 14; this.ev('saved', { k: k }); } }, this);
     if (nd.food <= 0 || nd.med <= 0 || nd.warm <= 0) { this.state = 'over'; this.ev('over'); return; }
     if (ml > 0.3 && !this.drive) {
@@ -566,7 +573,7 @@ Game.prototype.update = function (dt) {
     }
     this.updateCops(dt);
   } else if (this.mode === 'cop') {
-    this.updateCops(dt); this.cash += 8 * dt;
+    this.updateCops(dt);
     var rb = this.robber;
     if (!rb) { this.robberT -= dt; if (this.robberT <= 0) { var far = w.stores.filter(function (q) { return Math.abs(q.door.x - p.x) + Math.abs(q.door.z - p.z) > 30; }); s = far[Math.floor(this.rnd() * far.length)] || w.stores[0]; this.robber = { kind: 'robber', hp: 1, x: s.door.x, z: s.door.z, dx: 0, dz: 1, moving: false, phase: 'in', t: 12, s: s, df: new Int16Array(SIZE * SIZE) }; this.ev('alert', { s: s }); } }
     else {
@@ -644,7 +651,7 @@ Game.prototype.explode = function (x, z, r, power) {
 };
 Game.prototype.nextWeapon = function () { var order = [3, 0, 2, 1], i = order.indexOf(this.weapon); for (var k = 1; k <= 4; k++) { var w = order[(i + k) % 4]; if (this.owned[w]) { this.weapon = w; break; } } this.ev('swap'); };
 Game.prototype.fire = function () {
-  var p = this.p; if (this.state === 'inside') { this.threaten(); return; } if (this.state !== 'play' || p.inside || this.fireCd > 0 || this.drive || this.calm) return;
+  var p = this.p; if (this.state === 'inside') { this.threaten(); return; } if (this.state !== 'play' || p.inside || this.fireCd > 0 || this.calm) return;
   var W = this.weapon, av = this.manual ? this.aimV : null, t = av ? null : this.aim(W === 0 ? 20 : 12), ox = av ? av.x : p.x, oz = av ? av.z : p.z, dx = av ? av.dx : (t ? t.x - p.x : p.dx), dz = av ? av.dz : (t ? t.z - p.z : p.dz), d = Math.sqrt(dx * dx + dz * dz) || 1; dx /= d; dz /= d;
   if (W === 3) {         // the broom: sweeps the street, and shoves whatever is in front of you
     this.fireCd = 0.38; p.dx = dx; p.dz = dz; var bt = this.targets(), bh = null, bdist = 1.9;
@@ -737,6 +744,7 @@ Game.prototype.toggleCar = function () {
   if (this.mode === 'robber' && !this.wanted) for (i = 0; i < this.cops.length; i++) if (Math.abs(this.cops[i].x - p.x) + Math.abs(this.cops[i].z - p.z) < 12) { this.startChase(1); break; }
 };
 Game.prototype.carHit = function (x, z) { var w = this.w, r = 0.42, a, b; for (a = -1; a <= 1; a += 2) for (b = -1; b <= 1; b += 2) { var tx = Math.floor(x + a * r), tz = Math.floor(z + b * r); if (tz >= SIZE || !w.walk(tx, tz) || !w.isRoad(tx, tz)) return true; } return false; };
+Game.prototype.carBlocked = function (x, z, hx, hz) { return this.carHit(x, z) || this.carHit(x + hx * 0.85, z + hz * 0.85) || this.carHit(x - hx * 0.85, z - hz * 0.85); };
 Game.prototype.canMug = function () { var e = this.aimed; return this.state === 'play' && !!e && e.dead <= 0 && !(e.flee > 0) && e.held > 0.25; };
 Game.prototype.mug = function () {        // "give me your money"
   if (!this.canMug()) return false; var e = this.aimed, p = this.p, take = 20 + Math.floor(this.rnd() * 13) * 10; this.cash += take; e.held = 0; e.flee = 6; this.ev('mug', { v: take });
@@ -1130,10 +1138,8 @@ Game.prototype.mug = function () {        // "give me your money"
       R.items = []; for (q = 0; q < 11; q++) { var im = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.36, 0.36), new THREE.MeshLambertMaterial({ color: 0xffffff })); im.castShadow = true; world.add(im); R.items.push(im); }
       var billTex = pixelTex(128, 56, function (x) { x.fillStyle = '#cfe8c4'; x.fillRect(0, 0, 128, 56); x.strokeStyle = '#2f7d4f'; x.lineWidth = 5; x.strokeRect(4, 4, 120, 48); x.lineWidth = 1.5; x.strokeRect(10, 10, 108, 36); x.fillStyle = '#2f7d4f'; x.beginPath(); x.ellipse(64, 28, 15, 17, 0, 0, 7); x.fill(); x.fillStyle = '#cfe8c4'; x.font = 'bold 24px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('$', 64, 29); x.fillStyle = '#2f7d4f'; x.font = 'bold 12px serif'; x.fillText('100', 24, 19); x.fillText('100', 104, 38); });
       var billTop = new THREE.MeshLambertMaterial({ map: billTex }), billSide = new THREE.MeshLambertMaterial({ color: 0x9fcf96 }), billMats = billTop;
-      R.bills = [0, 1, 2].map(function (k) { var g = new THREE.Group(), cr = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.6), new THREE.MeshLambertMaterial({ color: 0x8a5a2b })); cr.position.y = -0.24; g.add(cr);
-        for (var b3 = 0; b3 < 7; b3++) { var bl = new THREE.Mesh(new THREE.BoxGeometry(0.56, b3 < 4 ? 0.035 : 0.012, 0.25), billMats); bl.position.set(b3 < 4 ? 0 : (b3 - 5) * 0.13, b3 < 4 ? b3 * 0.036 : 0.15 + (b3 - 4) * 0.012, b3 < 4 ? 0 : (b3 % 2 ? 0.1 : -0.08)); bl.rotation.y = b3 < 4 ? (b3 % 2 ? 0.08 : -0.06) : (b3 - 5) * 0.7 + k; g.add(bl); }
-        g.visible = false; world.add(g); return g; });
-      R.reg = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.4), new THREE.MeshLambertMaterial({ color: 0x2fbf63 })); world.add(R.reg);
+      R.items.forEach(function (im2) { im2.geometry = new THREE.BoxGeometry(0.54, 0.1, 0.24); im2.material = new THREE.MeshLambertMaterial({ map: billTex, emissive: 0x224422 }); });
+      R.reg = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.26, 0.3), new THREE.MeshLambertMaterial({ map: billTex, emissive: 0x224422 })); world.add(R.reg);
       R.shut = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2, 0.14), new THREE.MeshLambertMaterial({ color: 0x8b9099 })); R.shut.position.set(IX + 7.2, 1, IZ + 11.3); world.add(R.shut);
       R.clerk = makeChar({ shirt: 0xf4f4f0, pants: 0x2d4a6e, hair: 0x6b3a1c, badge: true }); world.add(R.clerk);
       var cg = new THREE.CircleGeometry(11, 12, Math.PI / 2 - 0.6, 1.2); cg.rotateX(-Math.PI / 2); R.ccone = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: 0x35e8ff, transparent: true, opacity: 0.4, depthWrite: false })); R.ccone.renderOrder = 3; world.add(R.ccone);
@@ -1200,7 +1206,7 @@ Game.prototype.mug = function () {        // "give me your money"
   $('snd').addEventListener('click', function () { soundOn = !soundOn; this.textContent = 'Sound: ' + (soundOn ? 'On' : 'Off'); });
   $('hideui').addEventListener('click', function () { var h = $('hud').style.display === 'none'; ['hud', 'map', 'goal', 'money', 'rate'].forEach(function (id) { $(id).style.display = h ? '' : 'none'; }); this.textContent = h ? 'Hide' : 'Show'; });
   Array.prototype.forEach.call($('diff').children, function (b) { b.addEventListener('click', function () { diffPick = b.dataset.d; Array.prototype.forEach.call($('diff').children, function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); }); });
-  function startGame() { initAudio(); build(Math.floor(Math.random() * 1e9), diffPick); shownCash = 0; lastCash = 0; started = true; $('title').classList.remove('on'); $('dialog').classList.remove('on'); toast(diffPick === 'easy' ? 'Rob a store. Bring it home.' : 'Rob a store. Gold beams mark the weapon crates.', 3.2); jingle([392, 523, 659], 0.09); }
+  function startGame() { initAudio(); build(Math.floor(Math.random() * 1e9), diffPick); shownCash = 0; lastCash = 0; started = true; $('title').classList.remove('on'); $('dialog').classList.remove('on'); toast(diffPick === 'easy' ? 'Rob a store. Bring it home.' : 'Rob a store. Follow the floating labels to weapon crates.', 3.2); jingle([392, 523, 659], 0.09); }
   $('start').addEventListener('click', startGame);
 
   // ---------- overlays
@@ -1248,6 +1254,8 @@ Game.prototype.mug = function () {        // "give me your money"
     else if (t === 'ufo') { toast('UFO! IT ONLY GIVES UP AT THE BEACH', 3, '#8cff6b'); tone(240, 1.2, 0.2, 'sine', 720); }
     else if (t === 'abduct') { toast('BEAMED UP', 2, '#8cff6b'); tone(200, 1.6, 0.25, 'sine', 1200); } else if (t === 'dropoff') { toast('Dropped across town', 2, '#8cff6b'); tone(900, 0.5, 0.2, 'sine', 200); } else if (t === 'ufogone') toast('The UFO lost interest', 1.6);
     else if (t === 'handsup') tone(700, 0.08, 0.1, 'triangle'); else if (t === 'flee') tone(500, 0.2, 0.12, 'triangle', 900);
+    else if (t === 'crash') { debris(ev.x, 0.6, ev.z, 10, [0x8d94a0, 0xffe14f, 0x2a2a3a], 5); shake = Math.max(shake, 0.3); tone(110, 0.18, 0.3, 'sawtooth', 50); if (ev.left <= 5 || ev.left % 5 === 0) toast('CAR DAMAGE: ' + ev.left + ' HITS LEFT', 1.2, ev.left <= 5 ? '#ff4d4d' : '#ffd23f'); }
+    else if (t === 'carboom') toast('THE CAR BLEW UP', 2, '#ff4d4d');
     else if (t === 'thump') { debris(ev.x, 1, ev.z, 14, [0x8d94a0, 0xffe14f], 6); shake = Math.max(shake, 0.4); toast('THUMP! ' + ev.left + ' MORE', 1, '#ff8a2b'); tone(90, 0.25, 0.4, 'square', 50); }
     else if (t === 'sweep') { var sn = 0; R.pools.forEach(function (pm) { if (pm.visible && Math.abs(pm.position.x - ev.x) < 2.4 && Math.abs(pm.position.z - ev.z) < 2.4) { pm.visible = false; sn++; } }); for (var si = 0; si < DN; si++) if (dLife[si] > 0.02 && Math.abs(dPos[si * 3] - ev.x) < 2.4 && Math.abs(dPos[si * 3 + 2] - ev.z) < 2.4) { dLife[si] = 0.02; sn++; } if (sn) G.cash += sn * 3; debris(ev.x, 0.2, ev.z, 5, [0xd9c9a8, 0xb9b6ae], 3); tone(1800, 0.14, 0.06, 'sawtooth', 600); }
     else if (t === 'ufofly') { toast('YOU HAVE THE SAUCER. FLY OVER THINGS TO TAKE THEM.', 3.5, '#8cff6b'); tone(240, 1.2, 0.2, 'sine', 720); }
@@ -1261,7 +1269,7 @@ Game.prototype.mug = function () {        // "give me your money"
     else if (t === 'whoosh') tone(200, 0.4, 0.2, 'sawtooth', 900); else if (t === 'twang') tone(700, 0.18, 0.18, 'triangle', 240); else if (t === 'swap') { tone(520, 0.05, 0.12, 'square'); toast(WEAPONS[G.weapon], 1, '#ffd23f'); }
     else if (t === 'hurt') { $('flash').style.opacity = 0.28; hurtFlash = 0.15; }
     else if (t === 'wasted') { tone(300, 0.9, 0.25, 'sawtooth', 50); dialog(ev.by === 'bear' ? 'MAULED BY GEMMA' : (ev.by === 'blast' ? 'BLEW YOURSELF UP' : 'EATEN BY ZOMBIES'), 'You wake up on your own doorstep with an empty bag and a lighter wallet. The family is not impressed.', 'Hospital bill: $200.', [['Get back out there', function () { G.choose('respawn'); }]]); }
-    else if (t === 'enter') { toast(ev.s.name, 1.6, '#ffd23f'); tone(660, 0.08, 0.15); tone(880, 0.1, 0.15, 'square', null, 0.08); for (var ii = 0; ii < R.items.length; ii++) { var iv = G.inn && G.inn.items[ii] && G.inn.items[ii].v; R.items[ii].material.color.setHex(iv ? 0x2fbf63 : (ev.s.T.kind === 'cash' ? 0xffd23f : ev.s.T.color)); R.items[ii].scale.set(1, iv ? 0.5 : 1, iv ? 0.6 : 1); } camPos.set(IX + 4.5, 14, IZ + 12); camLook.set(IX + 4.5, 0, IZ + 3); }
+    else if (t === 'enter') { toast(ev.s.name, 1.6, '#ffd23f'); tone(660, 0.08, 0.15); tone(880, 0.1, 0.15, 'square', null, 0.08); for (var ii = 0; ii < R.items.length; ii++) { var iv = G.inn && G.inn.items[ii] && G.inn.items[ii].v; R.items[ii].scale.set(iv ? 1.25 : 1, iv ? 2.4 : 1, iv ? 1.25 : 1); } camPos.set(IX + 4.5, 14, IZ + 12); camLook.set(IX + 4.5, 0, IZ + 3); }
     else if (t === 'grab') tone(500 + ev.n * 40, 0.06, 0.14, 'square');
     else if (t === 'full') toast('Bag is full', 1);
     else if (t === 'empty') toast('Shelf is bare. Get out', 1);
@@ -1348,8 +1356,7 @@ Game.prototype.mug = function () {        // "give me your money"
     for (i = 0; i < G.cars.length; i++) { var cs = G.cars[i], cm = R.cars[i]; cm.visible = !cs.off && !(vr && G.drive === cs); cm.position.set(cs.x, 0, cs.z); var cta = Math.atan2(cs.dx, cs.dz), cda = cta - cm.rotation.y; while (cda > Math.PI) cda -= 6.2832; while (cda < -Math.PI) cda += 6.2832; cm.rotation.y += cda * Math.min(1, dt * 10); }
     var inn = G.inn;
     R.clerk.visible = R.ccone.visible = R.shut.visible = !!inn; R.reg.visible = !!(inn && inn.reg && !inn.reg.taken);
-    if (!inn) for (i = 0; i < 3; i++) R.bills[i].visible = false;
-    for (i = 0; i < R.items.length; i++) { var itm = inn && inn.items[i]; R.items[i].visible = !!(itm && !itm.taken && !itm.v); if (itm && itm.v) { var bk = R.bills[i - (inn.items.length - 3)]; if (bk) { bk.visible = !itm.taken; bk.position.set(itm.x, 0.45, itm.z + 0.35); } } else if (itm) { R.items[i].position.set(itm.x, (vr ? 1.05 : 0.75) + Math.sin(clock * 4 + i) * 0.06, itm.z); R.items[i].rotation.y = clock * 2 + i; } }
+    for (i = 0; i < R.items.length; i++) { var itm = inn && inn.items[i]; R.items[i].visible = !!(itm && !itm.taken); if (itm) { R.items[i].position.set(itm.x, (vr ? 1.05 : 0.75) + Math.sin(clock * 4 + i) * 0.06, itm.z); R.items[i].rotation.y = clock * 2 + i; } }
     if (inn) {
       var ck = inn.clerk; animChar(R.clerk, ck, dt, 0); R.clerk.armL.rotation.x = R.clerk.armR.rotation.x = ck.cower ? Math.PI : 0;
       R.ccone.visible = !ck.cower; R.ccone.position.set(ck.x, 0.12, ck.z); R.ccone.rotation.y = Math.atan2(ck.dx, ck.dz) + Math.PI; R.ccone.material.color.setHex(inn.watched ? 0xff3030 : 0x35e8ff);
@@ -1380,7 +1387,7 @@ Game.prototype.mug = function () {        // "give me your money"
     else R.rocket.position.set(L.rocket.x, 0.16, L.rocket.z);
     // camera: zoomed-out third person, pulls back in a chase, pushes in at a shop door
     if (vr) { R.player.visible = false; R.player.traverse(function (o) { o.visible = o === R.player ? false : o.visible; }); }
-    R.beacons.visible = vr; if (vr) { for (i = 0; i < w.stores.length; i++) R.storeBeacon[i].visible = w.stores[i].cool <= 0; vrCamera(dt, G.state === 'launch'); } else {
+    R.beacons.visible = false; if (vr) { vrCamera(dt, G.state === 'launch'); } else {
     var hgt = portrait ? 21 : 15.5, backz = portrait ? 8.5 : 7.5, zoom = G.state === 'inside' ? 0.6 : (G.drive ? 1.35 : (G.wanted || G.heistAlarm ? 1.22 : 1));
     if (G.state === 'launch') { want.set(L.rocket.x - 14, 14 + R.rocket.position.y * 0.5, L.rocket.z + 26); camLook.lerp(tmpV.set(L.rocket.x, R.rocket.position.y + 5, L.rocket.z), 1 - Math.exp(-3 * dt)); }
     else { want.set(p.x, hgt * zoom + (p.fly || 0) * 0.8, p.z + backz * zoom + (p.fly ? 6 : 0)); camLook.lerp(tmpV.set(p.x, 0.6 + (p.fly || 0) * 0.5, p.z - 0.5), 1 - Math.exp(-9 * dt)); }
@@ -1396,7 +1403,7 @@ Game.prototype.mug = function () {        // "give me your money"
     if (G.cash - lastCash >= 10) { popup(G.cash - lastCash); bumpT = 0.18; tone(1320, 0.07, 0.1, 'square'); tone(1760, 0.1, 0.1, 'square', null, 0.06); } lastCash = G.cash;
     shownCash += (G.cash - shownCash) * Math.min(1, dt * 6); if (Math.abs(G.cash - shownCash) < 1) shownCash = G.cash; var ctext = fmt(shownCash); if (cashEl.textContent !== ctext) cashEl.textContent = ctext;
     if (bumpT > 0) { bumpT -= dt; cashEl.classList.toggle('bump', bumpT > 0); }
-    var rtext = G.state !== 'play' ? '' : (G.mode === 'robber' ? (G.wanted ? 'HEAT x' + G.wanted + '  +$' + (2 + 25 * G.wanted) + '/s' : '+$2/s') : (G.mode === 'cop' ? 'SALARY +$8/s' : '')); if (rateEl.textContent !== rtext) rateEl.textContent = rtext;
+    var rtext = G.state !== 'play' ? '' : (G.mode === 'robber' ? (G.wanted ? 'HEAT x' + G.wanted : '') : ''); if (rateEl.textContent !== rtext) rateEl.textContent = rtext;
     music(dt);
     $('wanted').textContent = G.wanted ? 'WANTED ' + '★'.repeat(G.wanted) : (isCop ? 'ON DUTY' : (G.mode === 'heist' ? (G.heistAlarm ? 'ALARM' : 'HEIST') : (p.hidden ? 'HIDDEN' : '')));
     var goal = 'Rob a store';
@@ -1496,6 +1503,7 @@ Game.prototype.mug = function () {        // "give me your money"
   vbox(cockpit, 1.56, 0.24, 0.36, 0x3a3f55, 0, 0.9, 0.74); vbox(cockpit, 0.34, 0.12, 0.04, 0x35e8ff, -0.36, 0.98, 0.56, true); vbox(cockpit, 0.14, 0.12, 0.04, 0xffd23f, 0.0, 0.98, 0.56, true); vbox(cockpit, 0.3, 0.16, 0.04, 0x1a1a22, 0.42, 0.96, 0.56);   // dash, gauges, radio
   cockWheel = new THREE.Group(); cockWheel.position.set(-0.36, 1.0, 0.44); cockWheel.rotation.x = -0.5; cockpit.add(cockWheel);
   (function () { var rim = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.028, 8, 22), new THREE.MeshLambertMaterial({ color: 0x14141c })); cockWheel.add(rim); var sp1 = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.04, 0.03), new THREE.MeshLambertMaterial({ color: 0x2a2a3a })); cockWheel.add(sp1); var sp2 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.18, 0.03), new THREE.MeshLambertMaterial({ color: 0x2a2a3a })); sp2.position.y = -0.09; cockWheel.add(sp2); })();
+  vbox(cockWheel, 0.07, 0.09, 0.08, 0xe8b88a, 0.18, 0.03, -0.02); vbox(cockWheel, 0.065, 0.065, 0.3, 0xff4fa3, 0.2, -0.06, -0.17).rotation.x = -0.5;      // your left hand stays on the wheel
   [-0.76, 0.76].forEach(function (x) { vbox(cockpit, 0.07, 0.9, 0.07, 0x3a3f55, x, 1.42, 0.92).rotation.x = 0.35; vbox(cockpit, 0.08, 0.5, 1.7, 0x5a5f78, x, 0.66, 0.0); vbox(cockpit, 0.07, 0.7, 0.07, 0x3a3f55, x, 1.5, -0.7); vbox(cockpit, 0.26, 0.14, 0.05, 0x1a1a22, x * 1.22, 1.05, 0.7); });   // pillars, doors, mirrors
   vbox(cockpit, 1.56, 0.06, 1.5, 0x3a3f55, 0, 1.88, 0.0); vbox(cockpit, 1.56, 0.06, 0.08, 0x3a3f55, 0, 1.8, 0.78); vbox(cockpit, 0.2, 0.07, 0.03, 0x1a1a22, 0, 1.72, 0.7);                    // roof, header, rear-view mirror
   vbox(cockpit, 1.56, 0.06, 1.8, 0x14141c, 0, 0.2, 0.05); vbox(cockpit, 1.56, 0.7, 0.1, 0x5a5f78, 0, 0.78, -0.82); vbox(cockpit, 0.5, 0.7, 0.14, 0x2a2a3a, -0.36, 0.72, -0.5); vbox(cockpit, 0.5, 0.7, 0.14, 0x2a2a3a, 0.36, 0.72, -0.5);   // floor, back, seats
@@ -1511,7 +1519,7 @@ Game.prototype.mug = function () {        // "give me your money"
     var ss = null; bd = 1e9; for (i = 0; i < w.stores.length; i++) { var st = w.stores[i]; if (st.cool > 0 || st.dead) continue; var d3 = Math.abs(st.door.x - p.x) + Math.abs(st.door.z - p.z); if (d3 < bd) { bd = d3; ss = st; } } put('shop', ss ? ss.door.x : 0, ss ? ss.door.z : 0, !!ss && G.mode !== 'cop');
     put('rocket', w.launch.rocket.x, w.launch.rocket.z, G.mode === 'heist'); put('beach', p.x, SIZE + 8, !G.calm && p.z > SIZE - 45);
   }
-  var cockWas = false, mapHold = false, carHint = false, hackBtn = new THREE.Group(), hackCap, hackOn = false, hackDown = false, pod = new THREE.Group();
+  var eul = new THREE.Euler(), cockWas = false, mapHold = false, carHint = false, hackBtn = new THREE.Group(), hackCap, hackOn = false, hackDown = false, pod = new THREE.Group();
   vbox(hackBtn, 0.3, 0.9, 0.3, 0x3a3f55, 0, 0.45, 0); vbox(hackBtn, 0.36, 0.04, 0.36, 0xffd23f, 0, 0.91, 0); hackCap = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.07, 14), new THREE.MeshBasicMaterial({ color: 0xff2030 })); hackCap.position.y = 0.965; hackBtn.add(hackCap); hackBtn.visible = false; scene.add(hackBtn);
   vbox(pod, 1.7, 0.06, 1.7, 0x2a2a3a, 0, 0.02, 0); vbox(pod, 1.7, 0.06, 1.7, 0xf4f4f0, 0, 2.3, 0); vbox(pod, 1.7, 2.3, 0.06, 0xf4f4f0, 0, 1.15, 0.85);                                   // floor, ceiling, back wall
   [-0.85, 0.85].forEach(function (x) { vbox(pod, 0.06, 0.9, 1.7, 0xf4f4f0, x, 0.45, 0); vbox(pod, 0.06, 0.5, 1.7, 0xf4f4f0, x, 2.05, 0); vbox(pod, 0.06, 0.9, 0.3, 0xe5463a, x, 1.35, 0.7); vbox(pod, 0.06, 0.9, 0.3, 0xe5463a, x, 1.35, -0.7); });   // side walls with long windows
@@ -1522,7 +1530,7 @@ Game.prototype.mug = function () {        // "give me your money"
   function buzz(pad, strength, ms) { try { if (pad && pad.hapticActuators && pad.hapticActuators[0]) pad.hapticActuators[0].pulse(strength, ms); } catch (e) {} }
   function vrFx(t) {      // called for game events while in VR
     if (t === 'shot') { vrKick = 0.03; flashT = 0.06; buzz(padR, 0.7, 50); } else if (t === 'whoosh') { vrKick = 0.09; flashT = 0.14; buzz(padR, 1, 180); } else if (t === 'twang') { vrKick = 0.04; buzz(padR, 0.5, 70); }
-    else if (t === 'sweep') { vrKick = 0.05; buzz(padR, 0.3, 60); } else if (t === 'explode' || t === 'collapse') { buzz(padL, 1, 220); buzz(padR, 1, 220); } else if (t === 'hurt') { buzz(padL, 0.6, 60); buzz(padR, 0.6, 60); } else if (t === 'grab') buzz(padR, 0.4, 40); else if (t === 'splat' || t === 'busted' || t === 'wasted') { buzz(padL, 1, 150); buzz(padR, 1, 150); }
+    else if (t === 'sweep') { vrKick = 0.05; buzz(padR, 0.3, 60); } else if (t === 'crash') { buzz(padL, 1, 120); buzz(padR, 0.6, 120); } else if (t === 'explode' || t === 'collapse') { buzz(padL, 1, 220); buzz(padR, 1, 220); } else if (t === 'hurt') { buzz(padL, 0.6, 60); buzz(padR, 0.6, 60); } else if (t === 'grab') buzz(padR, 0.4, 40); else if (t === 'splat' || t === 'busted' || t === 'wasted') { buzz(padL, 1, 150); buzz(padR, 1, 150); }
   }
   function setVR(on) {
     vr = on; document.body.classList.toggle('invr', on); sun.castShadow = !on; camera.near = on ? 0.08 : 0.5; scene.fog.far = on ? 120 : 170; panel.visible = on; vig3.visible = on; if (!on) { cockpit.visible = tpRing.visible = tpLine.visible = vtoast.visible = reticle.visible = laser.visible = cursor.visible = curLine.visible = hud3.visible = false; }
@@ -1572,14 +1580,14 @@ Game.prototype.mug = function () {        // "give me your money"
       if (trigR) G.fire(); if (trigL && G.p.dashCd <= 0) { G.p.dashT = 0.5; G.p.dashCd = 2.6; }
       for (var hnd = 0; hnd < 2; hnd++) {       // reach out and grip to take things
         hands[hnd].getWorldPosition(tmpV); var bestI = -2, bd = 0.42, inn2 = G.inn;
-        for (i = 0; i < inn2.items.length; i++) { var it2 = inn2.items[i]; if (it2.taken) continue; var d3 = it2.v ? Math.hypot(it2.x - tmpV.x, 0.6 - tmpV.y, it2.z + 0.35 - tmpV.z) * 0.8 : Math.hypot(it2.x - tmpV.x, 1.05 - tmpV.y, it2.z - tmpV.z); if (d3 < bd) { bd = d3; bestI = i; } }
+        for (i = 0; i < inn2.items.length; i++) { var it2 = inn2.items[i]; if (it2.taken) continue; var d3 = Math.hypot(it2.x - tmpV.x, 1.05 - tmpV.y, it2.z - tmpV.z); if (d3 < bd) { bd = d3; bestI = i; } }
         if (inn2.reg && !inn2.reg.taken && Math.hypot(inn2.reg.x - tmpV.x, 0.9 - tmpV.y, inn2.reg.z - tmpV.z) < bd) bestI = -1;
         if (bestI > -2) { if ((hnd === vrRi ? gripR : gripL) || (hnd === vrLi && gripL) || (hnd === vrRi && gripR)) { G.takeItem(bestI); buzz(hnd === vrRi ? padR : padL, 0.6, 50); } }
       }
       return;
     }
     if (G.state !== 'play') return;
-    if (heldR && !G.drive) { if (G.aimV) { G.p.dx = G.aimV.dx; G.p.dz = G.aimV.dz; } G.fire(); }
+    if (heldR) { if (G.aimV) { G.p.dx = G.aimV.dx; G.p.dz = G.aimV.dz; } G.fire(); }
     if (trigL) { if (!G.mug()) G.dash(); } if (aB) G.toggleCar(); if (bB) G.nextWeapon();
   }
   function vrCamera(dt, lifting) {
@@ -1600,7 +1608,7 @@ Game.prototype.mug = function () {        // "give me your money"
     var sp = Math.hypot(p.x - lastPX, p.z - lastPZ) / Math.max(dt, 0.001); lastPX = p.x; lastPZ = p.z; vrSpeed += (Math.min(1, sp / 6) - vrSpeed) * Math.min(1, dt * 6);
     if (tpFade > 0) tpFade -= dt; vig3.material.opacity = Math.max(tpFade > 0 ? 1 : 0, vignOn ? Math.min(0.95, vrSpeed * 1.1) : 0);
     // aim: a ray out of the gun barrel, a crosshair where it lands, and the shot follows it
-    var aiming = started && !curDialog && G.state === 'play' && !G.drive; G.aimV = null;
+    var aiming = started && !curDialog && G.state === 'play'; G.aimV = null;
     if (aiming) {
       // the bazooka can be steadied with the left hand: it points from your right hand to your left
       twoH = false; hands[vrRi].getWorldDirection(gdir); gdir.negate();
@@ -1625,11 +1633,11 @@ Game.prototype.mug = function () {        // "give me your money"
     }
     hud3.visible = hudOn && started && !curDialog; hudT -= dt; if (hud3.visible && hudT <= 0) { hudT = 0.2; drawHud(); }
     // the gun in your right hand
-    var calmNow = !!G.calm && G.state === 'play'; for (var gi = 0; gi < 4; gi++) guns[gi].visible = gi === G.weapon && !G.drive && !calmNow && G.state !== 'pilot'; mai.visible = calmNow && !G.drive; var GRIP0 = calmNow ? [0, 0, -0.03] : GRIP[G.weapon]; handR.position.set(GRIP0[0], GRIP0[1], GRIP0[2]); handR.visible = handL.visible = true; if (handR.parent !== gunRoot) gunRoot.add(handR);   // the fist moves with the weapon, so it always looks held
+    var calmNow = !!G.calm && G.state === 'play'; for (var gi = 0; gi < 4; gi++) guns[gi].visible = gi === G.weapon && !calmNow && G.state !== 'pilot'; mai.visible = calmNow && !G.drive; var GRIP0 = calmNow ? [0, 0, -0.03] : GRIP[G.weapon]; handR.position.set(GRIP0[0], GRIP0[1], GRIP0[2]); handR.visible = true; handL.visible = !G.drive; if (handR.parent !== gunRoot) gunRoot.add(handR);   // the fist moves with the weapon, so it always looks held
     vrKick *= Math.max(0, 1 - dt * 14); gunRoot.position.z = vrKick; if (!twoH) gunRoot.rotation.set(vrKick * 5, 0, 0); muzzle.position.set(0, G.weapon === 1 ? 0.06 : 0.012, gunTip[G.weapon]); if (flashT > 0) flashT -= dt; muzzle.visible = flashT > 0; muzzle.scale.setScalar(1 + Math.random());
 
     // the driver's seat
-    cockpit.visible = !!G.drive; if (!G.drive) cockWas = false; if (G.drive) { camera.getWorldPosition(headP); var want2 = Math.atan2(G.drive.hx, G.drive.hz), cd = want2 - cockpit.rotation.y; while (cd > Math.PI) cd -= 6.2832; while (cd < -Math.PI) cd += 6.2832; cockpit.rotation.y += cd; if (cockWas) vrYaw += cd; cockWas = true; var cs2 = Math.sin(cockpit.rotation.y), cc2 = Math.cos(cockpit.rotation.y); cockpit.position.set(p.x - (-0.36 * cc2), headP.y - 1.3, p.z - (0.36 * cs2));   /* you sit on the left, behind the wheel */ cockWheel.rotation.z += (-cd * 30 - cockWheel.rotation.z) * Math.min(1, dt * 6); cockHood.material.color.setHex([0xff4fa3, 0x35e8ff, 0xffe14f, 0xf4f4f0, 0x7b4fff, 0xff8a2b][G.drive.look % 6]); }
+    cockpit.visible = !!G.drive; if (!G.drive) cockWas = false; if (G.drive) { camera.getWorldPosition(headP); var want2 = Math.atan2(G.drive.hx, G.drive.hz), cd = want2 - cockpit.rotation.y; while (cd > Math.PI) cd -= 6.2832; while (cd < -Math.PI) cd += 6.2832; cockpit.rotation.y += cd; if (cockWas) vrYaw += cd; else { eul.setFromQuaternion(camera.quaternion, 'YXZ'); vrYaw = cockpit.rotation.y + Math.PI - eul.y; } cockWas = true; var cs2 = Math.sin(cockpit.rotation.y), cc2 = Math.cos(cockpit.rotation.y); cockpit.position.set(p.x - (-0.36 * cc2), headP.y - 1.3, p.z - (0.36 * cs2));   /* you sit on the left, behind the wheel */ cockWheel.rotation.z += (-cd * 30 - cockWheel.rotation.z) * Math.min(1, dt * 6); cockHood.material.color.setHex([0xff4fa3, 0x35e8ff, 0xffe14f, 0xf4f4f0, 0x7b4fff, 0xff8a2b][G.drive.look % 6]); }
     // short messages float in view for a moment
     vtoast.visible = vrToastT > 0 && started && !curDialog; if (vtoast.visible && tShown !== vrToast) { tShown = vrToast; tctx.clearRect(0, 0, 512, 96); tctx.fillStyle = 'rgba(18,10,36,0.8)'; tctx.fillRect(0, 0, 512, 96); tctx.fillStyle = '#fff'; tctx.font = 'bold ' + (vrToast.length > 26 ? 26 : 36) + 'px sans-serif'; tctx.textAlign = 'center'; tctx.textBaseline = 'middle'; tctx.fillText(vrToast, 256, 50); ttex.needsUpdate = true; }
     // info panel floats low in front of you and follows when you turn away from it
