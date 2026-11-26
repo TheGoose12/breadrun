@@ -50,6 +50,7 @@
   #map { position: fixed; top: 74px; right: 10px; width: 92px; height: 92px; padding: 3px; cursor: pointer; }
   #map.big { top: 50%; left: 50%; right: auto; width: min(92vw, 78vh); height: min(92vw, 78vh); transform: translate(-50%, -50%); z-index: 5; box-shadow: 0 0 0 200vmax rgba(8, 4, 20, 0.6); }
   #map canvas { width: 100%; height: 100%; display: block; border-radius: 6px; }
+  #waveb { position: fixed; top: 218px; right: 10px; width: 150px; padding: 6px 9px; font-size: 12px; text-align: right; pointer-events: none; border-right: 4px solid #ff5a5a; display: grid; gap: 3px; } #waveb b { color: #ff7a7a; font-size: 14px; letter-spacing: 1px; } #waveb .bar i { background: #ff5a5a; width: 0; } #waveb span { color: var(--muted); }
   #goal { position: fixed; top: 174px; right: 10px; max-width: 46%; padding: 6px 9px; font-size: 12px; font-weight: 600; text-align: right; pointer-events: none; border-right: 4px solid var(--accent); }
   #toast { position: fixed; left: 0; right: 0; top: 30%; text-align: center; font-family: var(--font-money); font-size: clamp(20px, 6vw, 40px); -webkit-text-stroke: 1.5px #14041f; paint-order: stroke fill; text-shadow: 3px 3px 0 #14041f; transform: rotate(-2deg); pointer-events: none; opacity: 0; transition: opacity 0.2s; padding: 0 14px; }
   #toast.on { opacity: 1; }
@@ -100,11 +101,11 @@
   #vrbtn, #vigbtn { display: none; } #vrbtn { background: var(--hot) !important; color: #fff !important; }
   #fail { position: fixed; inset: 0; display: none; place-items: center; padding: 24px; text-align: center; color: #14161f; }
   @media (orientation: landscape) and (max-height: 560px) {
-    #hud { width: 150px; padding: 6px 8px; gap: 3px; font-size: 11px; } #map { width: 78px; height: 78px; top: 58px; } #goal { top: 144px; } #cashbig { font-size: 30px; } #rate { top: 42px; }
+    #hud { width: 150px; padding: 6px 8px; gap: 3px; font-size: 11px; } #map { width: 78px; height: 78px; top: 58px; } #goal { top: 144px; } #waveb { top: 180px; } #cashbig { font-size: 30px; } #rate { top: 42px; }
     #mini { top: auto; bottom: 8px; left: 50%; transform: translateX(-50%); } #stick { bottom: 14px; } #dash { bottom: 16px; width: 76px; height: 76px; } #fire { bottom: 16px; right: 112px; width: 76px; height: 76px; } #wpn { bottom: 100px; right: 16px; } #carb { bottom: 100px; right: 140px; } #jumpb { bottom: 16px; right: 200px; width: 66px; height: 66px; } #sus { top: 6px; left: 50%; transform: translateX(-50%); width: 240px; }
     .card { padding: 12px; gap: 8px; width: min(520px, 100%); } #grab { padding: 12px 8px; } .card p { font-size: 13px; }
   }
-  @media (min-width: 900px) { #hud { width: 220px; font-size: 14px; } #map { width: 150px; height: 150px; top: 90px; } #goal { top: 252px; font-size: 14px; } #mini { top: 176px; } #rate { top: 66px; font-size: 14px; } #sus { top: 216px; width: 220px; } }
+  @media (min-width: 900px) { #hud { width: 220px; font-size: 14px; } #map { width: 150px; height: 150px; top: 90px; } #goal { top: 252px; font-size: 14px; } #waveb { top: 300px; width: 190px; } #mini { top: 176px; } #rate { top: 66px; font-size: 14px; } #sus { top: 216px; width: 220px; } }
 </style>
 </head>
 <body>
@@ -118,11 +119,12 @@
   <div id="stats"><span>Bag <b id="sBag">0/14</b></span><span>Day <b id="sDay">1</b></span></div>
   <div id="wanted"></div>
 </div>
-<div id="mini"><button id="snd" type="button">Sound: On</button><button id="hideui" type="button">Hide</button><button id="lofi" type="button">Pixels: Fine</button><button id="glowb" type="button">Glow: On</button><button id="camb" type="button">Cam: Top</button><button id="mpbtn" type="button">Together</button><button id="vrbtn" type="button">Enter VR</button><button id="vigbtn" type="button">Vignette: On</button></div>
+<div id="mini"><button id="snd" type="button">Sound: On</button><button id="hideui" type="button">Hide</button><button id="lofi" type="button">Pixels: Fine</button><button id="glowb" type="button">Glow: On</button><button id="camb" type="button">Cam: Top</button><button id="wvbtn" type="button">Waves: On</button><button id="mpbtn" type="button">Together</button><button id="vrbtn" type="button">Enter VR</button><button id="vigbtn" type="button">Vignette: On</button></div>
 <div id="money"><span id="bill">$</span><span id="cashbig">$0</span></div>
 <div id="rate"></div>
 <div id="map" class="panel"><canvas id="mapc" width="464" height="464" role="button" aria-label="City map. Tap to enlarge"></canvas></div>
 <div id="goal" class="panel">Rob a store</div>
+<div id="waveb" class="panel" style="display:none"><b id="wvT">WAVE 1</b><div class="bar"><i id="wvB"></i></div><span id="wvL"></span></div>
 <div id="toast"></div>
 <div id="stick"><div id="knob"></div></div>
 <button id="dash" type="button">DASH</button>
@@ -302,7 +304,7 @@ function Game(seed, diff) {
   this.mobs.push(this.spawnMob({ kind: 'bear', otter: true, name: 'Julia Otter', df: new Int16Array(SIZE * SIZE) }));
   for (i = 0; i < 16; i++) this.peds.push(this.spawnPed({ kind: 'ped', look: i }));
   this.mobs[0].boss = true; this.mobs[0].name = 'El Jefe'; this.mobs[0].hp = 14; this.gemmaT = 0;
-  this.wave = { n: 0, next: 90, on: false, left: 0, total: 0 }; this.giant = { on: false, x: 0, z: 0, tx: 0, tz: 0, t: 0, step: 0, hx: 1, hz: 0 }; this.tall = { on: false, x: 0, z: 0, t: 0, next: 120 + this.rnd() * 80 }; this.cars = []; this.drive = null; this.inn = null; this.ufo = { on: false, x: 0, z: 0, t: 0, next: 45 + this.rnd() * 30, fx: 0, fz: 0, tx: 0, tz: 0 }; this.p.fly = 0;
+  this.wave = { n: 0, next: 90, on: false, left: 0, total: 0, killed: 0, spawned: 0 }; this.perks = {}; this.giant = { on: false, x: 0, z: 0, tx: 0, tz: 0, t: 0, step: 0, hx: 1, hz: 0 }; this.tall = { on: false, x: 0, z: 0, t: 0, next: 120 + this.rnd() * 80 }; this.cars = []; this.drive = null; this.inn = null; this.ufo = { on: false, x: 0, z: 0, t: 0, next: 45 + this.rnd() * 30, fx: 0, fz: 0, tx: 0, tz: 0 }; this.p.fly = 0;
   for (i = 0; i < 12; i++) this.cars.push({ look: i, ai: true, horiz: i % 2 === 0, lane: Math.floor(this.rnd() * 9), dir: this.rnd() < 0.5 ? 1 : -1, t: -40 + this.rnd() * (SIZE + 80), sp: 6 + this.rnd() * 3, x: 0, z: 0, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: false });
   for (i = 0; i < 6; i++) { var pk, pz, pn = 0; do { pk = 1 + Math.floor(this.rnd() * 7); pz = 10 + Math.floor(this.rnd() * (SIZE - 20)); } while (this.carBlocked(pk * PITCH + 0.62, pz + 0.5, 0, 1) && pn++ < 200); this.cars.push({ look: 12 + i, ai: false, horiz: false, lane: pk, dir: 1, t: 0, sp: 0, x: pk * PITCH + 0.62, z: pz + 0.5, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: false }); }   // parked at the curb, clear of trees and posts
   ['tank', 'tank', 'buggy', 'buggy', 'buggy'].forEach(function (k, q) { this.cars.push({ look: 30 + q, moonV: k, mi: q, ai: false, horiz: false, lane: 0, dir: 1, t: 0, sp: 0, x: -99, z: -99, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: true }); }, this);   // garage slots for Moon vehicles driven home through the portal
@@ -585,7 +587,7 @@ Game.prototype.update = function (dt) {
   // ---- on the street
   var mx = this.input.mx, mz = this.input.mz, ml = Math.sqrt(mx * mx + mz * mz); if (ml > 1) { mx /= ml; mz /= ml; ml = 1; }
   if (p.dashCd > 0) p.dashCd -= dt; if (p.dashT > 0) p.dashT -= dt;
-  var sp = PSPEED * (p.dashT > 0 ? 1.75 : 1) * (this.bag.n > 9 ? 0.93 : 1);
+  var sp = PSPEED * (p.dashT > 0 ? 1.75 : 1) * (this.bag.n > 9 ? 0.93 : 1) * (this.perks.speed ? 1.15 : 1);
   if (this.drive) {
     var c = this.drive, ox = c.x, oz = c.z, cin = this.input.car ? this.input.car : null;
     if (cin) {        // in the headset the car drives like a car: stick forward and back is throttle and reverse, left and right steers, and where you look does not matter
@@ -631,9 +633,11 @@ Game.prototype.update = function (dt) {
     if (this.calm || tl.t > 40) { tl.on = false; tl.next = 150 + this.rnd() * 120; this.ev('tallgone'); }
     else if (tdd < 1.4 && this.grace <= 0 && !p.inside) { var tlost = Math.floor(this.cash / 4), thd = w.home.door; this.cash -= tlost; tl.on = false; tl.next = 170 + this.rnd() * 120; if (this.drive) { this.drive.v = 0; this.drive = null; } this.clearWanted(); p.x = thd.x; p.z = thd.z + 1.2; this.grace = 3; this.ev('tallgot', { lost: tlost }); }
   }
-  var wv = this.wave; if (!wv.net && !this.moon) {       /* zombie waves: a crowd arrives, clear them all for a bonus, then a bigger one comes */
-    if (!wv.on) { wv.next -= dt; if (wv.next <= 0 && this.mode !== 'heist') this.startWave(); }
-    else { var wl = 0; for (var wi = 0; wi < this.mobs.length; wi++) if (this.mobs[wi].wave && this.mobs[wi].dead <= 0) wl++; wv.left = wl; if (!wl) this.endWave(); }
+  var wv = this.wave; if (!wv.net && !this.moon) {       /* zombie waves: a crowd arrives, clear them all to unlock something, then a bigger one comes */
+    if (wv.off) { if (wv.on) { this.mobs = this.mobs.filter(function (m) { return !m.wave; }); wv.on = false; wv.n = Math.max(0, wv.n - 1); wv.left = 0; } wv.next = Math.max(wv.next, 15); }
+    else if (!wv.on) { wv.next -= dt; if (wv.next <= 0 && this.mode !== 'heist') this.startWave(); }
+    else { for (var wi = 0; wi < this.mobs.length; wi++) { var wm0 = this.mobs[wi]; if (!wm0.wave || wm0.dead <= 0) continue; if (!wm0.counted) { wm0.counted = true; wv.killed++; wm0.rs = 1.2; } else if (wv.spawned < wv.total) { wm0.rs -= dt; if (wm0.rs <= 0) { this.waveSpawn(wm0); wv.spawned++; } } }       /* only so many are on the street at once; the rest arrive as you clear them */
+      wv.left = Math.max(0, wv.total - wv.killed); if (wv.left <= 0) this.endWave(); }
   }
   var uf = this.ufo;
   if (uf.net) { if (uf.on && uf.mine && !this.calm && Math.hypot(p.x - uf.x, p.z - uf.z) < 1.6) { if (this.drive) { this.drive.v = 0; this.drive = null; } var best = null, bd = -1, cs = [[Math.max(30, Math.min(SIZE - 30, p.x)), SIZE + 6]]; /* the saucer always sets you down on the beach */ cs.forEach(function (c) { var d2 = Math.abs(c[0] - p.x) + Math.abs(c[1] - p.z); if (d2 > bd) { bd = d2; best = c; } });
@@ -686,7 +690,7 @@ Game.prototype.update = function (dt) {
   }
 };
 Game.prototype.tip = function (m) { if (this.time - this.tipT > 1.5) { this.tipT = this.time; this.ev('toast', { m: m }); } };
-Game.prototype.dash = function () { var p = this.p; if (this.calm && this.build >= 0) { var fc = this.frontCell(); if (fc && fc[1] > 0) this.removeBlock(fc[0], fc[1] - 1, fc[2]); return; } if (this.moon) { if (this.mride && this.mride.kind === 'tank') return; if (this.state === 'play' && (p.fly <= 0.05 || p.jumps < 2)) { p.jumps = p.fly <= 0.05 ? 1 : 2; p.vy = p.jumps === 1 ? 7.5 : 6; p.fly = Math.max(p.fly, 0.06); this.ev('jump', { n: p.jumps }); } return; } if (this.state === 'play' && p.dashCd <= 0) { p.dashT = 1.5; p.dashCd = 3.6; this.ev('dash'); } };
+Game.prototype.dash = function () { var p = this.p; if (this.calm && this.build >= 0) { var fc = this.frontCell(); if (fc && fc[1] > 0) this.removeBlock(fc[0], fc[1] - 1, fc[2]); return; } if (this.moon) { if (this.mride && this.mride.kind === 'tank') return; if (this.state === 'play' && (p.fly <= 0.05 || p.jumps < 2)) { p.jumps = p.fly <= 0.05 ? 1 : 2; p.vy = p.jumps === 1 ? 7.5 : 6; p.fly = Math.max(p.fly, 0.06); this.ev('jump', { n: p.jumps }); } return; } if (this.state === 'play' && p.dashCd <= 0) { p.dashT = this.perks.dash ? 2.4 : 1.5; p.dashCd = 3.6; this.ev('dash'); } };
 Game.prototype.prime = function () { if (this.state !== 'hotwire') return; this.hot += 7; this.ev('prime'); if (this.hot >= 100) { this.cash += 1000000; this.state = 'launch'; this.launchT = 0; this.ev('launch'); } };
 var APT = { x: -6, z: SIZE - 3, rects: [[0, 0, 26, 16], [25.2, 4, 34.8, 12], [34, 0, 62, 16], [61.2, 6, 78.4, 10], [-1.4, 7, 0.8, 9]],
   blocks: [[3, 1.6, 23, 3.2], [7.2, 4.6, 8.8, 6.9], [7.2, 9.1, 8.8, 11.4], [27.5, 6.6, 32.5, 7.4], [27.5, 9.2, 32.5, 10.0], [38, 3, 46, 4.4], [38, 6.2, 46, 7.6], [50, 10.6, 58, 12.6], [38, 11.2, 46, 12.6], [57.5, 5.2, 60.5, 6.4]] };
@@ -695,13 +699,23 @@ var DRG = { x: SIZE - 9, z: SIZE + 8 };
 var BSZ = 0.5, BMAX = 800, BRACK = { x: SIZE / 2 - 9, z: SIZE + 4.5 }, BCOL = [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xf4f4f0, 0x8a5a2b, 0xff4d4d, 0x2a2a3a];
 var MOON = { x: -900, z: -900, r: 30 }, EPAD = { x: SIZE / 2 - 20, z: SIZE + 7 }, BEACH = 21, ZAC = { x: SIZE / 2 + 14, z: SIZE + 6.5 };
 var WEAPONS = ['PISTOL', 'BAZOOKA', 'SLINGSHOT', 'BROOM'];
-Game.prototype.startWave = function () {
-  var wv = this.wave, easy = this.diff === 'easy', n = ++wv.n, count = Math.min(28, (easy ? 4 : 6) + n * (easy ? 2 : 3) + (this.friends ? this.friends.length * 3 : 0)), k;
-  for (k = 0; k < count; k++) { var wm = this.spawnMob({ kind: 'zombie', wave: true, df: new Int16Array(SIZE * SIZE) }), ws, wt = 0, wd; do { ws = this.roadSpot(); wd = Math.abs(ws.x - this.p.x) + Math.abs(ws.z - this.p.z); } while ((wd < 24 || wd > 62) && wt++ < 60); wm.x = ws.x + 0.5; wm.z = ws.z + 0.5; this.mobs.push(wm); }       /* they arrive from a few blocks away, on all sides */
-  wv.on = true; wv.total = wv.left = count; this.ev('wave', { n: n, count: count });
+Game.prototype.waveSpawn = function (m) {      /* they arrive from a few blocks away, on all sides */
+  this.spawnMob(m); var ws, wt = 0, wd; do { ws = this.roadSpot(); wd = Math.abs(ws.x - this.p.x) + Math.abs(ws.z - this.p.z); } while ((wd < 24 || wd > 62) && wt++ < 60); m.x = ws.x + 0.5; m.z = ws.z + 0.5; m.counted = false; return m;
+};
+Game.prototype.startWave = function () {       /* wave 1 is a handful; wave 10 is over a hundred */
+  var wv = this.wave, easy = this.diff === 'easy', n = ++wv.n, total = Math.round((easy ? 5 : 9) * Math.pow(1.32, Math.min(n, 10) - 1)) + Math.max(0, n - 10) * 10 + (this.friends ? this.friends.length * (2 + n) : 0), cap = Math.max(6, this.waveCap || 24), k, first = Math.min(cap, total);
+  for (k = 0; k < first; k++) this.mobs.push(this.waveSpawn({ kind: 'zombie', wave: true, df: new Int16Array(SIZE * SIZE) }));
+  wv.on = true; wv.total = wv.left = total; wv.killed = 0; wv.spawned = first; this.ev('wave', { n: n, count: total });
+};
+Game.prototype.waveReward = function (n) {      /* every cleared wave unlocks something */
+  var bonus = 150 * n, pk = this.perks, u;
+  if (n === 1) { this.owned[2] = 1; u = 'SLINGSHOT UNLOCKED'; } else if (n === 2) { pk.dash = true; u = 'LONGER SPRINT'; } else if (n === 3) { this.owned[1] = 1; u = 'BAZOOKA UNLOCKED'; } else if (n === 4) { pk.armor = true; u = 'TOUGH SKIN: BITES HURT HALF'; }
+  else if (n === 5) { pk.bounty = true; u = 'DOUBLE CASH PER ZOMBIE'; } else if (n === 6) { pk.reload = true; u = 'FAST RELOAD'; } else if (n === 7) { pk.hp = true; u = 'BIG HEART: 150 HEALTH'; } else if (n === 8) { pk.ammo = true; u = 'DOUBLE ROCKETS AND GRENADES'; }
+  else if (n === 9) { pk.speed = true; u = 'FAST FEET'; } else if (n === 10) { pk.crown = true; bonus += 10000; u = 'ZOMBIE SLAYER! GOLD CROWN'; } else { bonus += 1000; u = 'BONUS CASH'; }
+  this.cash += bonus; return { bonus: bonus, unlock: u };
 };
 Game.prototype.endWave = function () {
-  var wv = this.wave, bonus = 150 * wv.n; this.mobs = this.mobs.filter(function (m) { return !m.wave; }); this.cash += bonus; wv.on = false; wv.left = 0; wv.next = 75; this.ev('waveclear', { n: wv.n, bonus: bonus });
+  var wv = this.wave, rw = this.waveReward(wv.n); this.mobs = this.mobs.filter(function (m) { return !m.wave; }); wv.on = false; wv.left = 0; wv.next = 60; wv.cleared = (wv.cleared || 0) + 1; this.ev('waveclear', { n: wv.n, bonus: rw.bonus, unlock: rw.unlock });
 };
 Game.prototype.spawnMob = function (m) {
   var s, p = this.p, n = 0; do { s = this.roadSpot(); } while (Math.abs(s.x - p.x) + Math.abs(s.z - p.z) < 22 && n++ < 50);
@@ -740,7 +754,7 @@ Game.prototype.kill = function (e) {
     return;
   } this.ev('boom', { x: e.x, z: e.z, kind: k, look: e.look || 0, otter: !!e.otter }); this.kills++;
   if (e.boss) { e.dead = 600; this.cash += 1500; this.ev('gemmadown'); }      // the big ones stay gone for two days
-  else if (k === 'zombie' || k === 'bear') { e.dead = k === 'bear' ? 600 : 12; this.cash += k === 'bear' ? 300 : 50; }
+  else if (k === 'zombie' || k === 'bear') { e.dead = k === 'bear' ? 600 : 12; this.cash += k === 'bear' ? 300 : (this.perks.bounty ? 100 : 50); }
   else if (k === 'ped') { e.dead = 15; this.bodies = (this.bodies || 0) + 1; if (this.bodies >= 3) this.crime(Math.min(3, Math.floor(this.bodies) - 1)); else this.ev('toast', { m: this.bodies >= 2 ? 'One more and the cops come' : 'Somebody saw that' }); }
   else if (k === 'cop') { i = this.cops.indexOf(e); if (i >= 0) this.cops.splice(i, 1); this.crime(3); }
   else if (k === 'guard') { i = this.guards.indexOf(e); if (i >= 0) this.guards.splice(i, 1); if (!this.heistAlarm) { this.heistAlarm = true; this.pdfT = 0; this.ev('spotted'); } }
@@ -796,7 +810,7 @@ Game.prototype.fire = function () {
 };
 Game.prototype.combat = function (dt) {
   var p = this.p, w = this.w, i, m, hunting = false;
-  if (this.fireCd > 0) this.fireCd -= dt; this.rockets = Math.min(4, this.rockets + dt / 7); this.nades = Math.min(6, this.nades + dt / 3);
+  if (this.fireCd > 0) this.fireCd -= dt * (this.perks.reload ? 1.7 : 1); this.rockets = Math.min(this.perks.ammo ? 8 : 4, this.rockets + dt / 7); this.nades = Math.min(this.perks.ammo ? 12 : 6, this.nades + dt / 3);
   // projectiles
   for (i = this.proj.length - 1; i >= 0; i--) {
     var q = this.proj[i];
@@ -830,7 +844,7 @@ Game.prototype.combat = function (dt) {
       var sp = bear ? PSPEED * (m.charge > 0 ? 1.08 : 0.55) : PSPEED * (m.boss ? 0.68 : 0.5);
       if (d < 1.8 && w.los(m.x, m.z, p.x, p.z)) this.move(m, dx / d * sp, dz / d * sp, dt); else this.steer(m, this.pdf, sp, dt);
       if (bear && d < 1.1 && this.grace <= 0 && !this.drive && !p.onRoof) { var lost = Math.floor(this.cash / 2); this.cash -= lost; this.grace = 4; m.fedT = 12; m.hunt = false; this.ev('dominated', { name: m.otter ? 'JULIA' : 'GEMMA', lost: lost, x: p.x, z: p.z }); }      // the big animals do not hurt you: they take half your money
-      else if (!bear && d < 0.8 && this.grace <= 0 && !this.drive && !p.onRoof) { m.biteCd = (m.biteCd || 0) - dt; if (m.biteCd <= 0) { m.biteCd = 0.85; var bl = Math.min(100, Math.floor(this.cash)); this.cash -= bl; this.hp -= 20; this.hurtT = 4; this.lastBite = m.kind; this.ev('hurt'); this.ev('bite', { lost: bl, x: p.x, z: p.z }); } }
+      else if (!bear && d < 0.8 && this.grace <= 0 && !this.drive && !p.onRoof) { m.biteCd = (m.biteCd || 0) - dt; if (m.biteCd <= 0) { m.biteCd = 0.85; var bl = Math.min(100, Math.floor(this.cash)); this.cash -= bl; this.hp -= this.perks.armor ? 10 : 20; this.hurtT = 4; this.lastBite = m.kind; this.ev('hurt'); this.ev('bite', { lost: bl, x: p.x, z: p.z }); } }
     } else {
       if (!m.goal || Math.abs(m.x - m.goal.x) + Math.abs(m.z - m.goal.z) < 2.5) { m.goal = this.roadSpot(); w.bfs(m.df, m.goal.x, m.goal.z); }
       this.steer(m, m.df, bear ? 1.7 : 1.2, dt);
@@ -861,7 +875,7 @@ Game.prototype.combat = function (dt) {
   }
   if (this.cops.length < 3 && !this.wanted) { this.refillT -= dt; if (this.refillT <= 0) { this.cops.push(this.newCop(false)); this.refillT = 8; } }
   if (this.grace > 0 && !this.wanted) this.grace -= dt;
-  if (this.hurtT > 0) this.hurtT -= dt; else this.hp = Math.min(100, this.hp + 7 * dt);
+  if (this.hurtT > 0) this.hurtT -= dt; else this.hp = Math.min(this.perks.hp ? 150 : 100, this.hp + 7 * dt);
   if (this.hp <= 0) { this.hp = 0; this.drive = null; this.bag = { food: 0, med: 0, warm: 0, cash: 0, n: 0 }; this.state = 'wasted'; this.ev('wasted', { by: this.lastBite }); }
 };
 Game.prototype.nearCar = function () { var p = this.p, best = null, bd = 4.6; for (var i = 0; i < this.cars.length; i++) { var c = this.cars[i]; if (c.off) continue; var d = Math.hypot(c.x - p.x, c.z - p.z); if (d < bd) { bd = d; best = c; } } return best; };
@@ -1781,6 +1795,7 @@ Game.prototype.updateMoon = function (dt) {
   function keyMove() { if (joy.id !== -1 || !G) return; G.input.mx = rawIn.x = (keys.arrowright || keys.d ? 1 : 0) - (keys.arrowleft || keys.a ? 1 : 0); G.input.mz = rawIn.y = (keys.arrowdown || keys.s ? 1 : 0) - (keys.arrowup || keys.w ? 1 : 0); }
   // camera modes for flat screens: from above, behind you, or through your eyes. In the last two the stick turns you and walks you forward.
   var rawIn = { x: 0, y: 0 }, camMode = 0, camYaw = Math.PI, camYawS = Math.PI, altBtn = 0, CAMN = ['Top', 'Follow', 'Behind'];
+  var wavesOn = true; function wavesToggle() { wavesOn = !wavesOn; $('wvbtn').textContent = 'Waves: ' + (wavesOn ? 'On' : 'Off'); toast(MP.peer && !MP.host ? 'THE PLAYER WHO STARTED THE GAME CONTROLS THE WAVES' : wavesOn ? 'ZOMBIE WAVES ON' : 'ZOMBIE WAVES OFF', 2.4, wavesOn ? '#ff7a7a' : '#b3b9c7'); }
   function camCycle() { camMode = (camMode + 1) % 3; $('camb').textContent = 'Cam: ' + CAMN[camMode]; if (G) { camYaw = camYawS = Math.atan2(G.p.dx || 0, G.p.dz || -1); G.input.car = null; G.input.mx = rawIn.x; G.input.mz = rawIn.y; } toast(camMode === 0 ? 'CAMERA: FROM ABOVE' : camMode === 1 ? 'CAMERA: FOLLOWS YOU FROM HIGH UP. STICK SIDEWAYS TURNS' : camMode === 2 ? 'CAMERA: BEHIND YOU. STICK SIDEWAYS TURNS' : 'CAMERA: YOUR EYES. STICK SIDEWAYS TURNS', 2.4); }
   function camOn() { return !vr && camMode > 0 && started && G.state !== 'inside' && G.state !== 'launch' && G.state !== 'ufo' && G.state !== 'chute' && !(G.state === 'plane' && G.plane.phase !== 'fly') && (G.state === 'play' || G.state === 'airport' || G.state === 'plane' || G.state === 'dragon' || G.state === 'pilot'); }
   function camInput(dt) {
@@ -1798,7 +1813,7 @@ Game.prototype.updateMoon = function (dt) {
     if (first) { want.set(bx + fx * ahead, by + eye, bz + fz * ahead); camPos.copy(want); tmpV.set(bx + fx * 20, by + eye - (G.state === 'pilot' ? 9 : 0.6), bz + fz * 20); camLook.copy(tmpV); R.player.visible = false; }
     else { want.set(bx - fx * dist, by + up, bz - fz * dist); camLook.lerp(tmpV.set(bx + fx * (follow ? 2.5 : 5), by + 1.3, bz + fz * (follow ? 2.5 : 5)), 1 - Math.exp(-12 * dt)); camPos.lerp(want, 1 - Math.exp(-9 * dt)); }
   }
-  $('camb').addEventListener('click', camCycle); press($('jumpb'), function () { G.jump(); });
+  $('camb').addEventListener('click', camCycle); $('wvbtn').addEventListener('click', wavesToggle); press($('jumpb'), function () { G.jump(); });
   ['upb', 'dnb'].forEach(function (id, k) { var el = $(id); el.addEventListener('pointerdown', function (e) { e.preventDefault(); altBtn = k ? -1 : 1; }); ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { el.addEventListener(n, function () { altBtn = 0; }); }); });
   window.addEventListener('keydown', function (e) {
     var k = e.key.toLowerCase(); if (k === ' ' || k.indexOf('arrow') === 0) e.preventDefault(); if (keys[k]) return; keys[k] = true; keyMove(); if (!G || !started) return;
@@ -1847,7 +1862,7 @@ Game.prototype.updateMoon = function (dt) {
     if (d.t === 'hello' && !MP.host) { startGame(d.seed, d.diff); (d.dead || []).forEach(mpCollapse); if (d.blocks && typeof d.blocks === 'object') { G.blocks = {}; G.nblocks = 0; for (var bk in d.blocks) { if (G.nblocks >= BMAX) break; G.blocks[bk] = d.blocks[bk] | 0; G.nblocks++; } syncBlocks(false); } $('mp').style.display = 'none'; $('mpbtn').textContent = 'With ' + MP.code; toast('YOU ARE IN THE SAME CITY. FIND YOUR FRIEND', 4, '#5dfc8a'); return; }
     if (d.t === 'w' && !MP.host) { var uf2 = G.ufo, gi2 = G.giant; uf2.net = true; uf2.next = 1e9;
       var hn = Math.floor((d.m || []).length / 4), wv2 = G.wave; wv2.net = true; while (G.mobs.length < hn) G.mobs.push(G.spawnMob({ kind: 'zombie', wave: true, df: new Int16Array(SIZE * SIZE) })); if (hn >= 10 && G.mobs.length > hn) G.mobs.length = hn;
-      if (d.wv) { if (d.wv[1] && !wv2.on) G.ev('wave', { n: d.wv[0], count: d.wv[3] }); else if (!d.wv[1] && wv2.on) { var wb = 150 * wv2.n; G.cash += wb; G.ev('waveclear', { n: wv2.n, bonus: wb }); } wv2.n = d.wv[0]; wv2.on = !!d.wv[1]; wv2.left = d.wv[2]; wv2.total = d.wv[3]; }
+      if (d.wv) { if (d.wv[1] && !wv2.on) G.ev('wave', { n: d.wv[0], count: d.wv[3] }); if (wv2.cleared === undefined || !wv2.net0) { wv2.cleared = d.wv[4] || 0; wv2.net0 = true; } else if ((d.wv[4] || 0) > wv2.cleared) { wv2.cleared = d.wv[4]; var wb = G.waveReward(wv2.n || d.wv[0]); G.ev('waveclear', { n: wv2.n || d.wv[0], bonus: wb.bonus, unlock: wb.unlock }); } wv2.n = d.wv[0]; wv2.on = !!d.wv[1]; wv2.left = d.wv[2]; wv2.total = d.wv[3]; }
       if (d.u && G.state !== 'ufo') { if (!uf2.on) { uf2.on = true; uf2.x = d.u[0]; uf2.z = d.u[1]; uf2.t = 0; G.ev('ufo'); } uf2.hx = d.u[0]; uf2.hz = d.u[1]; uf2.mine = d.u[2] === MP.id; } else if (!d.u && uf2.on && G.state !== 'ufo') { uf2.on = false; G.ev('ufogone'); }
       if (d.g) { if (!gi2.on) { gi2.on = true; gi2.x = d.g[0]; gi2.z = d.g[1]; gi2.step = 0.5; G.ev('giant'); } gi2.nx = d.g[0]; gi2.nz = d.g[1]; gi2.nhx = d.g[2]; gi2.nhz = d.g[3]; } else if (gi2.on) { gi2.on = false; G.ev('giantgone'); }
       MP.snap = d; if (typeof d.tm === 'number' && Math.abs(G.time - d.tm) > 1) G.time = d.tm; return; }
@@ -1855,7 +1870,7 @@ Game.prototype.updateMoon = function (dt) {
     if (d.t === 'e') { MP.rx = true; try { if (d.k === 'col') mpCollapse(d.i); else if (d.k === 'gi') { var gw = G.giant; if (MP.host && !gw.on) { gw.on = true; gw.t = 0; gw.x = -6; gw.z = SIZE * 0.5; gw.tx = SIZE * 0.5; gw.tz = SIZE * 0.5; G.ev('giant'); } } else if (d.k === 'bp' && d.b) { var pk = d.b[0] + ',' + d.b[1] + ',' + d.b[2]; if (G.blocks[pk] === undefined && G.nblocks < BMAX) { G.blocks[pk] = d.b[3] | 0; G.nblocks++; syncBlocks(false); } } else if (d.k === 'br' && d.b) { var rk = d.b[0] + ',' + d.b[1] + ',' + d.b[2]; if (G.blocks[rk] !== undefined) { delete G.blocks[rk]; G.nblocks--; syncBlocks(false); } } } catch (e9) {} MP.rx = false; if (MP.host) mpSend(d, c); return; }
     if (d.t === 's' && d.id && d.id !== MP.id) { var b = MP.buds[d.id]; if (!b) b = MP.buds[d.id] = mpBud(d); b.d = d; b.at = clock; b.via = c; if (MP.host) for (var i = 0; i < MP.conns.length; i++) if (MP.conns[i] !== c && MP.conns[i].open) MP.conns[i].send(d); }
   }
-  function mpWaveOff() { if (G && G.wave.net) { G.wave.net = false; G.wave.on = false; G.wave.next = 60; G.mobs = G.mobs.filter(function (m) { return !m.wave; }); } }
+  function mpWaveOff() { if (G && G.wave.net) { G.wave.net = false; G.wave.net0 = false; G.wave.on = false; G.wave.next = 60; G.mobs = G.mobs.filter(function (m) { return !m.wave; }); } }
   function mpSend(msg, except) { for (var i = 0; i < MP.conns.length; i++) if (MP.conns[i] !== except && MP.conns[i].open) MP.conns[i].send(msg); }
   function mpCollapse(i) { var l = G.w.lots[i]; if (!l || l.dead) return; l.dead = true; for (var k = 0; k < G.w.stores.length; k++) if (G.w.stores[k].lot === l) { G.w.stores[k].cool = 1e9; G.w.stores[k].dead = true; } var was = MP.rx; MP.rx = true; handle({ t: 'collapse', i: i, bonus: 0 }); MP.rx = was; }
   function mpEv(ev) {       /* things that happen here and should happen for everyone */
@@ -1883,14 +1898,14 @@ Game.prototype.updateMoon = function (dt) {
   function mpTick(dt) {
     if (!MP.peer) return; var p = G.p, k, live = 0;
     if (MP.host && started) { var fr = []; for (k in MP.buds) { var hb = MP.buds[k], hd = hb.d; if (!hb.fr) hb.fr = { df: new Int16Array(SIZE * SIZE), t: 0 }; hb.fr.id = k; hb.fr.x = hd.x; hb.fr.z = hd.z; hb.fr.calm = !!hd.calm || !!hd.moon; hb.fr.ab = !!hd.ab; hb.fr.gone = clock - hb.at > 3; hb.fr.safe = !!hd.safe || clock - hb.at > 3 || hd.x < 1 || hd.z < 1 || hd.x > SIZE - 1 || hd.z > SIZE - 1; fr.push(hb.fr); } G.friends = fr;
-      MP.wT -= dt; if (MP.wT <= 0 && MP.conns.length) { MP.wT = 0.12; mpSend({ t: 'w', tm: Math.round(G.time * 10) / 10, m: mpPack(G.mobs), p: mpPack(G.peds), wv: [G.wave.n, G.wave.on ? 1 : 0, G.wave.left, G.wave.total], u: G.ufo.on ? [Math.round(G.ufo.x * 10) / 10, Math.round(G.ufo.z * 10) / 10, G.state === 'ufo' ? MP.id : (G.ufo.tf || MP.id)] : null, g: G.giant.on ? [Math.round(G.giant.x * 10) / 10, Math.round(G.giant.z * 10) / 10, Math.round(G.giant.hx * 100) / 100, Math.round(G.giant.hz * 100) / 100] : null }); } }
+      MP.wT -= dt; if (MP.wT <= 0 && MP.conns.length) { MP.wT = 0.12; mpSend({ t: 'w', tm: Math.round(G.time * 10) / 10, m: mpPack(G.mobs), p: mpPack(G.peds), wv: [G.wave.n, G.wave.on ? 1 : 0, G.wave.left, G.wave.total, G.wave.cleared || 0], u: G.ufo.on ? [Math.round(G.ufo.x * 10) / 10, Math.round(G.ufo.z * 10) / 10, G.state === 'ufo' ? MP.id : (G.ufo.tf || MP.id)] : null, g: G.giant.on ? [Math.round(G.giant.x * 10) / 10, Math.round(G.giant.z * 10) / 10, Math.round(G.giant.hx * 100) / 100, Math.round(G.giant.hz * 100) / 100] : null }); } }
     else if (!MP.host && MP.snap && started && MP.conns.length) { G.friends = null; mpApply(G.mobs, MP.snap.m || [], 'm', dt); mpApply(G.peds, MP.snap.p || [], 'p', dt);
       var uf3 = G.ufo, gi3 = G.giant, sa = Math.min(1, dt * 8); if (uf3.on && G.state !== 'ufo' && uf3.hx !== undefined) { if (Math.abs(uf3.hx - uf3.x) > 25 || Math.abs(uf3.hz - uf3.z) > 25) { uf3.x = uf3.hx; uf3.z = uf3.hz; } uf3.x += (uf3.hx - uf3.x) * sa; uf3.z += (uf3.hz - uf3.z) * sa; }
       if (gi3.on && gi3.nx !== undefined) { gi3.x += (gi3.nx - gi3.x) * sa; gi3.z += (gi3.nz - gi3.z) * sa; gi3.hx = gi3.nhx; gi3.hz = gi3.nhz; gi3.tx = gi3.x + gi3.hx * 60; gi3.tz = gi3.z + gi3.hz * 60; gi3.t = 0; } }
     MP.sendT -= dt; if (MP.sendT <= 0 && MP.conns.length && started) { MP.sendT = 0.1;
       var v = G.drive ? 'car' : (G.state === 'plane' && G.plane.phase === 'fly') ? 'plane' : G.state === 'dragon' ? 'dragon' : G.state === 'pilot' ? 'ufo' : '', sx = p.x, sz = p.z, hx = p.dx, hz = p.dz, sy = (p.fly || 0) + (p.bh || 0) + (p.jh || 0);
       if (v === 'car') { sx = G.drive.x; sz = G.drive.z; hx = G.drive.hx; hz = G.drive.hz; sy = 0; } else if (v === 'plane') { sx = G.plane.x; sz = G.plane.z; hx = G.plane.hx; hz = G.plane.hz; sy = G.plane.alt; } else if (v === 'dragon') { sx = G.dragon.x; sz = G.dragon.z; hx = G.dragon.hx; hz = G.dragon.hz; sy = Math.max(0, (p.fly || 0) - 2); }
-      var msg = { t: 's', id: MP.id, x: Math.round(sx * 100) / 100, z: Math.round(sz * 100) / 100, y: Math.round(sy * 100) / 100, dx: Math.round(hx * 100) / 100, dz: Math.round(hz * 100) / 100, mv: !!p.moving, v: v, moon: !!G.moon, calm: !!G.calm || G.state === 'airport' || (G.state === 'plane') || G.state === 'chute', ab: G.state === 'ufo', c: G.wanted > 0 ? G.cops.slice(0, 10).map(function (cp) { return [Math.round(cp.x * 10), Math.round(cp.z * 10), Math.round(Math.atan2(cp.dx || 0, cp.dz || 0) * 100)]; }) : null, safe: !!(G.calm || p.onRoof || p.inside || p.hidden || G.moon || G.state !== 'play'), hid: G.state === 'inside' || (G.state === 'plane' && !v) || G.state === 'launch' || G.state === 'ufo' };
+      var msg = { t: 's', id: MP.id, x: Math.round(sx * 100) / 100, z: Math.round(sz * 100) / 100, y: Math.round(sy * 100) / 100, dx: Math.round(hx * 100) / 100, dz: Math.round(hz * 100) / 100, mv: !!p.moving, v: v, moon: !!G.moon, cap: vr ? 12 : 28, calm: !!G.calm || G.state === 'airport' || (G.state === 'plane') || G.state === 'chute', ab: G.state === 'ufo', c: G.wanted > 0 ? G.cops.slice(0, 10).map(function (cp) { return [Math.round(cp.x * 10), Math.round(cp.z * 10), Math.round(Math.atan2(cp.dx || 0, cp.dz || 0) * 100)]; }) : null, safe: !!(G.calm || p.onRoof || p.inside || p.hidden || G.moon || G.state !== 'play'), hid: G.state === 'inside' || (G.state === 'plane' && !v) || G.state === 'launch' || G.state === 'ufo' };
       for (k = 0; k < MP.conns.length; k++) if (MP.conns[k].open) MP.conns[k].send(msg); }
     for (k in MP.buds) { var b = MP.buds[k], d = b.d, e = b.e, a = Math.min(1, dt * 10); if (clock - b.at > 6 || d.hid || d.moon !== !!G.moon) { b.g.visible = false; continue; } b.g.visible = true; live++;
       if (Math.abs(d.x - e.x) > 30 || Math.abs(d.z - e.z) > 30) { e.x = d.x; e.z = d.z; b.y = d.y; } e.x += (d.x - e.x) * a; e.z += (d.z - e.z) * a; b.y += (d.y - b.y) * a; e.dx = d.dx; e.dz = d.dz; e.moving = d.mv && !d.v;
@@ -1965,7 +1980,7 @@ Game.prototype.updateMoon = function (dt) {
       if (tb) { tipAt = clock; var tx = APT.x - tb.e.x, tz = APT.z + tb.e.z, paid = G.cash >= 100; if (paid) G.cash -= 100; tb.joy = 3; R.aptPeople.forEach(function (ap, k) { if (ap !== tb && Math.abs(ap.e.x - tb.e.x) < 14 && Math.abs(ap.e.z - tb.e.z) < 14) ap.joy = Math.max(ap.joy || 0, 1.4 + (k % 4) * 0.25); });
         debris(tx, 1.9, tz, paid ? 90 : 30, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 8, 0.4); if (paid) debris(tx, 1.4, tz, 24, [0x3fae5a, 0x5dfc8a, 0x2f8a45], 4, 0.5); toast(paid ? 'YOU TIPPED $100!  EVERYONE CHEERS' : 'OUT OF CASH. HIGH FIVE INSTEAD', 1.6, '#5dfc8a'); jingle(paid ? [659, 784, 1047, 1319] : [523, 659], 0.08, 'triangle'); } } }
     else if (t === 'wave') { toast('WAVE ' + ev.n + '!  ' + ev.count + ' ZOMBIES ARE COMING', 4.5, '#ff5a5a'); tone(220, 0.5, 0.25, 'sawtooth', 440); tone(220, 0.5, 0.25, 'sawtooth', 440, 0.6); tone(220, 0.7, 0.25, 'sawtooth', 520, 1.2); }
-    else if (t === 'waveclear') { toast('WAVE ' + ev.n + ' CLEARED!  +$' + ev.bonus + (MP.conns.length ? ' EACH' : ''), 4.5, '#5dfc8a'); debris(G.p.x, 2.2 + (G.p.fly || 0) + (G.p.bh || 0), G.p.z, 120, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 10, 0.4); jingle([523, 659, 784, 1047, 1319], 0.1, 'triangle'); }
+    else if (t === 'waveclear') { toast('WAVE ' + ev.n + ' CLEARED!  ' + (ev.unlock || '') + '  +$' + ev.bonus, 5.5, '#5dfc8a'); debris(G.p.x, 2.2 + (G.p.fly || 0) + (G.p.bh || 0), G.p.z, 120, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 10, 0.4); jingle([523, 659, 784, 1047, 1319], 0.1, 'triangle'); }
     else if (t === 'popcop') { debris(ev.x, 1.2, ev.z, 110, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 11, 0.8); tone(900, 0.1, 0.2, 'square', 1800); tone(1400, 0.2, 0.12, 'sine', 500, 0.05); toast('POP!', 0.8, '#ff4fa3'); }
     else if (t === 'breach') { ev.tiles.forEach(function (k) { if (R.fence[k]) squash(R.flat, R.fence[k], 0.5); }); debris(ev.x, 0.8, ev.z, 70, [0x8d94a0, 0x4a4468, 0xffb62e], 11, 2); toast('WALL DOWN! GO FOR THE ROCKET', 3, '#ffb62e'); shake = Math.max(shake, 0.6); }
     else if (t === 'tall') { toast('SOMETHING TALL IS COMING', 3.5, '#b9b6ff'); tone(40, 3, 0.35, 'sawtooth', 70); tone(660, 2.5, 0.04, 'sine', 620); }
@@ -2193,7 +2208,7 @@ Game.prototype.updateMoon = function (dt) {
     // HUD
     if (toastT > 0) { toastT -= dt; if (toastT <= 0) toastEl.classList.remove('on'); }
     if (hurtFlash > 0) { hurtFlash -= dt; if (hurtFlash <= 0) $('flash').style.opacity = 0; }
-    $('nHp').style.width = Math.max(0, G.hp) + '%'; var wtxt = G.moon ? 'JUMP' : G.calm && G.build >= 0 ? 'COLOUR' : G.calm ? 'MAI TAI' : WEAPONS[G.weapon] + (G.weapon === 1 ? ' ' + Math.floor(G.rockets) : (G.weapon === 2 ? ' ' + Math.floor(G.nades) : '')); if ($('wpn').textContent !== wtxt) $('wpn').textContent = wtxt;
+    $('nHp').style.width = Math.max(0, Math.min(100, G.hp)) + '%'; var wtxt = G.moon ? 'JUMP' : G.calm && G.build >= 0 ? 'COLOUR' : G.calm ? 'MAI TAI' : WEAPONS[G.weapon] + (G.weapon === 1 ? ' ' + Math.floor(G.rockets) : (G.weapon === 2 ? ' ' + Math.floor(G.nades) : '')); if ($('wpn').textContent !== wtxt) $('wpn').textContent = wtxt;
     var nd = G.needs; $('nFood').style.width = nd.food + '%'; $('nFood').style.background = barCol(nd.food); $('nMed').style.width = nd.med + '%'; $('nMed').style.background = barCol(nd.med); $('nWarm').style.width = nd.warm + '%'; $('nWarm').style.background = barCol(nd.warm);
     $('sBag').textContent = G.bag.n + '/' + BAGMAX; $('sDay').textContent = days();
     if (G.cash - lastCash >= 10) { popup(G.cash - lastCash); bumpT = 0.18; tone(1320, 0.07, 0.1, 'square'); tone(1760, 0.1, 0.1, 'square', null, 0.06); } lastCash = G.cash;
@@ -2209,7 +2224,10 @@ Game.prototype.updateMoon = function (dt) {
     if (G.state === 'ufo') goal = 'Beamed up. Enjoy the view'; else if (G.ufo.on && G.state === 'play') goal = 'UFO! It only gives up at the beach';
     if (inn) goal = inn.alarm ? (inn.lockT > 0 ? 'ALARM! Shutter drops in ' + Math.ceil(inn.lockT) : 'Locked in...') : (inn.threat ? 'Grab the register cash and run' : 'Take from the shelves. FIRE threatens the clerk. Leave by the door');
     else if (G.drive) goal = 'Driving. Run them down. E or EXIT to get out';
-    if (G.wave.on && G.state === 'play' && !inn && !G.calm) goal = 'WAVE ' + G.wave.n + ': ' + G.wave.left + ' of ' + G.wave.total + ' zombies left';
+    var wvv = G.wave, wshow = !vr && started && (wvv.on || (!wvv.off && wvv.next < 20 && !G.moon)) && G.state !== 'inside' && G.state !== 'rob'; $('waveb').style.display = wshow ? 'grid' : 'none';
+    if (wshow) { var wt1 = wvv.on ? 'WAVE ' + wvv.n + (wvv.n <= 10 ? ' / 10' : '') : 'WAVE ' + (wvv.n + 1) + ' IN ' + Math.max(0, Math.ceil(wvv.next)), wt2 = wvv.on ? wvv.left + ' of ' + wvv.total + ' zombies left' : 'Get ready'; if ($('wvT').textContent !== wt1) $('wvT').textContent = wt1; if ($('wvL').textContent !== wt2) $('wvL').textContent = wt2; $('wvB').style.width = (wvv.on && wvv.total ? Math.round(100 * (wvv.total - wvv.left) / wvv.total) : 0) + '%'; }
+    if (!(MP.peer && !MP.host)) { G.wave.off = !wavesOn; var wc = vr ? 12 : 28; for (var bk2 in MP.buds) if (MP.buds[bk2].d && MP.buds[bk2].d.cap) wc = Math.min(wc, MP.buds[bk2].d.cap); G.waveCap = wc; }
+    if (G.perks.crown && !R.player.crownM) { R.player.crownM = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.14, 0.42), new THREE.MeshBasicMaterial({ color: 0xffd23f })); R.player.crownM.position.y = 1.86; R.player.add(R.player.crownM); }
     if ($('goal').textContent !== goal) $('goal').textContent = goal;
     var showPlay = G.state === 'play' || G.state === 'inside', nc = G.state === 'play' && (G.drive || G.nearCar());
     $('mug').style.display = G.canMug() && !vr ? 'block' : 'none';
@@ -2293,9 +2311,10 @@ Game.prototype.updateMoon = function (dt) {
   var hud3 = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.1), new THREE.MeshBasicMaterial({ map: htex, transparent: true, depthTest: false, depthWrite: false, fog: false })); hud3.position.set(-0.3, 0.3, -1.05); hud3.renderOrder = 64; hud3.visible = false; camera.add(hud3);
   function drawHud() {
     var x = hctx; x.clearRect(0, 0, 512, 112); x.fillStyle = 'rgba(18,10,36,0.72)'; x.fillRect(0, 0, 512, 112); x.textBaseline = 'middle'; x.textAlign = 'left';
-    x.fillStyle = '#5dfc8a'; x.font = 'bold 54px sans-serif'; x.fillText(fmt(G.cash), 14, 40); x.fillStyle = 'rgba(255,255,255,0.18)'; x.fillRect(14, 78, 220, 18); x.fillStyle = '#ff4fa3'; x.fillRect(14, 78, 2.2 * Math.max(0, G.hp), 18);
+    x.fillStyle = '#5dfc8a'; x.font = 'bold 54px sans-serif'; x.fillText(fmt(G.cash), 14, 40); x.fillStyle = 'rgba(255,255,255,0.18)'; x.fillRect(14, 78, 220, 18); x.fillStyle = '#ff4fa3'; x.fillRect(14, 78, 2.2 * Math.max(0, Math.min(100, G.hp)), 18);
     x.fillStyle = '#fff'; x.font = 'bold 24px sans-serif'; x.fillText((G.calm ? 'MAI TAI' : WEAPONS[G.weapon]) + (G.calm ? '' : G.weapon === 1 ? ' ' + Math.floor(G.rockets) : (G.weapon === 2 ? ' ' + Math.floor(G.nades) : '')), 250, 80); x.fillStyle = '#b3b9c7'; x.font = '17px sans-serif'; x.fillText('B button: next weapon', 250, 102);
-    if (G.wanted) { x.fillStyle = '#ff4d4d'; x.font = 'bold 30px sans-serif'; x.textAlign = 'right'; x.fillText('\u2605'.repeat(G.wanted), 500, 40); } htex.needsUpdate = true;
+    if (G.wave.on) { x.fillStyle = '#ff7a7a'; x.font = 'bold 22px sans-serif'; x.textAlign = 'right'; x.fillText('WAVE ' + G.wave.n + (G.wave.n <= 10 ? '/10' : '') + '   ' + G.wave.left + ' of ' + G.wave.total + ' left', 500, 18); }
+    if (G.wanted) { x.fillStyle = '#ff4d4d'; x.font = 'bold 30px sans-serif'; x.textAlign = 'right'; x.fillText('\u2605'.repeat(G.wanted), 500, 48); } htex.needsUpdate = true;
   }
   var tpMode = false, tpAim = false, tpValid = false, tpX = 0, tpZ = 0, tpFade = 0, smx = 0, smz = 0;
   var tpRing = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.42, 24), new THREE.MeshBasicMaterial({ color: 0x5dfc8a, transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide })); tpRing.rotation.x = -Math.PI / 2; tpRing.renderOrder = 55; tpRing.visible = false; scene.add(tpRing);
@@ -2381,7 +2400,7 @@ Game.prototype.updateMoon = function (dt) {
     if (Rg) { var rx = ax(Rg)[0]; if (Math.abs(rx) > 0.65 && snapReady) { vrYaw -= (rx > 0 ? 1 : -1) * Math.PI / 6; snapReady = false; } else if (Math.abs(rx) < 0.3) snapReady = true; }   // 30 degree snap turn
     if (yB) { vignOn = !vignOn; toast('Comfort vignette ' + (vignOn ? 'on' : 'off'), 1.4); }
     tpMode = false;       // teleport movement is switched off for now
-    if (xB) { vrShadow = !vrShadow; sun.castShadow = vrShadow; toast(vrShadow ? 'REAL SHADOWS ON. TURN OFF IF IT STUTTERS' : 'REAL SHADOWS OFF', 3); }
+    if (xB) wavesToggle();
     if (!started) { G.input.mx = 0; G.input.mz = 0; if (trigR) startGame(); else if (aB || bB) { diffPick = diffPick === 'easy' ? 'medium' : (diffPick === 'medium' ? 'hard' : 'easy'); } return; }
     if (curDialog) { G.input.mx = 0; G.input.mz = 0; if (trigR || trigL) { if (hoverOpt >= 0) pickDialog(hoverOpt); else if (trigR) pickDialog(0); else pickDialog(1); } return; }
     if (G.state === 'hotwire') { primeT -= dt; if (trigR || (heldR && primeT <= 0)) { G.prime(); primeT = 0.11; } return; }
@@ -2495,7 +2514,7 @@ Game.prototype.updateMoon = function (dt) {
     if (G.wanted) { x.fillStyle = '#ff4d4d'; x.font = 'bold 28px sans-serif'; x.fillText('WANTED ' + '\u2605'.repeat(G.wanted), 28, y + 36); }
     x.drawImage(mapC, 474, 18, 276, 276);
     x.fillStyle = '#ffd23f'; x.font = 'bold 28px sans-serif'; y = wrap(G.inn && !G.inn.alarm && !G.inn.threat ? 'Touch the money to take it. Right trigger threatens the clerk. Leave by the door' : $('goal').textContent, 28, 344, 712, 34);
-    { x.fillStyle = '#8f9bb3'; x.font = '19px sans-serif'; x.fillText('A car/ladder/ride  B weapon  X shadows  R-GRIP jump  L-GRIP map', 28, 492); }
+    { x.fillStyle = '#8f9bb3'; x.font = '19px sans-serif'; x.fillText('A car/ladder/ride  B weapon  X waves on/off  R-GRIP jump  L-GRIP map', 28, 492); }
     ptex.needsUpdate = true;
   }
   build(7, 'medium'); resize(); renderer.setAnimationLoop(tick);
