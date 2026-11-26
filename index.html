@@ -1129,7 +1129,7 @@ Game.prototype.updateMoon = function (dt) {
     R.blk.count = n; R.blk.instanceMatrix.needsUpdate = true; if (R.blk.instanceColor) R.blk.instanceColor.needsUpdate = true; R.blkGlow.count = gn; R.blkGlow.instanceMatrix.needsUpdate = true; R.glowG.setDrawRange(0, gn); R.glowG.attributes.position.needsUpdate = true;
     if (save) try { localStorage.setItem('breadrun-blocks', JSON.stringify(G.blocks)); } catch (e) {}
   }
-  var tallK = 0, tallBeat = 0, carS = 0, carT = 0, plIn = false, danceBeat = 0, bT = { place: null, hit: null }, palEl = document.createElement('div'), palWas = -2;
+  var tallK = 0, tallBeat = 0, vrShadow = false, carS = 0, carT = 0, plIn = false, danceBeat = 0, bT = { place: null, hit: null }, palEl = document.createElement('div'), palWas = -2;
   palEl.style.cssText = 'position:fixed;left:50%;bottom:8px;transform:translateX(-50%);display:none;gap:6px;padding:6px 8px;background:rgba(20,4,31,0.8);border-radius:12px;z-index:5;pointer-events:none'; document.body.appendChild(palEl);
   BCOL.forEach(function (c) { var d = document.createElement('div'); d.style.cssText = 'width:26px;height:26px;border-radius:6px;border:3px solid transparent;background:#' + ('00000' + c.toString(16)).slice(-6); palEl.appendChild(d); });
   function palSync(on) {      // the block colours sit along the bottom of the screen while you build
@@ -1327,7 +1327,7 @@ Game.prototype.updateMoon = function (dt) {
     R = { stores: [], cops: [], guards: [], cones: [], peds: [], cars: [] };
     // ground, sidewalks, lane dashes
     flat.box(-200, -0.5, -200, 400 + SIZE, 0.5, 400 + SIZE, 0x3a3552);
-    flat.box(-200, 0, SIZE + 0.6, 400 + SIZE, 0.08, 15, 0xf2d9a0, 0xf7e2b0); flat.box(-200, 0, SIZE + 15.6, 400 + SIZE, 0.05, 200, 0x2aa9c9, 0x35c2dc); flat.box(-200, 0.01, SIZE + 15.2, 400 + SIZE, 0.06, 0.8, 0xffffff);
+    flat.box(-200, 0, SIZE + 0.6, 400 + SIZE, 0.08, 15, 0xdcb978, 0xe6c486); flat.box(-200, 0, SIZE + 15.6, 400 + SIZE, 0.05, 200, 0x2aa9c9, 0x35c2dc); flat.box(-200, 0.01, SIZE + 15.2, 400 + SIZE, 0.06, 0.8, 0xffffff);
     (function () { var zx = ZAC.x + 1.6, zz = ZAC.z - 1.2; [[0, 0], [1.9, 0], [0, 1.9], [1.9, 1.9]].forEach(function (o) { flat.box(zx + o[0], 0, zz + o[1], 0.16, 2.4, 0.16, 0xf4f4f0); }); flat.box(zx - 0.2, 2.4, zz - 0.2, 2.5, 0.14, 2.5, 0xf4f4f0); flat.box(zx, 2.54, zz, 2.1, 1.3, 0.1, 0xe5463a); flat.box(zx, 2.54, zz, 0.1, 1.3, 2.1, 0xe5463a); flat.box(zx + 2, 2.54, zz, 0.1, 1.3, 2.1, 0xe5463a); flat.box(zx - 0.3, 3.9, zz - 0.3, 2.7, 0.14, 2.7, 0xe5463a); neon.box(zx + 0.5, 3.0, zz + 2.12, 1.1, 0.5, 0.05, 0xf4f4f0); for (var st3 = 0; st3 < 6; st3++) flat.box(zx - 0.3 - st3 * 0.35, 2.2 - st3 * 0.4, zz + 0.6, 0.36, 0.1, 0.9, 0xd9c9a8); flat.box(ZAC.x - 0.9, 0.08, ZAC.z + 0.2, 0.5, 0.16, 1.5, 0xe5463a); })();   // lifeguard tower and a rescue board
     flat.box(-200, 0.02, SIZE + 12.5, 400 + SIZE, 0.05, 3.2, 0xe2c48a, 0xe9cf9a);                 // wet sand
     flat.box(-200, 0.03, SIZE + 15.6, 400 + SIZE, 0.04, 9, 0x5fd6e0, 0x7fe3ea);                  // shallows you can wade in
@@ -1387,7 +1387,7 @@ Game.prototype.updateMoon = function (dt) {
         if (b.ax) { var xa = b.x0 + (b.x1 - b.x0) * t0, xw = (b.x1 - b.x0) / n; flat.box(xa, h, b.z0, xw + 0.02, 0.1, b.z1 - b.z0, q % 2 ? 0x9a6a3c : 0x8a5a2b); flat.box(xa, h + 0.1, b.z0, xw + 0.02, 0.8, 0.05, 0x5a3a1c); flat.box(xa, h + 0.1, b.z1 - 0.05, xw + 0.02, 0.8, 0.05, 0x5a3a1c); }
         else { var za = b.z0 + (b.z1 - b.z0) * t0, zw = (b.z1 - b.z0) / n; flat.box(b.x0, h, za, b.x1 - b.x0, 0.1, zw + 0.02, q % 2 ? 0x9a6a3c : 0x8a5a2b); flat.box(b.x0, h + 0.1, za, 0.05, 0.8, zw + 0.02, 0x5a3a1c); flat.box(b.x1 - 0.05, h + 0.1, za, 0.05, 0.8, zw + 0.02, 0x5a3a1c); } }
     });
-    for (k = 0; k < 60; k++) { var rpx = rnd() * SIZE, rpz = SIZE + 1.2 + rnd() * 11; flat.box(rpx, 0.081, rpz, 1.5 + rnd() * 3, 0.004, 0.12, 0xf9e8bc); }       // wind ripples in the sand
+    for (k = 0; k < 60; k++) { var rpx = rnd() * SIZE, rpz = SIZE + 1.2 + rnd() * 11; flat.box(rpx, 0.081, rpz, 1.5 + rnd() * 3, 0.004, 0.12, 0xf0d49c); }       // wind ripples in the sand
     // buildings
     w.lots.forEach(function (l, li) {
       var rf = flat.p.length, rw = walls.p.length, rn = neon.p.length, rg = glass.p.length;
@@ -1642,6 +1642,7 @@ Game.prototype.updateMoon = function (dt) {
       tb(R.tall, 0.34, 5.2, 0.34, -0.3, 5.2, 0); tb(R.tall, 0.34, 5.2, 0.34, 0.3, 5.2, 0); tb(R.tall, 1.05, 2.7, 0.5, 0, 7.9, 0); tb(R.tall, 0.3, 0.5, 0.3, 0, 8.35, 0);
       R.tall.head = new THREE.Group(); R.tall.head.position.set(0, 9.3, 0); R.tall.add(R.tall.head); tb(R.tall.head, 0.72, 1.0, 0.72, 0, 0, 0); tb(R.tall.head, 0.13, 0.07, 0.04, -0.17, -0.36, 0.37, E); tb(R.tall.head, 0.13, 0.07, 0.04, 0.17, -0.36, 0.37, E); tb(R.tall.head, 0.44, 0.03, 0.04, 0, -0.74, 0.37, E);
       R.tall.arms = [-1, 1].map(function (sd) { var a = new THREE.Group(); a.position.set(sd * 0.66, 7.8, 0); R.tall.add(a); tb(a, 0.24, 2.6, 0.24, 0, 0, 0); var f = new THREE.Group(); f.position.y = -2.6; a.add(f); tb(f, 0.2, 2.5, 0.2, 0, 0, 0); for (var q = 0; q < 4; q++) tb(f, 0.05, 0.7, 0.05, -0.12 + q * 0.08, -2.5, 0); a.fore = f; return a; }); })(); R.tall.visible = false; world.add(R.tall);
+    var blobG = new THREE.CircleGeometry(0.5, 12); blobG.rotateX(-Math.PI / 2); R.blobs = new THREE.InstancedMesh(blobG, new THREE.MeshBasicMaterial({ color: 0x0a0612, transparent: true, opacity: 0.34, depthWrite: false }), 90); R.blobs.count = 0; R.blobs.frustumCulled = false; R.blobs.renderOrder = 2; world.add(R.blobs);
     R.robMark = new THREE.Group(); R.robRing = new THREE.Mesh(new THREE.RingGeometry(0.75, 1.05, 24), new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, fog: false })); R.robRing.rotation.x = -Math.PI / 2; R.robRing.position.y = 0.2; R.robMark.add(R.robRing); R.robGem = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 4), new THREE.MeshBasicMaterial({ color: 0xff3030, fog: false, depthTest: false })); R.robGem.rotation.x = Math.PI; R.robGem.renderOrder = 20; R.robMark.add(R.robGem); R.robMark.visible = false; world.add(R.robMark);   // the suspect you are chasing gets a red ring and an arrow overhead
     R.foam = []; for (q = 0; q < 3; q++) { var fm = new THREE.Mesh(new THREE.PlaneGeometry(400 + SIZE, 0.7), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false })); fm.rotation.x = -Math.PI / 2; fm.position.set(SIZE / 2, 0.09, SIZE + 16); fm.renderOrder = 2; world.add(fm); R.foam.push(fm); }
     var spk = new Float32Array(260 * 3); for (q = 0; q < 260; q++) { spk[q * 3] = -40 + Math.random() * (SIZE + 80); spk[q * 3 + 1] = 0.12; spk[q * 3 + 2] = SIZE + 17 + Math.random() * 60; }
@@ -1970,6 +1971,11 @@ Game.prototype.updateMoon = function (dt) {
       var near = Math.max(0, 1 - (tl.d || 30) / 16); R.tall.position.set(tl.x, 0, tl.z); R.tall.rotation.y = Math.atan2(p.x - tl.x, p.z - tl.z); R.tall.rotation.z = Math.sin(clock * 0.9) * 0.035; R.tall.head.rotation.z = Math.sin(clock * 0.6) * 0.35 + (Math.random() < 0.03 ? 0.8 : 0); R.tall.head.rotation.x = 0.25 + near * 0.5;
       R.tall.arms[0].rotation.x = -near * 1.25 + Math.sin(clock * 1.1) * 0.08; R.tall.arms[1].rotation.x = -near * 1.25 - Math.sin(clock * 1.1) * 0.08; R.tall.arms[0].fore.rotation.x = -near * 0.5; R.tall.arms[1].fore.rotation.x = -near * 0.5;
       tallBeat -= dt; if (tallBeat <= 0) { tallBeat = 1.1 - near * 0.75; tone(52, 0.16, 0.3 + near * 0.3, 'sine', 38); tone(48, 0.14, 0.2 + near * 0.25, 'sine', 34, 0.17); if (vr) { buzz(padL, 0.3 + near * 0.6, 60); buzz(padR, 0.3 + near * 0.6, 60); } if (Math.random() < 0.3) tone(70 + Math.random() * 30, 2.2, 0.05, 'sawtooth', 55); } })();
+    (function () {       // in the headset everyone and every car gets a soft round shadow, which costs almost nothing
+      var n = 0; if (vr && !vrShadow && G.state !== 'airport' && !G.moon) { var put = function (x, z, sx, sz, rot, lift) { if (n >= 90 || Math.abs(x - p.x) > 38 || Math.abs(z - p.z) > 38) return; dummy.position.set(x, (G.w.isRoad(Math.floor(x), Math.floor(z)) && z < SIZE ? 0.03 : z >= SIZE ? 0.1 : 0.17) + (lift || 0), z); dummy.rotation.set(0, rot || 0, 0); dummy.scale.set(sx, 1, sz); dummy.updateMatrix(); R.blobs.setMatrixAt(n++, dummy.matrix); }, q;
+        for (q = 0; q < G.peds.length; q++) if (G.peds[q].dead <= 0 && !G.peds[q].lift) put(G.peds[q].x, G.peds[q].z, 0.8, 0.8); for (q = 0; q < G.mobs.length; q++) if (G.mobs[q].dead <= 0 && !G.mobs[q].lift) put(G.mobs[q].x, G.mobs[q].z, G.mobs[q].kind === 'bear' ? 1.7 : 0.8, G.mobs[q].kind === 'bear' ? 2.2 : 0.8, Math.atan2(G.mobs[q].dx, G.mobs[q].dz));
+        for (q = 0; q < G.cops.length; q++) put(G.cops[q].x, G.cops[q].z, 0.8, 0.8); for (q = 0; q < G.cars.length; q++) if (!G.cars[q].off && !G.cars[q].lift) put(G.cars[q].x, G.cars[q].z, 1.5, 2.8, Math.atan2(G.cars[q].dx, G.cars[q].dz)); }
+      R.blobs.count = n; R.blobs.instanceMatrix.needsUpdate = true; })();
     smokeTick(dt); if (G.drive && G.drive.hpc < 8 && Math.random() < dt * 6) smoke(G.drive.x, 1, G.drive.z, 1, 0.5);
     R.glowP.material.opacity = 0.15 + 0.8 * nightF; R.glowP.material.size = 2.4 + 2.2 * nightF; palSync(building);
     for (i = 0; i < R.rack.length; i++) { R.rack[i].rotation.y = clock + i; R.rack[i].scale.setScalar(G.build === i ? 1.35 : 1); }
@@ -2055,8 +2061,8 @@ Game.prototype.updateMoon = function (dt) {
     night *= 1 - calmK * 0.55; wAmt *= 1 - calmK * Math.min(1, dt * 2);
     if (G.state === 'inside' || G.state === 'airport') { night = 0; noon = Math.min(noon, 0.2); }      // shops are always lit
     if (G.moon) { hemi.intensity = 0.42; hemi.color.setHex(0xdfe6ff); sun.intensity = 0.6; sun.color.setHex(0xffffff); scene.fog.color.setHex(0x05050c); scene.fog.far = 420; sky.material.color.setHex(0x05050c); sunDisc.visible = sunHalo.visible = false; wx.visible = false; return; }
-    hemi.intensity = 0.58 - 0.24 * night + 0.1 * noon + 0.16 * calmK; mixc(hemi.color, 0xffc9b0, 0x6f7fd0, night); hemi.color.lerp(cB.setHex(0xe8f2ff), noon);
-    sun.intensity = (0.78 - 0.6 * night + 0.1 * noon + 0.15 * calmK) * (1 - wAmt * 0.35); mixc(sun.color, 0xffa868, 0xfff4e0, noon);
+    hemi.intensity = 0.56 - 0.24 * night + 0.04 * noon + 0.03 * calmK; mixc(hemi.color, 0xffc9b0, 0x6f7fd0, night); hemi.color.lerp(cB.setHex(0xe8f2ff), noon);
+    sun.intensity = (0.76 - 0.6 * night + 0.04 * noon) * (1 - wAmt * 0.35); mixc(sun.color, 0xffa868, 0xfff4e0, noon);
     mixc(scene.fog.color, 0xf2a086, 0x171233, night); scene.fog.color.lerp(cB.setHex(0xbcd8f0), noon); scene.fog.color.lerp(cB.setHex(wKind === 'snow' ? 0xd8dde8 : 0x6a7088), wAmt * 0.5 * (1 - night * 0.6)); scene.fog.color.lerp(cB.setHex(0xffc8a8), calmK * 0.5); scene.fog.far = (vr ? 120 : (BIGSCR ? 260 : 170)) * (1 - wAmt * 0.3) * (1 + calmK * 0.6);
     mixc(sky.material.color, 0xffffff, 0x2c2c60, night); sky.material.color.lerp(cB.setHex(0xa8d4ff), noon * 0.55); sunDisc.visible = sunHalo.visible = night < 0.5;
     R.gp.material.opacity = 0.4 + 0.6 * night; R.gp.material.size = 3.4 + 2.4 * night; R.poolMesh.material.opacity = 0.08 + 0.42 * night; winMat.emissiveIntensity = 0.55 + 0.8 * night;
@@ -2157,7 +2163,7 @@ Game.prototype.updateMoon = function (dt) {
     else if (t === 'sweep') { vrKick = 0.05; buzz(padR, 0.3, 60); } else if (t === 'crash') { buzz(padL, 1, 120); buzz(padR, 0.6, 120); } else if (t === 'dominated') { buzz(padL, 1, 300); buzz(padR, 1, 300); } else if (t === 'explode' || t === 'collapse') { buzz(padL, 1, 220); buzz(padR, 1, 220); } else if (t === 'hurt') { buzz(padL, 0.6, 60); buzz(padR, 0.6, 60); } else if (t === 'grab') buzz(padR, 0.4, 40); else if (t === 'splat' || t === 'busted' || t === 'wasted') { buzz(padL, 1, 150); buzz(padR, 1, 150); }
   }
   function setVR(on) {
-    vr = on; document.body.classList.toggle('invr', on); sun.castShadow = !on; camera.near = on ? 0.08 : 0.5; scene.fog.far = on ? 120 : 170; panel.visible = on; vig3.visible = on; if (!on) { cockpit.visible = tpRing.visible = tpLine.visible = vtoast.visible = reticle.visible = laser.visible = cursor.visible = curLine.visible = hud3.visible = false; }
+    vr = on; document.body.classList.toggle('invr', on); sun.castShadow = !on || vrShadow; camera.near = on ? 0.08 : 0.5; scene.fog.far = on ? 120 : 170; panel.visible = on; vig3.visible = on; if (!on) { cockpit.visible = tpRing.visible = tpLine.visible = vtoast.visible = reticle.visible = laser.visible = cursor.visible = curLine.visible = hud3.visible = false; }
     if (on) { vrYaw = 0; panelYaw = 0; joy.id = -1; } else { rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); camera.near = 0.5; if (G) { G.input.mx = 0; G.input.mz = 0; } resize(); }
   }
   if (navigator.xr && navigator.xr.isSessionSupported) navigator.xr.isSessionSupported('immersive-vr').then(function (ok) { if (ok) { $('vrbtn').style.display = 'inline-block'; $('vigbtn').style.display = 'inline-block'; } }).catch(function () {});
@@ -2197,6 +2203,7 @@ Game.prototype.updateMoon = function (dt) {
     if (Rg) { var rx = ax(Rg)[0]; if (Math.abs(rx) > 0.65 && snapReady) { vrYaw -= (rx > 0 ? 1 : -1) * Math.PI / 6; snapReady = false; } else if (Math.abs(rx) < 0.3) snapReady = true; }   // 30 degree snap turn
     if (yB) { vignOn = !vignOn; toast('Comfort vignette ' + (vignOn ? 'on' : 'off'), 1.4); }
     tpMode = false;       // teleport movement is switched off for now
+    if (xB) { vrShadow = !vrShadow; sun.castShadow = vrShadow; toast(vrShadow ? 'REAL SHADOWS ON. TURN OFF IF IT STUTTERS' : 'REAL SHADOWS OFF', 3); }
     if (!started) { G.input.mx = 0; G.input.mz = 0; if (trigR) startGame(); else if (aB || bB) { diffPick = diffPick === 'easy' ? 'medium' : (diffPick === 'medium' ? 'hard' : 'easy'); } return; }
     if (curDialog) { G.input.mx = 0; G.input.mz = 0; if (trigR || trigL) { if (hoverOpt >= 0) pickDialog(hoverOpt); else if (trigR) pickDialog(0); else pickDialog(1); } return; }
     if (G.state === 'hotwire') { primeT -= dt; if (trigR || (heldR && primeT <= 0)) { G.prime(); primeT = 0.11; } return; }
@@ -2309,7 +2316,7 @@ Game.prototype.updateMoon = function (dt) {
     if (G.wanted) { x.fillStyle = '#ff4d4d'; x.font = 'bold 28px sans-serif'; x.fillText('WANTED ' + '\u2605'.repeat(G.wanted), 28, y + 36); }
     x.drawImage(mapC, 474, 18, 276, 276);
     x.fillStyle = '#ffd23f'; x.font = 'bold 28px sans-serif'; y = wrap(G.inn && !G.inn.alarm && !G.inn.threat ? 'Touch the money to take it. Right trigger threatens the clerk. Leave by the door' : $('goal').textContent, 28, 344, 712, 34);
-    { x.fillStyle = '#8f9bb3'; x.font = '19px sans-serif'; x.fillText('A car / ladder / ride   B weapon   Right GRIP jump   Hold left GRIP: big map', 28, 492); }
+    { x.fillStyle = '#8f9bb3'; x.font = '19px sans-serif'; x.fillText('A car/ladder/ride  B weapon  X shadows  R-GRIP jump  L-GRIP map', 28, 492); }
     ptex.needsUpdate = true;
   }
   build(7, 'medium'); resize(); renderer.setAnimationLoop(tick);
