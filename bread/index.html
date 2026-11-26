@@ -113,6 +113,7 @@
 <div id="vig"></div>
 <div id="hud" class="panel">
   <div class="need"><span>Health</span><div class="bar"><i id="nHp" style="background:#ff4fa3"></i></div></div>
+  <div style="font-size:9px;letter-spacing:1px;color:var(--muted);margin-top:2px">FAMILY AT HOME NEEDS</div>
   <div class="need"><span>Food</span><div class="bar"><i id="nFood"></i></div></div>
   <div class="need"><span>Meds</span><div class="bar"><i id="nMed"></i></div></div>
   <div class="need"><span>Heat</span><div class="bar"><i id="nWarm"></i></div></div>
@@ -515,8 +516,39 @@ Game.prototype.updateGuards = function (dt) {
     }
   }
 };
+Game.prototype.waveTick = function (dt) {
+  var wv = this.wave; if (!wv.net && (!this.moon || (this.friends && this.friends.length))) {       /* zombie waves: a crowd arrives, clear them all to unlock something, then a bigger one comes */
+    if (wv.off) { if (wv.on) { this.mobs = this.mobs.filter(function (m) { return !m.wave; }); wv.on = false; wv.n = Math.max(0, wv.n - 1); wv.left = 0; } wv.next = Math.max(wv.next, 15); }
+    else if (!wv.on) { wv.next -= dt; if (wv.next <= 0 && this.mode !== 'heist') this.startWave(); }
+    else { for (var wi = 0; wi < this.mobs.length; wi++) { var wm0 = this.mobs[wi]; if (!wm0.wave || wm0.dead <= 0) continue; if (!wm0.counted) { wm0.counted = true; wv.killed++; wm0.rs = 1.2; } else if (wv.spawned < wv.total) { wm0.rs -= dt; if (wm0.rs <= 0) { this.waveSpawn(wm0); wv.spawned++; } } }       /* only so many are on the street at once; the rest arrive as you clear them */
+      wv.left = Math.max(0, wv.total - wv.killed); if (wv.left <= 0) this.endWave(); }
+  }
+};
+// Playing together: while the player who started the game is in a shop, on the Moon, flying, or looking at a message, the shared zombies and people still have to keep moving for everyone else.
+Game.prototype.netWorld = function (dt) {
+  var w = this.w, p = this.p, i, m, d = 1e9;
+  for (i = 0; i < this.mobs.length; i++) {
+    m = this.mobs[i]; if (m.dead > 0) { if (!m.wave) { m.dead -= dt; if (m.dead <= 0) this.spawnMob(m); } continue; } if (m.beach) { m.moving = false; m.hunt = false; continue; }
+    var bear = m.kind === 'bear'; m.hunt = false; if (m.fedT > 0) m.fedT -= dt; if (bear) { m.charge -= dt; if (m.charge < -3) m.charge = 1.4; }
+    var fb = null, fbd = m.wave ? 400 : (m.boss ? 17 : (bear ? 8 : 10)); if (this.friends && !(m.fedT > 0)) for (var fi = 0; fi < this.friends.length; fi++) { var ff = this.friends[fi]; if (ff.safe) continue; var fd0 = Math.hypot(ff.x - m.x, ff.z - m.z); if (fd0 < fbd) { fbd = fd0; fb = ff; } }
+    if (fb && (!m.hunt || fbd < d)) {       /* playing together: a friend is closer, so go for them. Their own game decides what a bite costs them */
+      m.hunt = false; var fsp = bear ? PSPEED * (m.charge > 0 ? 1.08 : 0.55) : PSPEED * (m.boss ? 0.68 : 0.5); fb.t = (fb.t || 0) - dt; if (fb.t <= 0) { w.bfs(fb.df, Math.floor(fb.x), Math.min(SIZE - 1, Math.floor(fb.z))); fb.t = 0.35; }
+      if (fbd < 1.8 && w.los(m.x, m.z, fb.x, fb.z)) { if (fbd > 0.6) this.move(m, (fb.x - m.x) / fbd * fsp, (fb.z - m.z) / fbd * fsp, dt); } else this.steer(m, fb.df, fsp, dt); continue;
+    }
+    if (!m.goal || Math.abs(m.x - m.goal.x) + Math.abs(m.z - m.goal.z) < 2.5) { m.goal = this.roadSpot(); w.bfs(m.df, m.goal.x, m.goal.z); }
+    this.steer(m, m.df, bear ? 1.7 : 1.2, dt);
+  }
+  for (i = 0; i < this.peds.length; i++) {
+    var e = this.peds[i]; if (e.dead > 0) { e.dead -= dt; if (e.dead <= 0) this.spawnPed(e); continue; } if (e.beach) { e.moving = false; continue; } e.flee = 0; e.held = 0;
+    var b = e.blk, u = ((e.t += dt * 1.4 * e.dir) % 36 + 36) % 36, ox = e.x, oz = e.z;
+    if (u < 9) { e.x = b.x0 + 0.5 + u; e.z = b.z0 + 0.5; } else if (u < 18) { e.x = b.x0 + 9.5; e.z = b.z0 + 0.5 + u - 9; } else if (u < 27) { e.x = b.x0 + 9.5 - (u - 18); e.z = b.z0 + 9.5; } else { e.x = b.x0 + 0.5; e.z = b.z0 + 9.5 - (u - 27); }
+    e.dx = e.x - ox; e.dz = e.z - oz;
+  }
+  this.waveTick(dt);
+};
 Game.prototype.update = function (dt) {
   var p = this.p, w = this.w, i, s, st = this.state;
+  if (this.friends && this.friends.length && (st !== 'play' || this.moon)) this.netWorld(dt);
   if (st === 'launch') {      // you ride the rocket up
     this.launchT += dt; var lr = this.w.launch.rocket, lh = Math.max(0, this.launchT - 1.2); p.x = lr.x; p.z = lr.z; p.fly = lh * lh * 1.6; p.moving = false;
     if (this.launchT > 7.5) { this.ev('win'); this.goMoon(true); } return;
@@ -633,12 +665,7 @@ Game.prototype.update = function (dt) {
     if (this.calm || tl.t > 40) { tl.on = false; tl.next = 150 + this.rnd() * 120; this.ev('tallgone'); }
     else if (tdd < 1.4 && this.grace <= 0 && !p.inside) { var tlost = Math.floor(this.cash / 4), thd = w.home.door; this.cash -= tlost; tl.on = false; tl.next = 170 + this.rnd() * 120; if (this.drive) { this.drive.v = 0; this.drive = null; } this.clearWanted(); p.x = thd.x; p.z = thd.z + 1.2; this.grace = 3; this.ev('tallgot', { lost: tlost }); }
   }
-  var wv = this.wave; if (!wv.net && !this.moon) {       /* zombie waves: a crowd arrives, clear them all to unlock something, then a bigger one comes */
-    if (wv.off) { if (wv.on) { this.mobs = this.mobs.filter(function (m) { return !m.wave; }); wv.on = false; wv.n = Math.max(0, wv.n - 1); wv.left = 0; } wv.next = Math.max(wv.next, 15); }
-    else if (!wv.on) { wv.next -= dt; if (wv.next <= 0 && this.mode !== 'heist') this.startWave(); }
-    else { for (var wi = 0; wi < this.mobs.length; wi++) { var wm0 = this.mobs[wi]; if (!wm0.wave || wm0.dead <= 0) continue; if (!wm0.counted) { wm0.counted = true; wv.killed++; wm0.rs = 1.2; } else if (wv.spawned < wv.total) { wm0.rs -= dt; if (wm0.rs <= 0) { this.waveSpawn(wm0); wv.spawned++; } } }       /* only so many are on the street at once; the rest arrive as you clear them */
-      wv.left = Math.max(0, wv.total - wv.killed); if (wv.left <= 0) this.endWave(); }
-  }
+  this.waveTick(dt);
   var uf = this.ufo;
   if (uf.net) { if (uf.on && uf.mine && !this.calm && Math.hypot(p.x - uf.x, p.z - uf.z) < 1.6) { if (this.drive) { this.drive.v = 0; this.drive = null; } var best = null, bd = -1, cs = [[Math.max(30, Math.min(SIZE - 30, p.x)), SIZE + 6]]; /* the saucer always sets you down on the beach */ cs.forEach(function (c) { var d2 = Math.abs(c[0] - p.x) + Math.abs(c[1] - p.z); if (d2 > bd) { bd = d2; best = c; } });
       uf.fx = p.x; uf.fz = p.z; uf.tx = best[0] + 0.5; uf.tz = best[1] + 0.5; uf.t = 0; this.state = 'ufo'; this.wanted = 0; for (i = 0; i < this.cops.length; i++) this.cops[i].chase = false; this.ev('abduct'); return; } }       /* joined a friend: their saucer, and it only takes you if it is after you */
@@ -656,7 +683,7 @@ Game.prototype.update = function (dt) {
     nd.food -= 0.5 * D * dt; nd.med -= 0.27 * D * dt; nd.warm -= 0.34 * D * dt;
     if (this.wanted) this.heat += 25 * this.wanted * dt;   // the counter never stops; being chased pays
     ['food', 'med', 'warm'].forEach(function (k) { if (nd[k] <= 2 && this.cash >= 100) { this.cash -= 100; nd[k] += 14; this.ev('saved', { k: k }); } }, this);
-    if (nd.food <= 0 || nd.med <= 0 || nd.warm <= 0) { this.state = 'over'; this.ev('over'); return; }
+    if (nd.food <= 0 || nd.med <= 0 || nd.warm <= 0) { nd.food = Math.max(0, nd.food); nd.med = Math.max(0, nd.med); nd.warm = Math.max(0, nd.warm); this.hungryT = (this.hungryT || 0) - dt; if (this.hungryT <= 0) { this.hungryT = 45; this.ev('hungry', { k: nd.food <= 0 ? 'FOOD' : nd.med <= 0 ? 'MEDICINE' : 'HEAT' }); } }       /* running out no longer ends the game; it just nags */
     if (ml > 0.3 && !this.drive) {
       for (i = 0; i < w.stores.length; i++) {
         s = w.stores[i]; var dx = p.x - s.door.x, dz = p.z - s.door.z;
@@ -1920,7 +1947,7 @@ Game.prototype.updateMoon = function (dt) {
   $('mpx').addEventListener('click', function () { $('mp').style.display = 'none'; });
   $('mphost').addEventListener('click', function () { initAudio(); mpHost(0); });
   $('mpjoin').addEventListener('click', function () { initAudio(); mpJoin($('mpcode').value); });
-  function startGame(sd, df) { initAudio(); build(typeof sd === 'number' ? sd : Math.floor(Math.random() * 1e9), typeof df === 'string' ? df : diffPick); shownCash = 0; lastCash = 0; started = true; $('title').classList.remove('on'); $('dialog').classList.remove('on'); toast(diffPick === 'easy' ? 'Rob a store. Bring it home.' : 'Rob a store. Follow the floating labels to weapon crates.', 3.2); jingle([392, 523, 659], 0.09); }
+  function startGame(sd, df) { initAudio(); if (typeof sd !== 'number' && MP.peer && MP.conns.length) { sd = curSeed; df = curDiff; } build(typeof sd === 'number' ? sd : Math.floor(Math.random() * 1e9), typeof df === 'string' ? df : diffPick); shownCash = 0; lastCash = 0; started = true; $('title').classList.remove('on'); $('dialog').classList.remove('on'); toast(diffPick === 'easy' ? 'Rob a store. Bring it home.' : 'Rob a store. Follow the floating labels to weapon crates.', 3.2); jingle([392, 523, 659], 0.09); }
   $('start').addEventListener('click', function () { startGame(); });
 
   // ---------- overlays
@@ -1981,6 +2008,7 @@ Game.prototype.updateMoon = function (dt) {
         debris(tx, 1.9, tz, paid ? 90 : 30, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 8, 0.4); if (paid) debris(tx, 1.4, tz, 24, [0x3fae5a, 0x5dfc8a, 0x2f8a45], 4, 0.5); toast(paid ? 'YOU TIPPED $100!  EVERYONE CHEERS' : 'OUT OF CASH. HIGH FIVE INSTEAD', 1.6, '#5dfc8a'); jingle(paid ? [659, 784, 1047, 1319] : [523, 659], 0.08, 'triangle'); } } }
     else if (t === 'wave') { toast('WAVE ' + ev.n + '!  ' + ev.count + ' ZOMBIES ARE COMING', 4.5, '#ff5a5a'); tone(220, 0.5, 0.25, 'sawtooth', 440); tone(220, 0.5, 0.25, 'sawtooth', 440, 0.6); tone(220, 0.7, 0.25, 'sawtooth', 520, 1.2); }
     else if (t === 'waveclear') { toast('WAVE ' + ev.n + ' CLEARED!  ' + (ev.unlock || '') + '  +$' + ev.bonus, 5.5, '#5dfc8a'); debris(G.p.x, 2.2 + (G.p.fly || 0) + (G.p.bh || 0), G.p.z, 120, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 10, 0.4); jingle([523, 659, 784, 1047, 1319], 0.1, 'triangle'); }
+    else if (t === 'hungry') toast('THE FAMILY IS OUT OF ' + ev.k + '. ROB A STORE AND CARRY IT HOME', 4, '#ffd23f');
     else if (t === 'popcop') { debris(ev.x, 1.2, ev.z, 110, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 11, 0.8); tone(900, 0.1, 0.2, 'square', 1800); tone(1400, 0.2, 0.12, 'sine', 500, 0.05); toast('POP!', 0.8, '#ff4fa3'); }
     else if (t === 'breach') { ev.tiles.forEach(function (k) { if (R.fence[k]) squash(R.flat, R.fence[k], 0.5); }); debris(ev.x, 0.8, ev.z, 70, [0x8d94a0, 0x4a4468, 0xffb62e], 11, 2); toast('WALL DOWN! GO FOR THE ROCKET', 3, '#ffb62e'); shake = Math.max(shake, 0.6); }
     else if (t === 'tall') { toast('SOMETHING TALL IS COMING', 3.5, '#b9b6ff'); tone(40, 3, 0.35, 'sawtooth', 70); tone(660, 2.5, 0.04, 'sine', 620); }
