@@ -42,7 +42,7 @@
 <body>
 <div id="stage"></div>
 <div id="read" class="serif"><div id="alt"></div><div id="spd"></div></div>
-<div id="btns"><button id="skibtn">SKIS ON</button><button id="topbtn">SUMMIT</button><button id="mpbtn">TOGETHER</button><button id="vrbtn">ENTER VR</button></div>
+<div id="btns"><button id="skibtn">SKIS ON</button><button id="topbtn">SUMMIT</button><button id="mpbtn">TOGETHER</button><button id="skybtn">SKY: AUTO</button><button id="vrbtn">ENTER VR</button></div>
 <div id="msg" class="serif"></div>
 <div id="hint"></div>
 <div id="joy"><div id="knob"></div></div>
@@ -76,8 +76,7 @@ var GN = 300, GS = 50, GOX = 225, GOZ = 150, TOPX = -2, TOPZ = 6;   // world (0,
 var Y0 = 7000;                 // render heights are stored relative to 7000 m so floats stay precise
 var CLOUD = 5170, SINK = CLOUD - 320;
 var WX0 = -GOX * GS - TOPX, WZ0 = -GOZ * GS - TOPZ, WS = (GN - 1) * GS;
-var SUN_AZ = 272 * Math.PI / 180, SUN_EL = 22 * Math.PI / 180;
-var SUN = new V3(Math.sin(SUN_AZ) * Math.cos(SUN_EL), Math.sin(SUN_EL), -Math.cos(SUN_AZ) * Math.cos(SUN_EL));
+var D2R = Math.PI / 180;
 var WIND = 0.35, WDX = Math.cos(WIND), WDZ = Math.sin(WIND), gust = 0.5;   // the wind blows from the west; snow ripples, spindrift and plumes all follow it
 var G = 9.81;
 var RT = [0.0,0.0,-13.6,21.0,-27.1,42.0,-37.3,64.7,-44.3,88.7,-49.3,113.2,-52.2,138.0,-53.4,162.9,-53.3,187.9,-52.3,212.9,-50.8,237.9,-49.0,262.8,-47.0,287.7,-44.8,312.6,-41.8,337.5,-37.6,362.1,-31.5,386.3,-22.9,409.8,-11.7,432.1,2.1,453.0,18.1,472.2,35.7,490.0,54.3,506.7,73.4,522.8,92.8,538.5,112.4,554.1,132.2,569.3,152.6,583.8,173.6,597.4,195.3,609.7,217.7,620.8,240.5,631.0,263.4,641.2,285.8,652.1,307.3,664.9,327.1,680.0,344.6,697.9,359.3,718.0,371.4,739.8,381.5,762.7,390.5,786.0,399.3,809.4,408.2,832.8,417.6,855.9,427.4,879.0,436.9,902.1,445.8,925.4,453.5,949.2,459.7,973.4,464.2,998.0,467.5,1022.8,469.9,1047.6,471.9,1072.6,474.0,1097.5,476.4,1122.3,479.4,1147.2,482.9,1171.9,486.7,1196.6,490.6,1221.3,494.6,1246.0,498.5,1270.7,502.5,1295.4,506.6,1320.0,511.0,1344.6,515.8,1369.2,521.1,1393.6,526.8,1417.9,532.7,1442.2,538.6,1466.5,543.8,1491.0,547.8,1515.6,549.7,1540.6,548.2,1565.5,542.1,1589.7,531.3,1612.1,516.1,1631.8,497.1,1648.0,475.8,1661.0,453.1,1671.5,429.5,1679.8,405.4,1686.3,380.6,1689.2,355.7,1691.1,330.8,1693.0,305.8,1693.9,280.8,1694.0,255.8,1694.0,230.8,1694.0,205.8,1694.0,180.8,1694.0,155.8,1694.0,130.8,1694.0,105.8,1694.0,80.8,1694.1,55.8,1694.2,30.8,1694.3,5.8,1694.7,-19.2,1695.4,-44.2,1696.8,-69.0,1699.3,-93.7,1703.3,-118.0,1709.2,-141.6,1717.1,-164.6,1727.0,-186.9,1738.2,-209.1,1749.9,-231.4,1761.0,-254.3,1771.0,-277.9,1779.2,-302.1,1785.5,-326.6,1790.4,-351.2,1794.6,-375.9,1798.9,-400.3,1804.2,-424.2,1811.3,-447.3,1820.8,-469.5,1832.2,-490.6,1845.6,-511.0,1860.1,-531.0,1875.1,-551.3,1889.7,-572.2,1903.4,-594.0,1915.6,-616.8,1925.8,-640.3,1934.1,-664.4,1940.9,-688.7,1946.9,-713.0,1952.7,-737.2,1958.8,-761.5,1964.9,-785.8,1970.8,-810.3,1975.4,-835.1,1978.0,-860.1,1978.2,-884.9,1975.6,-909.5,1971.1,-933.9,1965.5,-958.2,1959.8,-982.7,1954.7,-1007.3,1950.6,-1032.2,1947.6,-1057.1,1945.3,-1082.0,1943.2,-1106.9,1941.0,-1131.7,1938.0,-1156.3,1933.9,-1180.6,1928.1,-1204.5,1920.7,-1227.9,1911.8,-1250.6,1901.5,-1272.8,1889.9,-1294.2,1877.1,-1315.0,1863.2,-1335.0,1848.3,-1354.4,1832.5,-1373.2,1816.0,-1391.6,1799.0,-1409.6,1781.7,-1427.5,1764.2,-1445.2,1746.7,-1463.0,1729.0,-1480.6,1711.3,-1498.3,1693.7,-1516.0,1676.0,-1533.7,1658.3,-1551.4,1640.6,-1569.0,1623.0,-1586.7,1605.3,-1604.4,1587.6,-1622.1,1569.9,-1639.7,1552.3,-1657.4,1534.6,-1675.1,1516.9,-1692.8,1499.2,-1710.5,1481.5,-1728.1,1463.9,-1745.8,1446.2,-1763.5,1428.5,-1781.2,1410.8,-1798.8,1393.2,-1816.5,1375.5,-1834.2,1357.8,-1851.9,1340.1,-1869.6,1322.5,-1887.3,1304.8,-1905.0,1287.2,-1922.7,1269.6,-1940.7,1252.1,-1958.8,1234.9,-1977.2,1218.0,-1996.0,1201.6,-2015.4,1185.8,-2035.4,1170.7,-2055.7,1156.3,-2076.4,1142.2,-2097.2,1128.4,-2118.0,1114.5,-2138.7,1100.5,-2159.5,1086.5,-2180.4,1072.8,-2201.7,1059.7,-2223.4,1047.3,-2245.6,1035.9,-2268.4,1025.7,-2291.8,1016.8,-2315.7,1009.4,-2339.9,1003.5,-2364.5,998.9,-2389.2,995.0,-2413.9,991.2,-2438.5,986.7,-2462.8,980.9,-2486.5,973.1,-2509.6,963.4,-2532.0,952.4,-2554.1,940.7,-2576.2,929.1,-2598.9,918.5,-2622.1,909.4,-2645.9,901.6,-2669.9,894.8,-2694.0,888.0,-2717.9,880.6,-2741.3,871.8,-2764.0,861.5,-2786.3,850.2,-2808.4,838.6,-2830.8,827.3,-2853.7,817.3,-2877.3,809.3,-2901.6,803.4,-2926.2,799.4,-2951.1,796.9,-2976.1,795.4,-3001.0,794.6,-3026.0,794.2,-3051.0,794.0,-3076.0,793.7,-3101.0,793.2,-3126.0,792.5,-3151.0,791.0,-3175.9,788.7,-3200.6,785.3,-3225.2,780.7,-3249.5,775.0,-3273.7,768.7,-3297.9,762.5,-3322.3,756.9,-3346.9,752.4,-3371.6,749.0,-3396.5,746.8,-3421.5,745.4,-3446.5,744.7,-3471.5,744.3,-3496.5,744.0,-3521.5,743.8,-3546.5,743.4,-3571.5,742.7,-3596.4,741.3,-3621.3,739.2,-3646.1,735.7,-3670.6,730.7,-3694.7,724.1,-3718.3,715.9,-3741.2,706.1,-3763.7,695.0,-3785.4,682.8,-3806.5,669.4,-3827.0,655.0,-3846.9,639.9,-3866.4,624.3,-3885.8,608.6,-3905.4,593.0,-3925.2,577.8,-3945.4,563.1,-3966.0,548.8,-3986.5,534.6,-4006.9,520.1,-4026.9,505.1,-4046.4,489.4,-4065.3,473.1,-4083.8,456.3,-4101.9,439.1,-4119.9,421.7,-4137.7,404.1,-4155.4,386.5,-4173.1,368.9,-4190.8,351.2,-4208.5,333.5,-4226.2,315.8,-4243.9,298.1,-4261.5,280.5,-4279.2,262.8,-4296.9,245.1,-4314.6,227.4,-4332.2,209.8,-4349.9,192.1,-4367.6,174.4,-4385.3,156.7,-4403.0,139.0,-4420.6,121.4,-4438.3,103.7,-4456.0,86.0,-4473.7,68.3,-4491.3,50.7,-4509.0,33.0,-4526.7,15.3,-4544.4,-2.4,-4562.1,-20.1,-4579.7,-37.7,-4597.4,-55.4,-4615.1,-73.1,-4632.8,-90.8,-4650.4,-108.4,-4668.1,-126.1,-4685.8,-143.8,-4703.5,-161.5,-4721.2,-179.2,-4738.8,-196.8,-4756.5,-214.5,-4774.2,-232.2,-4791.9,-249.9,-4809.5,-267.5,-4827.2,-285.2,-4844.9,-302.9,-4862.6,-320.6,-4880.3,-338.3,-4897.9,-355.9,-4915.6,-373.6,-4933.3,-391.3,-4951.0,-409.0,-4968.6,-426.6,-4986.3,-444.3,-5004.0,-462.0,-5021.7,-479.7,-5039.3,-497.3,-5057.0,-515.0,-5074.7,-532.7,-5092.4,-550.4,-5110.1,-568.1,-5127.7,-585.7,-5145.4,-603.4,-5163.1,-621.1,-5180.8,-638.8,-5198.4,-656.4,-5216.1,-674.1,-5233.8,-691.8,-5251.5,-709.5,-5269.2,-727.2,-5286.8,-744.8,-5304.5,-762.5,-5322.2,-780.2,-5339.9,-797.9,-5357.5,-815.5,-5375.3,-833.2,-5393.0,-850.9,-5410.7,-868.5,-5428.5,-886.0,-5446.5,-903.3,-5464.9,-920.3,-5483.8,-936.6,-5503.5,-952.1,-5524.2,-966.0,-5546.1,-978.0,-5569.2,-987.6,-5593.1,-994.7,-5617.6,-999.6,-5642.3,-1003.0,-5667.2,-1005.5,-5692.1,-1007.8,-5716.9,-1010.7,-5741.6,-1014.9,-5765.8,-1021.0,-5789.3,-1029.3,-5811.8,-1040.2,-5833.0,-1053.4,-5853.2,-1068.1,-5872.4,-1084.1,-5891.0,-1100.8,-5909.2,-1117.9,-5927.3,-1135.2,-5945.3,-1152.5,-5963.5,-1169.6,-5982.0,-1186.4,-6001.0,-1202.7,-6020.5,-1218.4,-6040.5,-1233.3,-6060.9,-1247.8,-6081.5,-1262.0,-6102.0,-1276.3,-6122.2,-1290.9,-6142.2,-1306.0,-6161.8,-1321.5,-6181.5,-1336.9,-6201.7,-1351.7,-6222.6,-1365.4,-6244.5,-1377.4,-6267.5,-1387.0,-6291.4,-1394.1,-6315.9,-1399.0,-6340.7,-1402.2,-6365.6,-1404.1,-6390.6,-1405.1,-6415.6,-1405.6,-6440.6,-1405.8,-6465.6,-1406.0,-6490.6,-1406.0,-6515.6,-1406.0,-6540.6,-1406.0,-6565.6,-1406.0,-6590.6,-1406.0,-6615.6,-1406.0,-6640.6,-1406.0,-6665.6,-1406.0,-6690.6,-1406.0,-6715.6,-1406.0,-6740.6,-1406.1,-6765.6,-1406.2,-6790.6,-1406.5,-6815.6,-1407.1,-6840.6,-1408.3,-6865.5,-1410.3,-6890.3,-1413.3,-6914.9,-1417.9,-6939.1,-1424.0,-6962.9,-1431.7,-6986.2,-1440.7,-7009.0,-1450.9,-7031.4,-1461.9,-7053.4,-1473.8];               // the route, summit to base camp: x,z pairs every 25 m
@@ -229,26 +228,15 @@ function bakeGlobal() {     // one texture for the whole map: slope x, slope z, 
   var i, j, k, tex = WS / TS, out = new Uint8Array(TS * TS * 4);
   HT = new Float32Array(TS * TS);
   for (j = 0; j < TS; j++) { var z = WZ0 + (j + 0.5) * tex; for (i = 0; i < TS; i++) HT[j * TS + i] = H(WX0 + (i + 0.5) * tex, z, 2); }
-  var hl = Math.hypot(SUN.x, SUN.z), sdx = SUN.x / hl / tex, sdz = SUN.z / hl / tex, tanEl = SUN.y / hl;
   for (j = 0; j < TS; j++) for (i = 0; i < TS; i++) {
     k = j * TS + i;
     var il = i > 0 ? i - 1 : 0, ir = i < TS - 1 ? i + 1 : i, jl = j > 0 ? j - 1 : 0, jr = j < TS - 1 ? j + 1 : j;
     var sx = (HT[j * TS + ir] - HT[j * TS + il]) / ((ir - il) * tex), sz = (HT[jr * TS + i] - HT[jl * TS + i]) / ((jr - jl) * tex);
-    var h0 = HT[k] + 0.8, res = 1, t = 20, n;
-    for (n = 0; n < 46; n++) {
-      var x = i + sdx * t, zz = j + sdz * t;
-      if (x < 0 || zz < 0 || x >= TS || zz >= TS) break;
-      var rh = h0 + t * tanEl; if (rh > 8870) break;
-      var d = rh - HT[(zz | 0) * TS + (x | 0)];
-      if (d < 0) { res = 0; break; }
-      d = d / t * 16; if (d < res) res = d;
-      t = t * 1.13 + 5;
-    }
     var sm = Math.hypot(sx, sz), wx = WX0 + i * tex, wz = WZ0 + j * tex;
     var rock = (sm - 1.02) / 0.5 + 0.5 + 0.22 * nz(wx * 0.011, wz * 0.011) + 0.1 * nz(wx * 0.05 + 9, wz * 0.05);
     if (HT[k] < CLOUD + 400) rock -= (CLOUD + 400 - HT[k]) / 300;
     out[4 * k] = clamp(sx / 6 + 0.5, 0, 1) * 255; out[4 * k + 1] = clamp(sz / 6 + 0.5, 0, 1) * 255;
-    out[4 * k + 2] = clamp(res, 0, 1) * 255; out[4 * k + 3] = clamp(rock, 0, 1) * 255;
+    out[4 * k + 2] = 255; out[4 * k + 3] = clamp(rock, 0, 1) * 255;
   }
   GT = out; return dataTex(out, TS, TS, false, maxAniso);
 }
@@ -279,19 +267,30 @@ function bakeCloud() {
 
 // ================= shaders =================
 var U = {     // uniforms shared by everything
-  uSun: { value: SUN }, uTime: { value: 0 }, uCloudY: { value: CLOUD - Y0 }, uFog: { value: 1 / 70000 },
-  tGlobal: { value: null }, tRipple: { value: null }, tCloud: { value: null },
+  uSun: { value: new V3(0, 1, 0) }, uSunDir: { value: new V3(0, 1, 0) }, uMoonDir: { value: new V3(Math.sin(165 * D2R) * Math.cos(40 * D2R), Math.sin(40 * D2R), -Math.cos(165 * D2R) * Math.cos(40 * D2R)) },
+  uTime: { value: 0 }, uCloudY: { value: CLOUD - Y0 }, uFog: { value: 1 / 70000 },
+  tGlobal: { value: null }, tRipple: { value: null }, tCloud: { value: null }, tShadow: { value: null }, uShW: { value: new THREE.Vector4(1, 0, 0, 0) },
   uWorld: { value: new THREE.Vector3(WX0, WZ0, 1 / WS) },
-  uWA: { value: new THREE.Vector2(Math.cos(WIND), Math.sin(WIND)) }, uWB: { value: new THREE.Vector2(-Math.sin(WIND), Math.cos(WIND)) }
+  uWA: { value: new THREE.Vector2(Math.cos(WIND), Math.sin(WIND)) }, uWB: { value: new THREE.Vector2(-Math.sin(WIND), Math.cos(WIND)) },
+  uZen: { value: new V3() }, uMid: { value: new V3() }, uHor: { value: new V3() }, uGlow: { value: new V3() }, uSky: { value: new THREE.Vector4(0, 0, 0, 1) },     // uSky: sunset glow, night, weather, sun disc
+  uCloudLit: { value: new V3(1, 1, 1) }, uCloudSh: { value: new V3(0.4, 0.5, 0.8) }, uLightC: { value: new V3(3, 3, 3) }, uAmbC: { value: new V3(0.16, 0.31, 0.8) }, uTint: { value: new V3(1, 1, 1) },
+  uLampP: { value: new THREE.Vector4(0, 0, 0, 0) }, uLampD: { value: new V3(0, 0, -1) }
 };
+function UN(o) { var k, r = {}; for (k in U) r[k] = U[k]; if (o) for (k in o) r[k] = o[k]; return r; }
 var GL_SKY = [
-  'uniform vec3 uSun; uniform float uTime; uniform float uCloudY; uniform sampler2D tCloud;',
+  'uniform vec3 uSun; uniform vec3 uSunDir; uniform vec3 uMoonDir; uniform float uTime; uniform float uCloudY; uniform sampler2D tCloud;',
+  'uniform vec3 uZen; uniform vec3 uMid; uniform vec3 uHor; uniform vec3 uGlow; uniform vec4 uSky; uniform vec3 uCloudLit; uniform vec3 uCloudSh;',
   'vec3 skyBase(vec3 rd) {',
   '  float e = clamp(rd.y, 0.0, 1.0);',
-  '  vec3 c = mix(vec3(0.66, 0.82, 0.98), vec3(0.10, 0.32, 0.82), smoothstep(0.0, 0.11, e));',
-  '  c = mix(c, vec3(0.015, 0.07, 0.40), smoothstep(0.05, 0.7, e));',
-  '  float sd = max(dot(rd, uSun), 0.0);',
-  '  c += vec3(1.0, 0.82, 0.58) * (pow(sd, 8.0) * 0.14 + pow(sd, 80.0) * 0.4);',
+  '  vec3 c = mix(uHor, uMid, smoothstep(0.0, 0.11, e));',
+  '  c = mix(c, uZen, smoothstep(0.05, 0.7, e));',
+  '  float sd = max(dot(rd, uSunDir), 0.0);',
+  '  c += uGlow * (pow(sd, 8.0) * 0.14 + pow(sd, 80.0) * 0.4);',
+  '  if (uSky.x > 0.0) {',
+  '    float az = dot(normalize(rd.xz + vec2(0.0001)), normalize(uSunDir.xz));',
+  '    c += uSky.x * vec3(1.0, 0.36, 0.08) * (pow(max(az, 0.0), 2.0) * exp(-e * 6.0) * 0.62);',
+  '    c += uSky.x * vec3(0.55, 0.22, 0.42) * (pow(max(-az, 0.0), 1.5) * exp(-abs(e - 0.08) * 12.0) * 0.4);',
+  '  }',
   '  return c;',
   '}',
   'vec3 cloudShade(vec3 ro, vec3 rd) {',
@@ -304,8 +303,8 @@ var GL_SKY = [
   '  float d = texture2D(tCloud, uv).r * 0.75 + texture2D(tCloud, uv * 3.1 + 0.37).g * 0.25;',
   '  float ds = texture2D(tCloud, uv + so).r * 0.75 + texture2D(tCloud, (uv + so * 0.5) * 3.1 + 0.37).g * 0.25;',
   '  float lit = smoothstep(-0.12, 0.07, d - ds) * (0.4 + 0.6 * smoothstep(0.2, 0.55, d));',
-  '  vec3 c = mix(vec3(0.38, 0.51, 0.83), vec3(1.0, 0.99, 0.97), lit) * (0.70 + 0.30 * smoothstep(0.10, 0.42, d));',
-  '  c += vec3(1.0, 0.85, 0.65) * pow(max(dot(rd, uSun), 0.0), 10.0) * 0.2;',
+  '  vec3 c = mix(uCloudSh, uCloudLit, lit) * (0.70 + 0.30 * smoothstep(0.10, 0.42, d));',
+  '  c += uGlow * pow(max(dot(rd, uSunDir), 0.0), 10.0) * 0.22;',
   '  return mix(c, skyBase(vec3(rd.x, 0.0, rd.z)), 1.0 - exp(-t / 95000.0));',
   '}'
 ].join('\n');
@@ -313,10 +312,30 @@ var GL_TONE = 'vec3 tone(vec3 c) { c = 1.0 - exp(-c * 1.55); return pow(c, vec3(
 var SKY_VS = 'varying vec3 vDir; void main() { vDir = position; vec4 p = projectionMatrix * vec4(mat3(viewMatrix) * position, 1.0); gl_Position = p.xyww; }';
 var SKY_FS = GL_SKY + [
   'varying vec3 vDir;',
+  'float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }',
   'void main() {',
   '  vec3 rd = normalize(vDir); vec3 c;',
   '  if (rd.y < 0.0) c = cloudShade(cameraPosition, rd);',
-  '  else { c = skyBase(rd); c += vec3(1.0, 0.96, 0.88) * smoothstep(0.99982, 0.99994, dot(rd, uSun)) * 3.0; }',
+  '  else {',
+  '    c = skyBase(rd);',
+  '    float ci = texture2D(tCloud, rd.xz / (rd.y + 0.12) * 0.07 + uTime * vec2(0.004, 0.0015)).b;',                    // thin high cloud, thicker in bad weather
+  '    ci = smoothstep(0.56 - 0.34 * uSky.z, 0.86, ci) * smoothstep(0.0, 0.18, rd.y) * (0.3 + 0.7 * uSky.z);',
+  '    if (uSky.y > 0.01) {',
+  '      vec3 q = rd * 90.0, cl = floor(q); float h = hash3(cl);',
+  '      if (h > 0.975) { vec3 o = vec3(hash3(cl + 1.3), hash3(cl + 2.7), hash3(cl + 4.1)) - 0.5; float d = length(fract(q) - 0.5 - o * 0.5); c += vec3(0.9, 0.95, 1.0) * (smoothstep(0.15, 0.03, d) * (0.75 + 0.25 * sin(uTime * (2.0 + h * 40.0) + h * 300.0)) * uSky.y * (0.5 + 0.9 * hash3(cl + 7.0))); }',
+  '      float mw = exp(-pow(dot(rd, vec3(0.55, 0.25, 0.80)) * 3.2, 2.0));',
+  '      c += vec3(0.10, 0.12, 0.2) * (mw * uSky.y * (0.4 + texture2D(tCloud, rd.xz * 1.5 + rd.y).g) * 0.4);',
+  '      vec2 ap = rd.xz / (rd.y + 0.25); float t = uTime * 0.02;',                                                       // aurora: curtains in the north
+  '      float a1 = texture2D(tCloud, vec2(ap.x * 0.09 + t, ap.y * 0.03 - t * 0.6)).r;',
+  '      float cur = pow(1.0 - abs(2.0 * a1 - 1.0), 5.0) + 0.5 * pow(1.0 - abs(2.0 * texture2D(tCloud, vec2(ap.x * 0.05 - t * 0.7, ap.y * 0.02 + 0.4)).g - 1.0), 6.0);',
+  '      float rays = 0.5 + 0.5 * texture2D(tCloud, vec2(ap.x * 0.9 + t * 3.0, 0.3)).g;',
+  '      float band = smoothstep(0.03, 0.2, rd.y) * (1.0 - smoothstep(0.4, 0.85, rd.y)) * smoothstep(-0.25, 0.45, -rd.z);',
+  '      c += mix(vec3(0.12, 1.0, 0.45), vec3(0.6, 0.22, 0.95), smoothstep(0.14, 0.6, rd.y)) * (cur * rays * band * uSky.y * (1.0 - uSky.z) * (0.85 + 0.35 * sin(uTime * 0.31)) * 0.85);',
+  '      float md = dot(rd, uMoonDir); c += vec3(0.95, 0.97, 1.0) * ((smoothstep(0.99962, 0.99976, md) * 1.3 + pow(max(md, 0.0), 350.0) * 0.22) * uSky.y);',
+  '    }',
+  '    c = mix(c, uCloudLit * 0.92 + uCloudSh * 0.08, ci * 0.55);',
+  '    c += vec3(1.0, 0.96, 0.88) * (smoothstep(0.99982, 0.99994, dot(rd, uSunDir)) * 3.0 * uSky.w) * (1.0 - ci * 0.6);',
+  '  }',
   '  gl_FragColor = vec4(c, 1.0);',
   '}'
 ].join('\n');
@@ -329,14 +348,14 @@ var TER_VS = [
 ].join('\n');
 var STA_VS = 'varying vec3 vW; varying vec2 vSl; void main() { vW = position; vSl = vec2(0.0); gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0); }';
 var TER_FS = GL_SKY + GL_TONE + [
-  'uniform sampler2D tGlobal; uniform sampler2D tRipple; uniform vec3 uWorld; uniform vec2 uWA; uniform vec2 uWB; uniform float uVN; uniform float uFog; uniform vec3 uHole;',
+  'uniform sampler2D tGlobal; uniform sampler2D tRipple; uniform sampler2D tShadow; uniform vec4 uShW; uniform vec3 uLightC; uniform vec3 uAmbC; uniform vec4 uLampP; uniform vec3 uLampD; uniform vec3 uWorld; uniform vec2 uWA; uniform vec2 uWB; uniform float uVN; uniform float uFog; uniform vec3 uHole;',
   'varying vec3 vW; varying vec2 vSl;',
   'void main() {',
   '#ifdef STATIC',
   '  if (max(abs(vW.x - uHole.x), abs(vW.z - uHole.y)) < uHole.z) discard;',
   '#endif',
   '  vec3 toC = vW - cameraPosition; float dist = length(toC); vec3 rd = toC / dist;',
-  '  vec4 g = texture2D(tGlobal, (vW.xz - uWorld.xy) * uWorld.z);',
+  '  vec2 guv = (vW.xz - uWorld.xy) * uWorld.z; vec4 g = texture2D(tGlobal, guv);',
   '  vec2 sl = (g.rg - 0.5) * 6.0;',
   '  sl = mix(sl, vSl, uVN * (1.0 - smoothstep(200.0, 360.0, dist)));',
   '  vec2 ruv = vec2(dot(vW.xz, uWA), dot(vW.xz, uWB));',
@@ -349,12 +368,12 @@ var TER_FS = GL_SKY + GL_TONE + [
   '  sl += uWA * rs.x + uWB * rs.y;',
   '  vec3 N = normalize(vec3(-sl.x, 1.0, -sl.y));',
   '  float ndl = max(dot(N, uSun), 0.0);',
-  '  float sh = g.b;',
+  '  float sh = dot(texture2D(tShadow, guv), uShW);',
   '  vec3 alb = mix(vec3(0.94, 0.955, 0.98), mix(vec3(0.10, 0.085, 0.08), vec3(0.21, 0.185, 0.17), r2.b * 0.7 + r1.b * 0.3), rock);',
-  '  vec3 amb = vec3(0.16, 0.31, 0.80) * (0.50 + 0.24 * N.y) + vec3(0.10, 0.10, 0.11) * (1.0 - sh * 0.5);',
-  '  vec3 col = alb * (vec3(1.0, 0.94, 0.84) * (3.3 * ndl * sh) + amb);',
+  '  vec3 col = alb * (uLightC * (ndl * sh) + uAmbC * (0.50 + 0.24 * N.y) + uLightC * (0.03 * (1.0 - sh * 0.5)));',
   '  float sp = pow(max(dot(N, normalize(uSun - rd)), 0.0), 60.0) * (1.0 - rock) * sh;',
-  '  col += vec3(1.0, 0.95, 0.85) * sp * 0.6;',
+  '  col += uLightC * (sp * 0.18);',
+  '  if (uLampP.w > 0.0) { vec3 lv = vW - uLampP.xyz; float ld = length(lv); lv /= ld; col += alb * vec3(1.0, 0.94, 0.82) * (uLampP.w * smoothstep(0.80, 0.97, dot(lv, uLampD)) * (max(dot(N, -lv), 0.0) * 0.6 + 0.4) * 7.0 / (4.0 + ld * 0.6 + ld * ld * 0.012)); }',
   '  col = tone(col);',
   '  vec3 hz = skyBase(vec3(rd.x, max(rd.y, 0.0) * 0.6 + 0.03, rd.z));',
   '  col = mix(col, hz, 1.0 - exp(-dist * uFog));',
@@ -367,7 +386,7 @@ var TER_FS = GL_SKY + GL_TONE + [
   '}'
 ].join('\n');
 var PROP_VS = [       // people are one mesh each; thighs, shins and arms swing here in the shader
-  'attribute vec3 color; attribute float aBone; uniform vec4 uAnim; varying vec3 vC; varying vec3 vN;',     // uAnim: step phase, stride, lean, crouch
+  'attribute vec3 color; attribute float aBone; uniform vec4 uAnim; varying vec3 vC; varying vec3 vN; varying vec4 vWE;',     // uAnim: step phase, stride, lean, crouch
   'vec3 rx(vec3 p, vec3 o, float a) { p -= o; float c = cos(a), s = sin(a); return vec3(p.x, c * p.y - s * p.z, s * p.y + c * p.z) + o; }',
   'void main() {',
   '  vec3 p = position, n = normal; float b = aBone, c = uAnim.w, th = 0.65 * c, kb = c;',
@@ -382,10 +401,19 @@ var PROP_VS = [       // people are one mesh each; thighs, shins and arms swing 
   '    p = rx(p, vec3(0.0, 0.95, 0.0), lean); n = rx(n, vec3(0.0), lean);',
   '  }',
   '  p.y += abs(sin(uAnim.x)) * 0.025 * uAnim.y - 0.42 * (1.0 - cos(th)) - 0.42 * (1.0 - cos(th - kb));',
-  '  vC = color; vN = normalize(mat3(modelMatrix) * n); gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);',
+  '  vC = color; vN = normalize(mat3(modelMatrix) * n); vec4 w = modelMatrix * vec4(p, 1.0); vWE = vec4(w.xyz, b > 8.5 ? 1.0 : 0.0); gl_Position = projectionMatrix * viewMatrix * w;',
   '}'
 ].join('\n');
-var PROP_FS = GL_TONE + 'uniform vec3 uSun; varying vec3 vC; varying vec3 vN; void main() { vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N; vec3 c = vC * (vec3(1.0, 0.94, 0.84) * (3.0 * max(dot(N, uSun), 0.0)) + vec3(0.22, 0.36, 0.78) * (0.55 + 0.25 * N.y) + 0.14); gl_FragColor = vec4(tone(c), 1.0); }';
+var PROP_FS = GL_TONE + [
+  'uniform vec3 uSun; uniform vec3 uLightC; uniform vec3 uAmbC; uniform vec4 uSky; uniform vec4 uLampP; uniform vec3 uLampD; varying vec3 vC; varying vec3 vN; varying vec4 vWE;',
+  'void main() {',
+  '  vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;',
+  '  vec3 c = vC * (uLightC * (0.92 * max(dot(N, uSun), 0.0)) + uAmbC * (0.75 + 0.35 * N.y) + uLightC * 0.04);',
+  '  if (uLampP.w > 0.0) { vec3 lv = vWE.xyz - uLampP.xyz; float ld = length(lv); lv /= ld; c += vC * vec3(1.0, 0.94, 0.82) * (uLampP.w * smoothstep(0.80, 0.97, dot(lv, uLampD)) * (max(dot(N, -lv), 0.0) * 0.7 + 0.3) * 7.0 / (4.0 + ld * 0.6 + ld * ld * 0.012)); }',
+  '  c += vC * (vWE.w * uSky.y * (1.1 + 0.25 * N.y));',          // tents glow from inside at night
+  '  gl_FragColor = vec4(tone(c), 1.0);',
+  '}'
+].join('\n');
 var RIB_VS = [
   'attribute vec3 aSide; attribute float aBand; varying float vA;',
   'void main() {',
@@ -398,12 +426,12 @@ var RIB_VS = [
   '  gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);',
   '}'
 ].join('\n');
-var RIB_FS = 'uniform vec4 uCol; varying float vA; void main() { if (vA < 0.01) discard; gl_FragColor = vec4(uCol.rgb, uCol.a * vA); }';
+var RIB_FS = 'uniform vec4 uCol; uniform vec3 uTint; uniform float uLit; varying float vA; void main() { if (vA < 0.01) discard; gl_FragColor = vec4(uCol.rgb * mix(vec3(1.0), uTint, uLit), uCol.a * vA); }';
 
 var PUFF_VS = 'attribute vec2 aCorner; attribute vec2 aSA; varying vec2 vU; varying float vA; void main() { vec4 mv = viewMatrix * vec4(position, 1.0); mv.xy += aCorner * aSA.x; vU = aCorner; vA = aSA.y; gl_Position = projectionMatrix * mv; }';
-var PUFF_FS = 'varying vec2 vU; varying float vA; void main() { float a = (1.0 - smoothstep(0.1, 1.0, length(vU))) * vA; if (a < 0.004) discard; gl_FragColor = vec4(0.97, 0.98, 1.0, a); }';
+var PUFF_FS = 'uniform vec3 uCol; varying vec2 vU; varying float vA; void main() { float a = (1.0 - smoothstep(0.1, 1.0, length(vU))) * vA; if (a < 0.004) discard; gl_FragColor = vec4(uCol, a); }';
 var DRIFT_VS = 'attribute vec2 aCorner; attribute vec3 aSl; uniform vec2 uW; varying vec2 vU; varying float vA; void main() { vec2 o = uW * (aCorner.x * 1.7) + vec2(-uW.y, uW.x) * (aCorner.y * 0.24); vec3 p = position + vec3(o.x, dot(aSl.xy, o), o.y); vU = aCorner; vA = aSl.z; gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0); }';
-var DRIFT_FS = 'varying vec2 vU; varying float vA; void main() { float a = (1.0 - abs(vU.y)) * (1.0 - smoothstep(0.2, 1.0, abs(vU.x))) * vA; if (a < 0.004) discard; gl_FragColor = vec4(1.0, 1.0, 1.0, a); }';
+var DRIFT_FS = 'uniform vec3 uTint; varying vec2 vU; varying float vA; void main() { float a = (1.0 - abs(vU.y)) * (1.0 - smoothstep(0.2, 1.0, abs(vU.x))) * vA; if (a < 0.004) discard; gl_FragColor = vec4(uTint, a); }';
 var FLAG_VS = [
   'attribute vec3 color; attribute vec4 aF; uniform float uTime; uniform vec2 uW; uniform float uGust; varying vec3 vC;',     // aF: along the string, down the flag, string direction x,z
   'void main() {',
@@ -414,16 +442,16 @@ var FLAG_VS = [
   '  gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);',
   '}'
 ].join('\n');
-var FLAG_FS = 'varying vec3 vC; void main() { gl_FragColor = vec4(vC, 1.0); }';
+var FLAG_FS = 'uniform vec3 uTint; varying vec3 vC; void main() { gl_FragColor = vec4(vC * uTint, 1.0); }';
 var FAR_VS = 'varying vec3 vW; varying vec3 vN; void main() { vW = position; vN = normal; gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0); }';
 var FAR_FS = GL_SKY + GL_TONE + [
-  'uniform sampler2D tRipple; uniform float uFog; varying vec3 vW; varying vec3 vN;',
+  'uniform sampler2D tRipple; uniform float uFog; uniform vec3 uLightC; uniform vec3 uAmbC; varying vec3 vW; varying vec3 vN;',
   'void main() {',
   '  vec3 N = normalize(vN); vec3 toC = vW - cameraPosition; float dist = length(toC); vec3 rd = toC / dist;',
   '  vec4 r = texture2D(tRipple, vW.xz * 0.00023 + vW.y * 0.00031);',
   '  float rock = smoothstep(0.30, 0.42, (1.0 - N.y) + (r.b - 0.5) * 0.5 + (r.r - 0.5) * 0.3);',
   '  vec3 alb = mix(vec3(0.94, 0.955, 0.98), vec3(0.13, 0.11, 0.10), rock);',
-  '  vec3 col = tone(alb * (vec3(1.0, 0.94, 0.84) * (3.3 * max(dot(N, uSun), 0.0)) + vec3(0.16, 0.31, 0.80) * (0.5 + 0.24 * N.y) + 0.05));',
+  '  vec3 col = tone(alb * (uLightC * max(dot(N, uSun), 0.0) + uAmbC * (0.5 + 0.24 * N.y) + uLightC * 0.015));',
   '  vec3 hz = skyBase(vec3(rd.x, max(rd.y, 0.0) * 0.6 + 0.03, rd.z));',
   '  col = mix(col, hz, 1.0 - exp(-dist * uFog));',
   '  float m = smoothstep(300.0, -60.0, vW.y - uCloudY + (r.b - 0.5) * 300.0);',
@@ -438,8 +466,7 @@ var SS = 100, SNX, SNZ, SX0, SZ0, SH;       // far mesh: the whole map on a fixe
 var terrainMats = [], holeU = { value: new V3(0, 0, -1) };
 function terMat(staticMesh) {
   var m = new THREE.ShaderMaterial({
-    uniforms: { uSun: U.uSun, uTime: U.uTime, uCloudY: U.uCloudY, tCloud: U.tCloud, tGlobal: U.tGlobal, tRipple: U.tRipple, uWorld: U.uWorld, uWA: U.uWA, uWB: U.uWB, uFog: U.uFog,
-      uVN: { value: 0 }, uGrid: { value: new V3() }, uHole: holeU },
+    uniforms: UN({ uVN: { value: 0 }, uGrid: { value: new V3() }, uHole: holeU }),
     vertexShader: staticMesh ? STA_VS : TER_VS, fragmentShader: (staticMesh ? '#define STATIC\n' : '') + TER_FS
   });
   terrainMats.push(m); return m;
@@ -543,14 +570,14 @@ function lodUpdate(px, pz, all) {
 
 // ================= sky =================
 function buildSky() {
-  var m = new THREE.ShaderMaterial({ uniforms: { uSun: U.uSun, uTime: U.uTime, uCloudY: U.uCloudY, tCloud: U.tCloud }, vertexShader: SKY_VS, fragmentShader: SKY_FS, side: THREE.BackSide, depthWrite: false });
+  var m = new THREE.ShaderMaterial({ uniforms: UN(), vertexShader: SKY_VS, fragmentShader: SKY_FS, side: THREE.BackSide, depthWrite: false });
   var s = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 2), m); s.frustumCulled = false; s.renderOrder = 50; s.matrixAutoUpdate = false; scene.add(s);
 }
 
 // ================= route line, labels, people =================
 var ribMat;
-function ribbonMat(r, g, b, a) {
-  return new THREE.ShaderMaterial({ uniforms: { uCol: { value: new THREE.Vector4(r, g, b, a) } }, vertexShader: RIB_VS, fragmentShader: RIB_FS, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+function ribbonMat(r, g, b, a, lit) {
+  return new THREE.ShaderMaterial({ uniforms: { uCol: { value: new THREE.Vector4(r, g, b, a) }, uTint: U.uTint, uLit: { value: lit ? 1 : 0 } }, vertexShader: RIB_VS, fragmentShader: RIB_FS, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 }
 function buildRoute() {
   var pos = [], side = [], band = [], idx = [], bands = [[4.5, 1.5], [44, 11], [300, 30]], b;
@@ -600,8 +627,8 @@ function updateLabels(dt, cam) {
     if (Lb.op < 0.02) { Lb.sp.visible = false; continue; }
     var here = d3 < 18, togo = Math.min(along, Math.max(d3, along * 0.6));
     drawLabel(Lb, here ? fmt(i === 0 ? 8849 : Lb.y) + ' m' : fmt(togo < 200 ? Math.round(togo / 5) * 5 : Math.round(togo / 10) * 10) + 'm to go');
-    var dc = Math.hypot(Lb.x - cam.x, Lb.z - cam.z, Lb.y - Y0 - cam.y), w = clamp(dc * 0.42, 2.6, 6000);
-    Lb.sp.visible = true; Lb.sp.material.opacity = Lb.op; Lb.sp.scale.set(w, w * 0.375, 1); Lb.sp.position.set(Lb.x, Lb.y - Y0 + 2.3 + dc * 0.02, Lb.z);
+    var dc = Math.hypot(Lb.x - cam.x, Lb.z - cam.z, Lb.y - Y0 - cam.y), w = clamp(dc * 0.42, 1.5, 6000);
+    Lb.sp.visible = true; Lb.sp.material.opacity = Lb.op * sstep(2.5, 6, dc); Lb.sp.scale.set(w, w * 0.375, 1); Lb.sp.position.set(Lb.x, Lb.y - Y0 + 2.3 + dc * 0.02, Lb.z);
   }
 }
 function Builder() { this.p = []; this.n = []; this.c = []; this.b = []; this.bone = 0; }
@@ -656,11 +683,11 @@ function climberGeo(suit, pack, detail) {
   }
   return b.geo();
 }
-function figMat() { return new THREE.ShaderMaterial({ uniforms: { uSun: U.uSun, uAnim: { value: new THREE.Vector4(0, 0, 0, 0) } }, vertexShader: PROP_VS, fragmentShader: PROP_FS }); }
+function figMat() { return new THREE.ShaderMaterial({ uniforms: UN({ uAnim: { value: new THREE.Vector4(0, 0, 0, 0) } }), vertexShader: PROP_VS, fragmentShader: PROP_FS }); }
 var figGeos = {};
 function figGeo(i, hi) { var k = (i % SUITS.length) + (hi ? 'h' : 'l'); return figGeos[k] || (figGeos[k] = climberGeo(SUITS[i % SUITS.length], SUITS[(i + 3) % SUITS.length], hi ? 2 : 1)); }
 function buildProps() {
-  propMat = new THREE.ShaderMaterial({ uniforms: { uSun: U.uSun, uAnim: { value: new THREE.Vector4(0, 0, 0, 0) } }, vertexShader: PROP_VS, fragmentShader: PROP_FS, side: THREE.DoubleSide });
+  propMat = new THREE.ShaderMaterial({ uniforms: UN({ uAnim: { value: new THREE.Vector4(0, 0, 0, 0) } }), vertexShader: PROP_VS, fragmentShader: PROP_FS, side: THREE.DoubleSide });
   // people: [route distance, how far they wander, metres to the side]
   var spec = [[7, 0, -2.2], [13, 0, 2.0], [70, 34, 0.9], [84, 34, 0.9], [215, 60, -0.8], [232, 60, -0.8], [249, 60, -0.8], [470, 90, 0.9], [760, 70, 1], [778, 70, 1],
     [COL_ARC + 14, 0, -9], [COL_ARC + 26, 0, 8], [COL_ARC + 8, 0, 12], [2500, 120, 1.2], [2520, 120, 1.2], [5385, 0, 9], [5410, 0, -8], [6600, 150, 1], [ROUTE_LEN - 60, 0, 10], [ROUTE_LEN - 48, 0, -9], [ROUTE_LEN - 30, 0, 14]];
@@ -670,7 +697,7 @@ function buildProps() {
   });
   // tents, flags
   var b = new Builder(), dome = new THREE.SphereGeometry(1, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler();
-  function tent(x, z, col, rot, sc) { var y = Math.min(H(x - 1, z, 0), H(x + 1, z, 0), H(x, z - 1, 0), H(x, z + 1, 0)) - Y0 - 0.1; E.set(0, rot, 0); Q.setFromEuler(E); M.compose(new V3(x, y, z), Q, new V3(1.5 * sc, 1.15 * sc, 1.1 * sc)); b.add(dome.clone(), col, M); }
+  function tent(x, z, col, rot, sc) { var y = Math.min(H(x - 1, z, 0), H(x + 1, z, 0), H(x, z - 1, 0), H(x, z + 1, 0)) - Y0 - 0.1; E.set(0, rot, 0); Q.setFromEuler(E); M.compose(new V3(x, y, z), Q, new V3(1.5 * sc, 1.15 * sc, 1.1 * sc)); b.bone = 9; b.add(dome.clone(), col, M); b.bone = 0; }
   var camps = [[COL_ARC + 20, 6, 22], [3000, 3, 12], [5400, 7, 30], [7750, 4, 22], [ROUTE_LEN - 45, 12, 45]], tcol = [[0.98, 0.45, 0.06], [0.95, 0.72, 0.08], [0.88, 0.2, 0.1], [0.98, 0.55, 0.1]];
   camps.forEach(function (c, ci) {
     var p = routeAt(c[0]), px = p[0], pz = p[1];
@@ -680,7 +707,7 @@ function buildProps() {
   poles.forEach(function (q) { b.box(0.05, 1.6, 0.05, q[0], H(q[0], q[1], 0) - Y0 + 0.75, q[1], gy); });
   var m = new THREE.Mesh(b.geo(), propMat); m.frustumCulled = false; m.matrixAutoUpdate = false; scene.add(m);
 }
-var FLAG_POLES = [[-1.8, -2.6], [2.4, -1.4], [0.6, -4.2]], flagU = { uTime: U.uTime, uW: { value: new THREE.Vector2(WDX, WDZ) }, uGust: { value: 0.5 } };
+var FLAG_POLES = [[-1.8, -2.6], [2.4, -1.4], [0.6, -4.2]], flagU = { uTime: U.uTime, uTint: U.uTint, uW: { value: new THREE.Vector2(WDX, WDZ) }, uGust: { value: 0.5 } };
 function buildFlags() {       // prayer flags on the summit, streaming in the wind
   var fc = [[0.1, 0.3, 0.9], [0.96, 0.96, 0.96], [0.9, 0.12, 0.1], [0.1, 0.62, 0.3], [0.98, 0.78, 0.1]], pos = [], col = [], af = [], idx = [], s, i, k, v;
   for (s = 0; s < 2; s++) {
@@ -709,7 +736,7 @@ function buildFar() {         // the other giants, far outside the map, standing
     for (r = 0; r < RN_ - 1; r++) for (a = 0; a < SG; a++) { var q0 = v0 + 1 + r * SG + a, q1 = v0 + 1 + r * SG + (a + 1) % SG, q2 = q0 + SG, q3 = q1 + SG; idx.push(q0, q1, q2, q1, q3, q2); }
   });
   var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-  var m = new THREE.Mesh(g, new THREE.ShaderMaterial({ uniforms: { uSun: U.uSun, uTime: U.uTime, uCloudY: U.uCloudY, tCloud: U.tCloud, tRipple: U.tRipple, uFog: U.uFog }, vertexShader: FAR_VS, fragmentShader: FAR_FS }));
+  var m = new THREE.Mesh(g, new THREE.ShaderMaterial({ uniforms: UN(), vertexShader: FAR_VS, fragmentShader: FAR_FS }));
   m.frustumCulled = false; m.matrixAutoUpdate = false; m.renderOrder = 20; scene.add(m);
 }
 function updateClimbers(now) {
@@ -720,7 +747,8 @@ function updateClimbers(now) {
     x += -tz * c.side; z += tx * c.side;
     c.m.visible = Math.abs(x - P.x) < 900 && Math.abs(z - P.z) < 900; if (!c.m.visible) continue;
     var hi = Math.abs(x - P.x) < 70 && Math.abs(z - P.z) < 70; if (hi !== c.hi) { c.hi = hi; c.m.geometry = figGeo(c.i, hi); }
-    c.m.position.set(x, H(x, z, 0) - Y0, z);
+    var cy = H(x, z, 0) - Y0; c.m.position.set(x, cy, z);
+    if (U.uLampP.value.w > 0.02) { var ry = c.rng > 0 ? Math.atan2(-tx * dir, -tz * dir) : c.m.rotation.y; lampAt(x, cy + 1.7, z, -Math.sin(ry), -Math.cos(ry)); }
     if (c.rng > 0) { c.m.rotation.y = Math.atan2(-tx * dir, -tz * dir); c.m.material.uniforms.uAnim.value.set(a / 0.62 * Math.PI * 0.5 * dir, 1, dir < 0 ? 0.24 : 0.08, 0); }
     else { c.m.rotation.y = c.ph * 2.1 + Math.sin(now * 0.21 + c.ph) * 0.5; c.m.material.uniforms.uAnim.value.set(0, 0, 0.04, 0); }
   }
@@ -734,7 +762,7 @@ function Track(n, r, g, b, a) {      // lines left in the snow
   var geo = this.geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); geo.setAttribute('aSide', new THREE.BufferAttribute(this.side, 3)); geo.setAttribute('aBand', new THREE.BufferAttribute(new Float32Array(n * 4).fill(3), 1));
   geo.setIndex(new THREE.BufferAttribute(this.idx, 1));
-  this.mesh = new THREE.Mesh(geo, ribbonMat(r, g, b, a)); this.mesh.frustumCulled = false; this.mesh.renderOrder = 55; this.mesh.matrixAutoUpdate = false; scene.add(this.mesh);
+  this.mesh = new THREE.Mesh(geo, ribbonMat(r, g, b, a, true)); this.mesh.frustumCulled = false; this.mesh.renderOrder = 55; this.mesh.matrixAutoUpdate = false; scene.add(this.mesh);
 }
 Track.prototype.add = function (x, z, hx, hz, brk) {
   var n = this.n, k = this.head, rx = -hz, rz = hx, s, o = k * 12, v = k * 4, P_ = this.pos, S_ = this.side, I = this.idx, i;
@@ -766,18 +794,28 @@ function buildSkis() {
   myTrack = new Track(1000, 0.42, 0.56, 0.86, 0.6);
 }
 // soft white puffs that always face you: ski spray and the snow plumes streaming off the peaks
-var SPRAY_N = 140, PLUME_N = 76, PUFF_N = SPRAY_N + PLUME_N, puffPos, puffSA, puffGeo, sprayVel = new Float32Array(SPRAY_N * 3), sprayP = new Float32Array(SPRAY_N * 3), sprayLife = new Float32Array(SPRAY_N), sprayI = 0, plumes = [];
+var SPRAY_N = 140, PLUME_N = 76, FLAKE_N = 150, puffs, lamps, lampI = 0, lampOld = 0, flk = new Float32Array(FLAKE_N * 3), flkOn = false, sprayVel = new Float32Array(SPRAY_N * 3), sprayP = new Float32Array(SPRAY_N * 3), sprayLife = new Float32Array(SPRAY_N), sprayI = 0, plumes = [];
 function quadGeo(n) {
   var g = new THREE.BufferGeometry(), cor = new Float32Array(n * 8), idx = new Uint16Array(n * 6), i, c = [-1, -1, 1, -1, 1, 1, -1, 1];
   for (i = 0; i < n; i++) { cor.set(c, i * 8); idx.set([4 * i, 4 * i + 1, 4 * i + 2, 4 * i, 4 * i + 2, 4 * i + 3], i * 6); }
   g.setAttribute('aCorner', new THREE.BufferAttribute(cor, 2)); g.setIndex(new THREE.BufferAttribute(idx, 1)); return g;
 }
-function puffSet(i, x, y, z, size, a) { var k = i * 12, j; for (j = 0; j < 4; j++) { puffPos[k + 3 * j] = x; puffPos[k + 3 * j + 1] = y; puffPos[k + 3 * j + 2] = z; puffSA[i * 8 + 2 * j] = size; puffSA[i * 8 + 2 * j + 1] = a; } }
+function Batch(n, col, additive, order) {      // soft round sprites that always face you
+  this.pos = new Float32Array(n * 12); this.sa = new Float32Array(n * 8); this.geo = quadGeo(n);
+  this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); this.geo.setAttribute('aSA', new THREE.BufferAttribute(this.sa, 2));
+  var m = new THREE.Mesh(this.geo, new THREE.ShaderMaterial({ uniforms: { uCol: col }, vertexShader: PUFF_VS, fragmentShader: PUFF_FS, transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending }));
+  m.frustumCulled = false; m.renderOrder = order; m.matrixAutoUpdate = false; scene.add(m);
+}
+Batch.prototype.set = function (i, x, y, z, size, a) { var k = i * 12, j, P_ = this.pos, S_ = this.sa; for (j = 0; j < 4; j++) { P_[k + 3 * j] = x; P_[k + 3 * j + 1] = y; P_[k + 3 * j + 2] = z; S_[i * 8 + 2 * j] = size; S_[i * 8 + 2 * j + 1] = a; } };
+Batch.prototype.flush = function () { this.geo.attributes.position.needsUpdate = true; this.geo.attributes.aSA.needsUpdate = true; };
+function lampAt(x, y, z, hx, hz) {       // someone else's headlamp: a bright dot and a pool of light on the snow
+  if (lampI + 2 > 64) return; var d = Math.hypot(x - P.x, z - P.z), n = U.uLampP.value.w;
+  lamps.set(lampI++, x + hx * 0.16, y, z + hz * 0.16, 0.16 + d * 0.006, 0.95 * n);
+  var gx = x + hx * 2.6, gz = z + hz * 2.6; lamps.set(lampI++, gx, H(gx, gz, 2) - Y0 + 0.25, gz, 2.6, 0.2 * n);
+}
 var DRIFT_N = 220, driftPos, driftSl, driftGeo, driftD = new Float32Array(DRIFT_N * 8), driftF = 0;    // per streak: x, z, ground y, slope x, slope z, height, speed, phase
 function buildWind() {
-  puffPos = new Float32Array(PUFF_N * 12); puffSA = new Float32Array(PUFF_N * 8); puffGeo = quadGeo(PUFF_N);
-  puffGeo.setAttribute('position', new THREE.BufferAttribute(puffPos, 3)); puffGeo.setAttribute('aSA', new THREE.BufferAttribute(puffSA, 2));
-  var m = new THREE.Mesh(puffGeo, new THREE.ShaderMaterial({ vertexShader: PUFF_VS, fragmentShader: PUFF_FS, transparent: true, depthWrite: false })); m.frustumCulled = false; m.renderOrder = 66; m.matrixAutoUpdate = false; scene.add(m);
+  puffs = new Batch(SPRAY_N + PLUME_N + FLAKE_N, U.uTint, false, 66); lamps = new Batch(64, { value: new V3(1.0, 0.9, 0.66) }, true, 67);
   function peak(x, z, r) { var bx = x, bz = z, bh = -1e9, i, j; for (j = -r; j <= r; j += 20) for (i = -r; i <= r; i += 20) { var h = H(x + i, z + j, 2); if (h > bh) { bh = h; bx = x + i; bz = z + j; } } return [bx, bh - Y0, bz]; }
   function em(p, n, L, s0, s1, a, sp) { plumes.push({ x: p[0], y: p[1], z: p[2], n: n, L: L, s0: s0, s1: s1, a: a, sp: sp, seed: plumes.length * 0.37 }); }
   em([2, 8849 - Y0 + 1, 1], 18, 760, 5, 120, 0.2, 15);                                       // the summit banner
@@ -788,29 +826,40 @@ function buildWind() {
   driftPos = new Float32Array(DRIFT_N * 12); driftSl = new Float32Array(DRIFT_N * 12); driftGeo = quadGeo(DRIFT_N);
   driftGeo.setAttribute('position', new THREE.BufferAttribute(driftPos, 3)); driftGeo.setAttribute('aSl', new THREE.BufferAttribute(driftSl, 3));
   for (var i = 0; i < DRIFT_N; i++) { driftD[i * 8] = 1e9; driftD[i * 8 + 5] = 0.04 + Math.pow(Math.random(), 2) * 0.7; driftD[i * 8 + 6] = 0.7 + Math.random() * 0.6; driftD[i * 8 + 7] = Math.random() * 6.28; }
-  var dm = new THREE.Mesh(driftGeo, new THREE.ShaderMaterial({ uniforms: { uW: flagU.uW }, vertexShader: DRIFT_VS, fragmentShader: DRIFT_FS, transparent: true, depthWrite: false, side: THREE.DoubleSide })); dm.frustumCulled = false; dm.renderOrder = 64; dm.matrixAutoUpdate = false; scene.add(dm);
+  var dm = new THREE.Mesh(driftGeo, new THREE.ShaderMaterial({ uniforms: { uW: flagU.uW, uTint: U.uTint }, vertexShader: DRIFT_VS, fragmentShader: DRIFT_FS, transparent: true, depthWrite: false, side: THREE.DoubleSide })); dm.frustumCulled = false; dm.renderOrder = 64; dm.matrixAutoUpdate = false; scene.add(dm);
 }
 function sprayEmit(x, y, z, vx, vy, vz) { var i = sprayI; sprayI = (sprayI + 1) % SPRAY_N; sprayP[3 * i] = x; sprayP[3 * i + 1] = y; sprayP[3 * i + 2] = z; sprayVel[3 * i] = vx; sprayVel[3 * i + 1] = vy; sprayVel[3 * i + 2] = vz; sprayLife[i] = 0.5 + Math.random() * 0.5; }
 function windStep(dt) {
   var i, k, t = clock;
-  gust = 0.55 + 0.45 * Math.sin(t * 0.37) * Math.sin(t * 0.11 + 2); flagU.uGust.value = gust;
+  gust = clamp((0.55 + 0.45 * Math.sin(t * 0.37) * Math.sin(t * 0.11 + 2)) * (0.75 + 0.6 * SKY.w), 0, 1.2); flagU.uGust.value = gust;
   for (i = 0; i < SPRAY_N; i++) {
-    if (sprayLife[i] <= 0) { if (puffSA[i * 8 + 1] !== 0) puffSet(i, 0, -1e5, 0, 0, 0); continue; }
+    if (sprayLife[i] <= 0) { if (puffs.sa[i * 8 + 1] !== 0) puffs.set(i, 0, -1e5, 0, 0, 0); continue; }
     sprayLife[i] -= dt; sprayVel[3 * i + 1] -= 5 * dt; sprayVel[3 * i] += WDX * 6 * dt; sprayVel[3 * i + 2] += WDZ * 6 * dt;
     sprayP[3 * i] += sprayVel[3 * i] * dt; sprayP[3 * i + 1] += sprayVel[3 * i + 1] * dt; sprayP[3 * i + 2] += sprayVel[3 * i + 2] * dt;
-    var l = Math.max(sprayLife[i], 0); puffSet(i, sprayP[3 * i], sprayP[3 * i + 1], sprayP[3 * i + 2], 0.14 + (1 - l) * 0.5, Math.min(l * 1.6, 0.6));
+    var l = Math.max(sprayLife[i], 0); puffs.set(i, sprayP[3 * i], sprayP[3 * i + 1], sprayP[3 * i + 2], 0.14 + (1 - l) * 0.5, Math.min(l * 1.6, 0.6));
   }
   var slot = SPRAY_N;
   for (k = 0; k < plumes.length; k++) {
-    var e = plumes[k], g2 = 0.45 + 0.75 * gust;
+    var e = plumes[k], g2 = (0.45 + 0.75 * gust) * (1 + 0.8 * SKY.w);
     for (i = 0; i < e.n; i++, slot++) {
       var ph = (t * e.sp / e.L + i / e.n + e.seed) % 1, w = Math.sin(ph * 40 + i * 2.1 + e.seed * 9), d = ph * e.L;
-      puffSet(slot, e.x + WDX * d - WDZ * w * d * 0.07, e.y + Math.sin(ph * 2.6) * e.L * 0.045 + w * d * 0.02 - ph * ph * e.L * 0.05, e.z + WDZ * d + WDX * w * d * 0.07, e.s0 + (e.s1 - e.s0) * Math.pow(ph, 0.8), e.a * g2 * Math.pow(Math.sin(ph * Math.PI), 0.6) * Math.min(1, ph * 8));
+      puffs.set(slot, e.x + WDX * d - WDZ * w * d * 0.07, e.y + Math.sin(ph * 2.6) * e.L * 0.045 + w * d * 0.02 - ph * ph * e.L * 0.05, e.z + WDZ * d + WDX * w * d * 0.07, e.s0 + (e.s1 - e.s0) * Math.pow(ph, 0.8), e.a * g2 * Math.pow(Math.sin(ph * Math.PI), 0.6) * Math.min(1, ph * 8));
     }
   }
-  puffGeo.attributes.position.needsUpdate = true; puffGeo.attributes.aSA.needsUpdate = true;
+  // snow in the air when the weather turns
+  if (SKY.w > 0.03 || flkOn) {
+    flkOn = SKY.w > 0.03; var R2 = 13, fa = Math.min(1, SKY.w * 1.6) * 0.85, fs = (9 + 7 * gust) * dt, cy = P.ry + 1.5;
+    for (i = 0; i < FLAKE_N; i++) {
+      k = i * 3; if (flk[k + 1] === 0) { flk[k] = P.x + (Math.random() * 2 - 1) * R2; flk[k + 1] = cy + (Math.random() * 2 - 1) * 5; flk[k + 2] = P.z + (Math.random() * 2 - 1) * R2; }
+      flk[k] += WDX * fs; flk[k + 2] += WDZ * fs; flk[k + 1] -= (1.2 + (i % 5) * 0.25) * dt;
+      flk[k] = P.x + ((flk[k] - P.x + R2) % (2 * R2) + 2 * R2) % (2 * R2) - R2; flk[k + 2] = P.z + ((flk[k + 2] - P.z + R2) % (2 * R2) + 2 * R2) % (2 * R2) - R2; flk[k + 1] = cy + ((flk[k + 1] - cy + 5) % 10 + 10) % 10 - 5;
+      puffs.set(slot + i, flk[k], flk[k + 1], flk[k + 2], 0.035 + (i % 3) * 0.012, flkOn ? fa : 0);
+    }
+  }
+  puffs.flush();
+  for (i = lampI; i < lampOld; i++) lamps.set(i, 0, -1e5, 0, 0, 0); if (lampI || lampOld) lamps.flush(); lampOld = lampI; lampI = 0;
   // spindrift
-  driftF = (driftF + 1) % 4; var R = 30, sp0 = (7 + 9 * gust) * dt, D = driftD;
+  driftF = (driftF + 1) % 4; var R = 30, sp0 = (7 + 9 * gust) * dt, D = driftD, wx = 1 + 1.3 * SKY.w;
   for (i = 0; i < DRIFT_N; i++) {
     k = i * 8; var mv = sp0 * D[k + 6], fresh = false;
     D[k] += WDX * mv; D[k + 1] += WDZ * mv; D[k + 2] += (D[k + 3] * WDX + D[k + 4] * WDZ) * mv;
@@ -820,7 +869,7 @@ function windStep(dt) {
       fresh = true;
     }
     if (fresh || i % 4 === driftF) { var x = D[k], z = D[k + 1], h0 = H(x, z, 2); D[k + 2] = h0 - Y0; D[k + 3] = (H(x + 1.5, z, 2) - h0) / 1.5; D[k + 4] = (H(x, z + 1.5, 2) - h0) / 1.5; }
-    var a = (0.1 + 0.34 * gust) * (0.55 + 0.45 * Math.sin(t * 1.7 * D[k + 6] + D[k + 7])) * (1 - 0.6 * D[k + 5]), y = D[k + 2] + D[k + 5], j;
+    var a = wx * (0.1 + 0.34 * gust) * (0.55 + 0.45 * Math.sin(t * 1.7 * D[k + 6] + D[k + 7])) * (1 - 0.6 * D[k + 5]), y = D[k + 2] + D[k + 5], j;
     for (j = 0; j < 4; j++) { var q = i * 12 + j * 3; driftPos[q] = D[k]; driftPos[q + 1] = y; driftPos[q + 2] = D[k + 1]; driftSl[q] = D[k + 3]; driftSl[q + 1] = D[k + 4]; driftSl[q + 2] = a; }
   }
   driftGeo.attributes.position.needsUpdate = true; driftGeo.attributes.aSl.needsUpdate = true;
@@ -947,7 +996,7 @@ function enterVR() {
   }).then(function () {
     setVR(true);
     try { var bl = xrSession.renderState.baseLayer; if (bl && 'fixedFoveation' in bl) bl.fixedFoveation = 1; } catch (e) {}
-    say('Left stick: walk\nA or X: skis on', 6); P.headTop = 0;
+    say('Left stick: walk\nA or X: skis on\nClick a stick: change the sky', 7); P.headTop = 0;
   }).catch(function (e) { say('VR did not start: ' + (e && e.message ? e.message : e), 6); });
 }
 if (navigator.xr && navigator.xr.isSessionSupported) navigator.xr.isSessionSupported('immersive-vr').then(function (ok) { if (ok) { $('vrbtn').style.display = 'inline-block'; $('vrbtn2').style.display = 'inline-block'; } }).catch(function () {});
@@ -964,6 +1013,7 @@ function pollXR(dt) {
     var b = gp.buttons; if (b[0]) xin.trig = Math.max(xin.trig, b[0].value || (b[0].pressed ? 1 : 0));
     var a = !!(b[4] && b[4].pressed), k = s.handedness + 'a'; if (a && !btnPrev[k]) toggleSkis(); btnPrev[k] = a;
     if (b[5] && b[5].pressed) hold = true;
+    var sc = !!(b[3] && b[3].pressed), k3 = s.handedness + 's'; if (sc && !btnPrev[k3]) { setSky((SKY.mode + 1) % 4); say(['Day turns to night on its own', 'Always day', 'Always sunset', 'Always night'][SKY.mode], 2.5); } btnPrev[k3] = sc;
   }
   if (hold) { holdTop += dt; if (holdTop > 1) { holdTop = -3; toSummit(); say('Back on top', 2); } } else if (holdTop > 0 || holdTop < 0 && !hold) holdTop = Math.min(0, holdTop + dt * 3);
   if (Math.abs(xin.rx) > 0.65 && snapReady) { vrYaw -= (xin.rx > 0 ? 1 : -1) * Math.PI / 6; snapReady = false; } else if (Math.abs(xin.rx) < 0.3) snapReady = true;
@@ -991,6 +1041,76 @@ function audioStep(now) {
   windG.gain.setTargetAtTime(0.03 + gust * 0.11 + Math.min(sp / 30, 1) * 0.2, t, 0.25); windF.frequency.setTargetAtTime(330 + gust * 260 + sp * 22, t, 0.3);
   skiG.gain.setTargetAtTime(sp > 0.5 && P.air < 0.12 ? Math.min(0.02 + P.rock * 0.12 + sp * 0.0022 + Math.abs(P.turn) * sp * 0.004 + inp.brake * sp * 0.012, 0.3) : 0, t, 0.08);
 }
+
+// ================= the sky: day, sunset, night, sunrise and weather =================
+var SKY = { th: 2.42, mode: 0, wc: 20, w: 0, phase: 'day' }, SKYNAME = ['SKY: AUTO', 'SKY: DAY', 'SKY: SUNSET', 'SKY: NIGHT'], SKYTH = [0, 2.42, 3.085, 4.6];
+function sunEl(th) { var s = Math.sin(th); return (s > 0 ? 32 : 30) * s; }
+function sunAt(th, out) { var el = sunEl(th) * D2R, az = 120 * D2R + th; return out.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el)); }
+function lightAt(th, out) { if (sunEl(th) > -3.5) { sunAt(th, out); if (out.y < 0.035) { out.y = 0.035; out.normalize(); } return out; } return out.copy(U.uMoonDir.value); }
+function mix3(u, a, b, c, wa, wb, wc) { u.value.set(a[0] * wa + b[0] * wb + c[0] * wc, a[1] * wa + b[1] * wb + c[1] * wc, a[2] * wa + b[2] * wb + c[2] * wc); }
+function skyUpdate(dt) {
+  var TAU = Math.PI * 2;
+  if (SKY.mode === 0) { SKY.th += dt * (Math.sin(SKY.th) > 0 ? Math.PI / 390 : Math.PI / 150); if (SKY.th >= TAU) SKY.th -= TAU; }      // the day lasts 6.5 minutes, the night 2.5
+  SKY.wc += dt; SKY.w = SKY.mode === 0 ? sstep(0.68, 0.97, 0.5 + 0.5 * Math.sin(SKY.wc * TAU / 230 - 1.2)) : 0;
+  var el = sunEl(SKY.th), D = sstep(-1, 13, el), N = sstep(-2, -13, el), K = 1 - D - N, w = SKY.w, dim = 1 - 0.45 * w;
+  sunAt(SKY.th, U.uSunDir.value); lightAt(SKY.th, U.uSun.value);
+  var warm = sstep(0, 18, el);
+  if (el > -3.5) U.uLightC.value.set(1.0, 0.42 + 0.52 * warm, 0.16 + 0.68 * warm).multiplyScalar(3.3 * sstep(-3, 5, el) * dim);
+  else U.uLightC.value.set(0.55, 0.68, 1.0).multiplyScalar(0.6 * sstep(-5, -12, el) * dim);
+  mix3(U.uZen, [0.015, 0.07, 0.40], [0.035, 0.05, 0.24], [0.003, 0.006, 0.022], D, K, N);
+  mix3(U.uMid, [0.10, 0.32, 0.82], [0.22, 0.22, 0.50], [0.008, 0.015, 0.05], D, K, N);
+  mix3(U.uHor, [0.66, 0.82, 0.98], [0.92, 0.56, 0.40], [0.02, 0.035, 0.085], D, K, N);
+  mix3(U.uGlow, [1.0, 0.82, 0.58], [1.0, 0.42, 0.14], [0, 0, 0], D, K * 1.6, N);
+  mix3(U.uCloudLit, [1.0, 0.99, 0.97], [1.0, 0.60, 0.40], [0.20, 0.27, 0.44], D, K, N);
+  mix3(U.uCloudSh, [0.38, 0.51, 0.83], [0.33, 0.25, 0.50], [0.022, 0.036, 0.08], D, K, N);
+  mix3(U.uAmbC, [0.16, 0.31, 0.80], [0.26, 0.19, 0.42], [0.030, 0.056, 0.13], D, K, N);
+  mix3(U.uTint, [0.97, 0.98, 1.0], [1.0, 0.74, 0.62], [0.17, 0.22, 0.36], D, K, N);
+  if (N > 0) { var au = N * (1 - w) * (0.6 + 0.4 * Math.sin(clock * 0.31)); U.uAmbC.value.x += 0.004 * au; U.uAmbC.value.y += 0.03 * au; U.uAmbC.value.z += 0.012 * au; }      // aurora light on the snow
+  if (w > 0) { var gy = [0.62 * D + 0.3 * K + 0.03 * N, 0.66 * D + 0.28 * K + 0.035 * N, 0.74 * D + 0.34 * K + 0.05 * N], q = w * 0.7; [U.uZen, U.uMid, U.uHor].forEach(function (u) { u.value.x += (gy[0] - u.value.x) * q; u.value.y += (gy[1] - u.value.y) * q; u.value.z += (gy[2] - u.value.z) * q; }); }
+  U.uSky.value.set(sstep(-9, 0, el) * (1 - sstep(4, 16, el)) * (1 - 0.6 * w), N, w, el > -1.5 ? 1 - 0.7 * w : 0);
+  U.uLampP.value.w = sstep(-1.5, -8, el);
+  var ph = el > 5 ? 'day' : el > -5 ? (Math.cos(SKY.th) < 0 ? 'sunset' : 'sunrise') : 'night';
+  if (ph !== SKY.phase) { SKY.phase = ph; if (started && SKY.mode === 0 && !P.lost) { if (ph === 'sunset') say('Sunset', 3); else if (ph === 'night') say('Night. Headlamp on.', 3.5); else if (ph === 'sunrise') say('Sunrise', 3); } }
+  if (SKY.mode === 0 && w > 0.5 && SKY.wsaid !== 1) { SKY.wsaid = 1; if (started && !P.lost) say('The wind is picking up', 3); } else if (w < 0.1) SKY.wsaid = 0;
+}
+// sun shadows across the whole mountain are worked out a few rows a frame, then faded in, so they follow the sun
+var SHN = 512, HT2, shData, shTex, sh = { cur: 0, next: 1, row: 0, fade: 0, state: 0, dir: new V3(), last: new V3() };
+function shadowInit() {
+  var i, j; HT2 = new Float32Array(SHN * SHN);
+  for (j = 0; j < SHN; j++) for (i = 0; i < SHN; i++) { var k = 2 * j * TS + 2 * i; HT2[j * SHN + i] = Math.max(HT[k], HT[k + 1], HT[k + TS], HT[k + TS + 1]); }
+  shData = new Uint8Array(SHN * SHN * 4); shTex = new THREE.DataTexture(shData, SHN, SHN, THREE.RGBAFormat); shTex.minFilter = shTex.magFilter = THREE.LinearFilter; shTex.generateMipmaps = false; U.tShadow.value = shTex;
+}
+function shadowRows(dir, ch, r0, r1) {
+  var tex = WS / SHN, hl = Math.hypot(dir.x, dir.z), sdx = dir.x / hl / tex, sdz = dir.z / hl / tex, tanEl = dir.y / hl, i, j, n;
+  for (j = r0; j < r1; j++) for (i = 0; i < SHN; i++) {
+    var h0 = HT2[j * SHN + i] + 1.5, res = 1, t = 34;
+    for (n = 0; n < 44; n++) {
+      var x = i + sdx * t, z = j + sdz * t; if (x < 0 || z < 0 || x >= SHN || z >= SHN) break;
+      var rh = h0 + t * tanEl; if (rh > 8870) break;
+      var d = rh - HT2[(z | 0) * SHN + (x | 0)]; if (d < 0) { res = 0; break; }
+      d = d / t * 16; if (d < res) res = d; t = t * 1.14 + 8;
+    }
+    shData[4 * (j * SHN + i) + ch] = res * 255;
+  }
+}
+function shadowSet() { lightAt(SKY.th, sh.dir); shadowRows(sh.dir, 0, 0, SHN); sh.cur = 0; sh.state = 0; sh.last.copy(sh.dir); U.uShW.value.set(1, 0, 0, 0); shTex.needsUpdate = true; }
+function shadowStep(dt) {
+  if (sh.state === 0) {
+    if (SKY.mode !== 0) return; lightAt(SKY.th, _v);
+    if (_v.dot(sh.last) < 0.9994) { lightAt(SKY.th + (Math.sin(SKY.th) > 0 ? Math.PI / 390 : Math.PI / 150) * 3, sh.dir); sh.next = 1 - sh.cur; sh.row = 0; sh.state = 1; }
+  } else if (sh.state === 1) {
+    var r1 = Math.min(SHN, sh.row + 8); shadowRows(sh.dir, sh.next, sh.row, r1); sh.row = r1;
+    if (r1 >= SHN) { shTex.needsUpdate = true; sh.state = 2; sh.fade = 0; }
+  } else {
+    sh.fade = Math.min(1, sh.fade + dt / 2.5); var w = U.uShW.value; w.set(0, 0, 0, 0); w.setComponent(sh.cur, 1 - sh.fade); w.setComponent(sh.next, sh.fade);
+    if (sh.fade >= 1) { sh.cur = sh.next; sh.last.copy(sh.dir); sh.state = 0; }
+  }
+}
+function setSky(mode, th) {
+  SKY.mode = mode; if (mode > 0) SKY.th = SKYTH[mode]; else if (th !== undefined) SKY.th = th;
+  $('skybtn').textContent = SKYNAME[mode]; skyUpdate(0); shadowSet(); try { localStorage.setItem('mr_sky', String(mode)); } catch (e) {}
+}
+$('skybtn').addEventListener('click', function () { setSky((SKY.mode + 1) % 4); if (started) say(['Day turns to night on its own', 'Always day', 'Always sunset', 'Always night'][SKY.mode], 2.5); });
 
 // ================= playing together =================
 // Everyone has the same mountain, so players only tell each other where they are. One player hosts with a 4 letter code.
@@ -1037,6 +1157,7 @@ function mpData(d, c) {
     var x = num(d.x, WX0, WX0 + WS), z = num(d.z, WZ0, WZ0 + WS);
     if (b.tx === null || Math.hypot(x - b.tx, z - b.tz) > 60) { b.x = x; b.z = z; b.track.last = null; }
     b.tx = x; b.tz = z; b.th = num(d.h, -1e4, 1e4); b.v = num(d.v, 0, 60); b.ski = d.m === 1; b.at = performance.now(); b.via = c; MP.rx = b.at;
+    if (!MP.host && b.n === 1 && typeof d.td === 'number') { var th = num(d.td, 0, 6.2832), sm = clamp(d.sm | 0, 0, 3); if (sm !== SKY.mode || Math.abs(angDiff(th, SKY.th)) > 0.06) setSky(sm, th); SKY.wc = num(d.wc, 0, 1e7); }
     if (d.f === 1 && !b.done) { b.done = true; say('Player ' + b.n + ' reached Base Camp!', 4); } else if (d.f !== 1) b.done = false;
     if (MP.host) for (var i = 0; i < MP.conns.length; i++) if (MP.conns[i] !== c && MP.conns[i].open) MP.conns[i].send(d);
   }
@@ -1056,6 +1177,7 @@ function mpTick(dt) {
   MP.sendT -= dt;
   if (MP.sendT <= 0 && started && MP.conns.length) {
     MP.sendT = 0.1; var msg = { t: 's', id: MP.id, n: MP.n, x: Math.round(P.x * 100) / 100, z: Math.round(P.z * 100) / 100, h: Math.round((P.mode === 'ski' ? P.head : (vr ? viewYaw() : P.yaw)) * 100) / 100, v: Math.round(P.v * 10) / 10, m: P.mode === 'ski' ? 1 : 0, f: P.done ? 1 : 0 };
+    if (MP.host) { msg.td = Math.round(SKY.th * 1000) / 1000; msg.sm = SKY.mode; msg.wc = Math.round(SKY.wc); }
     for (k = 0; k < MP.conns.length; k++) if (MP.conns[k].open) MP.conns[k].send(msg);
   }
   for (k in MP.buds) {
@@ -1065,6 +1187,7 @@ function mpTick(dt) {
     var y = H(b.x, b.z, 0) - Y0, hx = -Math.sin(b.h), hz = -Math.cos(b.h), g = grad(b.x, b.z);
     b.g.position.set(b.x, y, b.z); b.g.rotation.y = b.h; b.sk.visible = b.ski; b.sk.rotation.x = b.ski ? Math.atan(g[0] * hx + g[1] * hz) : 0; b.walk += Math.hypot((b.tx - b.x), (b.tz - b.z)) * al; b.cr += ((b.ski ? 0.55 + Math.min(b.v / 40, 0.3) : 0) - b.cr) * Math.min(1, dt * 5); b.fig.position.y = b.ski ? 0.05 : 0; b.fig.material.uniforms.uAnim.value.set(b.walk / 0.62 * Math.PI * 0.5, b.ski ? 0 : Math.min(b.v / 2, 1), b.ski ? 0 : 0.1, b.cr);
     if (b.ski && b.v > 0.5) b.track.step(b.x, b.z, hx, hz); else b.track.last = null;
+    if (U.uLampP.value.w > 0.02) lampAt(b.x, y + 1.7 - b.cr * 0.4, b.z, hx, hz);
     var dc = Math.hypot(b.x - P.x, b.z - P.z, y - P.ry), w = clamp(dc * 0.13, 1.3, 2500);
     b.tag.scale.set(w, w * 0.25, 1); b.tag.position.set(b.x, y + 2.0 + dc * 0.01, b.z);
   }
@@ -1199,8 +1322,9 @@ function update(dt, now) {
     skiGroup.position.set(P.x, P.ry + 0.02, P.z); skiGroup.rotation.set(Math.atan(fa), P.head, Math.atan(sd) * 0.9, 'YXZ');
   }
   lodUpdate(P.x, P.z, false);
-  updateClimbers(clock); windStep(dt); mpTick(dt);
-  U.uFog.value = 1 / (2500 + 67500 * sstep(CLOUD + 60, CLOUD + 900, alt));
+  skyUpdate(dt); shadowStep(dt); updateClimbers(clock); mpTick(dt); windStep(dt);
+  U.uFog.value = 1 / ((2500 + 67500 * sstep(CLOUD + 60, CLOUD + 900, alt)) * (1 - 0.93 * SKY.w));
+  camera.getWorldPosition(_v); camera.getWorldDirection(_v2); _v2.y -= 0.16; _v2.normalize(); U.uLampP.value.set(_v.x, _v.y + 0.08, _v.z, U.uLampP.value.w); U.uLampD.value.copy(_v2);
   labelT -= dt; if (labelT <= 0) { labelT = 0.12; _cam.set(P.x, P.ry + 1.6, P.z); updateLabels(0.12, _cam); }
   audioStep(clock);
   // readouts
@@ -1228,13 +1352,15 @@ $('go').addEventListener('click', begin);
 // ================= start up =================
 function init() {
   var t0 = performance.now();
-  U.tGlobal.value = bakeGlobal(); U.tRipple.value = bakeRipple(); U.tCloud.value = bakeCloud();
+  U.tGlobal.value = bakeGlobal(); U.tRipple.value = bakeRipple(); U.tCloud.value = bakeCloud(); shadowInit();
   buildStatic(); buildLODs(); buildSky(); buildFar(); buildRoute(); buildLabels(); buildProps(); buildFlags(); buildSkis(); buildWind(); buildCameraBits(); buildHands();
+  var sm0 = 0; try { sm0 = parseInt(localStorage.getItem('mr_sky') || '0', 10) || 0; } catch (e) {} if (QS.get('sky')) sm0 = parseInt(QS.get('sky'), 10) || 0;
+  setSky(clamp(sm0, 0, 3)); if (QS.get('th')) { SKY.th = parseFloat(QS.get('th')); skyUpdate(0); shadowSet(); }
   toSummit();
   if (QS.get('join')) { $('mpcode').value = QS.get('join'); mpJoin(QS.get('join')); }
   if (QS.get('arc')) teleport(parseFloat(QS.get('arc')), QS.get('ski') === '1');
   ready = true; $('sub').textContent = 'You are standing on top of Everest. Walk the ridge, then ski all the way down.'; $('go').style.display = 'inline-block';
-  window.MR = { MP: MP, step: function (dt) { update(dt, 0); }, near: nearestOnRoute, say: say, U: U, inp: inp, P: P, H: H, teleport: teleport, toSummit: toSummit, toggleSkis: toggleSkis, begin: begin, keys: keys, renderer: renderer, camera: camera, routeAt: routeAt, LODS: LODS, initMs: Math.round(performance.now() - t0), info: function () { return renderer.info.render; } };
+  window.MR = { SKY: SKY, setSky: setSky, sh: sh, MP: MP, step: function (dt) { update(dt, 0); }, near: nearestOnRoute, say: say, U: U, inp: inp, P: P, H: H, teleport: teleport, toSummit: toSummit, toggleSkis: toggleSkis, begin: begin, keys: keys, renderer: renderer, camera: camera, routeAt: routeAt, LODS: LODS, initMs: Math.round(performance.now() - t0), info: function () { return renderer.info.render; } };
   hint();
 }
 renderer.setAnimationLoop(tick);
