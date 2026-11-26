@@ -42,6 +42,7 @@
   #racebar { display: none; position: fixed; left: 50%; transform: translateX(-50%); top: calc(112px + env(safe-area-inset-top)); z-index: 12; max-width: 92vw; padding: 8px 14px; border-radius: 16px; background: rgba(10, 30, 110, 0.88); border: 2px solid #ffd23f; text-align: center; font-size: 16px; }
   #racebar button { margin: 8px 4px 0; background: #ffd23f; color: #241a00; }
   #racebar #rcno { background: rgba(255, 255, 255, 0.9); color: #0c2468; }
+  #throwbtn, #boostbtn, #skibtn, #menubtn, #racebar button { touch-action: manipulation; z-index: 14; }
   #throwbtn { position: fixed; right: calc(18px + env(safe-area-inset-right)); bottom: calc(56px + env(safe-area-inset-bottom)); width: 78px; height: 78px; border-radius: 50%; padding: 0; font-size: 12px; background: rgba(255, 255, 255, 0.92); display: none; }
   #boostbtn { position: fixed; right: calc(18px + env(safe-area-inset-right)); bottom: calc(146px + env(safe-area-inset-bottom)); width: 78px; height: 78px; border-radius: 50%; padding: 0; font-size: 12px; background: #ffd23f; color: #241a00; display: none; }
   #mpinfo { font: 600 13px system-ui, sans-serif; font-style: normal; opacity: 0.95; }
@@ -1202,7 +1203,7 @@ cvs.addEventListener('pointermove', function (e) {
 function pUp(e) { if (e.pointerId === joy.id) { joy.id = -1; joy.x = joy.y = 0; $('joy').style.display = 'none'; } if (e.pointerId === look.id) { look.id = -1; if (look.touch && e.type === 'pointerup' && performance.now() - look.t0 < 260 && Math.hypot(e.clientX - look.sx, e.clientY - look.sy) < 14) jump(); } }
 cvs.addEventListener('pointerup', pUp); cvs.addEventListener('pointercancel', pUp);
 cvs.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-$('skibtn').addEventListener('click', function () { if (started) toggleSkis(); });
+press('skibtn', function () { if (started) toggleSkis(); });
 $('trailbtn').addEventListener('click', function () { if (started) toTrail(); });
 $('hubbtn').addEventListener('click', toHub);
 $('topbtn').addEventListener('click', function () { if (started) { toSummit(); say('Back on top', 2); } });
@@ -1555,12 +1556,16 @@ function raceStep(dt) {
   if (!vr && txt) { bar.style.display = 'block'; if ($('rctext').textContent !== txt) $('rctext').textContent = txt; $('rcyes').style.display = yes ? '' : 'none'; $('rcyes').textContent = yes; $('rcno').style.display = no ? '' : 'none'; $('rcno').textContent = no; } else bar.style.display = 'none';
   $('racebtn').textContent = RC.st >= 2 && RC.st <= 4 ? 'LEAVE THE RACE' : RC.st === 1 ? 'JOIN THE RACE' : 'RACE';
 }
-$('rcyes').addEventListener('click', function () { initAudio(); raceConfirm(); });
+press('rcyes', function () { raceConfirm(); });
 $('rcno').addEventListener('click', function () { if (RC.st === 1) RC.declined = true; else if (RC.st === 2) raceLeave(); });
 $('racebtn').addEventListener('click', function () { if (!started) begin(); initAudio(); raceOpen(); });
 $('yetibtn').addEventListener('click', function () { if (!started) begin(); initAudio(); setYeti(!P.yeti); });
-$('throwbtn').addEventListener('click', function () { throwNow(-1); });
-$('boostbtn').addEventListener('click', function () { boost(); });
+function press(id, fn) {
+  var el = $(id), last = 0;
+  function go(e) { var now = performance.now(); if (e) { e.preventDefault(); e.stopPropagation(); } if (now - last < 250) return; last = now; initAudio(); fn(); }
+  el.addEventListener('pointerdown', go); el.addEventListener('touchstart', go, { passive: false }); el.addEventListener('click', go);
+}
+press('throwbtn', function () { throwNow(-1); }); press('boostbtn', function () { boost(); });
 $('menubtn').addEventListener('click', function () { $('menu').style.display = $('menu').style.display === 'flex' ? 'none' : 'flex'; });
 $('menu').addEventListener('click', function (e) { if (e.target.tagName === 'BUTTON') $('menu').style.display = 'none'; });
 
