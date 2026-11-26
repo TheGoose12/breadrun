@@ -277,7 +277,7 @@ function Game(seed, diff) {
   this.input = { mx: 0, mz: 0 };
   this.wanted = 0; this.evadeT = 0; this.hideT = 0; this.wantedT = 0; this.grace = 0; this.pdf = new Int16Array(SIZE * SIZE); this.pdfT = 0;
   this.cops = []; for (var i = 0; i < 3; i++) this.cops.push(this.newCop(false));
-  this.rob = null; this.robber = null; this.robberT = 0; this.catches = 0; this.guards = []; this.hot = 0; this.blocks = {}; this.nblocks = 0; this.build = -1; this.launchT = 0; this.chuteT = 0; this.won = false; this.heistAlarm = false; this.tipT = 0;
+  this.rob = null; this.robber = null; this.robberT = 0; this.catches = 0; this.guards = []; this.hot = 0; this.dragon = { x: DRG.x, z: DRG.z, hx: -1, hz: 0, v: 0 }; this.dalt = 0; this.dfire = []; this.blocks = {}; this.nblocks = 0; this.build = -1; this.launchT = 0; this.chuteT = 0; this.won = false; this.heistAlarm = false; this.tipT = 0;
   // mayhem: health, weapons, zombies, bears, bystanders
   this.hp = 100; this.hurtT = 0; this.lastBite = 'zombie'; this.weapon = 0; this.owned = diff === 'easy' ? [1, 1, 1, 0] : [1, 0, 0, 0]; this.fireCd = 0; this.rockets = 4; this.nades = 6; this.proj = []; this.kills = 0; this.mpT = 0; this.refillT = 8;
   this.mobs = []; this.peds = []; var nz = 9 + this.D.extra * 3;
@@ -288,6 +288,7 @@ function Game(seed, diff) {
   this.cars = []; this.drive = null; this.inn = null; this.ufo = { on: false, x: 0, z: 0, t: 0, next: 45 + this.rnd() * 30, fx: 0, fz: 0, tx: 0, tz: 0 }; this.p.fly = 0;
   for (i = 0; i < 12; i++) this.cars.push({ look: i, ai: true, horiz: i % 2 === 0, lane: Math.floor(this.rnd() * 9), dir: this.rnd() < 0.5 ? 1 : -1, t: -40 + this.rnd() * (SIZE + 80), sp: 6 + this.rnd() * 3, x: 0, z: 0, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: false });
   for (i = 0; i < 6; i++) { var pk, pz, pn = 0; do { pk = 1 + Math.floor(this.rnd() * 7); pz = 10 + Math.floor(this.rnd() * (SIZE - 20)); } while (this.carBlocked(pk * PITCH + 0.62, pz + 0.5, 0, 1) && pn++ < 200); this.cars.push({ look: 12 + i, ai: false, horiz: false, lane: pk, dir: 1, t: 0, sp: 0, x: pk * PITCH + 0.62, z: pz + 0.5, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: false }); }   // parked at the curb, clear of trees and posts
+  ['tank', 'tank', 'buggy', 'buggy', 'buggy'].forEach(function (k, q) { this.cars.push({ look: 30 + q, moonV: k, mi: q, ai: false, horiz: false, lane: 0, dir: 1, t: 0, sp: 0, x: -99, z: -99, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: true }); }, this);   // garage slots for Moon vehicles driven home through the portal
   // weapon crates: on Medium and Hard you start with a broom and buy the rest
   this.stands = []; if (diff !== 'easy') { var sbl = this.w.blocks.filter(function (b) { return b.type === 'bld'; }), defs = [[2, 900], [1, 2500], [2, 900], [1, 2500]];
     for (i = 0; i < 4; i++) { var bb = sbl.splice(Math.floor(this.rnd() * sbl.length), 1)[0]; this.stands.push({ x: bb.x0 + 7.5, z: bb.z0 + 0.5, w: defs[i][0], price: Math.round(defs[i][1] * (diff === 'hard' ? 1.5 : 1)), sold: false }); } }
@@ -321,6 +322,7 @@ Game.prototype.newCop = function (temp, x, z) {
   return { kind: 'cop', hp: 2, x: s.x + 0.5, z: s.z + 0.5, dx: 0, dz: 1, moving: false, chase: !!temp, temp: !!temp, df: new Int16Array(SIZE * SIZE), goal: null, life: 0 };
 };
 Game.prototype.startChase = function (stars) {
+  if (this.state === 'dragon' || this.state === 'pilot') return;
   if (this.danceT > 0) return;       // nobody chases anybody while the squad is dancing
   var p = this.p, w = this.w, N = SIZE, i; this.wanted = Math.max(this.wanted, stars); this.heat = 0; this.evadeT = 0; this.hideT = 0; this.wantedT = 0;
   w.bfs(this.pdf, Math.floor(p.x), Math.min(SIZE - 1, Math.floor(p.z))); this.pdfT = 0.25;
@@ -496,7 +498,15 @@ Game.prototype.update = function (dt) {
   }
   if (this.tpCd > 0) this.tpCd -= dt;
   if (this.moon && st === 'play') { this.updateMoon(dt); return; }
-  if (st === 'play' && this.moonOpen && !this.drive && !(this.tpCd > 0) && Math.abs(p.x - EPAD.x) < 1.3 && Math.abs(p.z - EPAD.z) < 1.3) { this.goMoon(false); return; }
+  if (st === 'play' && this.moonOpen && (!this.drive || this.drive.moonV) && !(this.tpCd > 0) && Math.abs(p.x - EPAD.x) < 1.3 && Math.abs(p.z - EPAD.z) < 1.3) { this.goMoon(false); return; }
+  if (st === 'dragon') {      // riding the dragon: it goes where you steer, climbs and dives, and breathes fire
+    var dg = this.dragon, dmx = this.input.mx, dmz = this.input.mz, dl = Math.sqrt(dmx * dmx + dmz * dmz), di; if (dl > 1) { dmx /= dl; dmz /= dl; dl = 1; }
+    if (dl > 0.12) this.turnTo(dg, dmx, dmz, 2.6 * dt); dg.v += ((dl > 0.12 ? 17 * dl : 0) - dg.v) * Math.min(1, dt * 1.6); if (this.fireCd > 0) this.fireCd -= dt;
+    this.dalt = Math.max(3, Math.min(45, this.dalt + (this.input.alt || 0) * 9 * dt + (this.dalt < 12 && this.dclimb > 0 ? 6 * dt : 0))); if (this.dclimb > 0) this.dclimb -= dt;
+    dg.x = Math.max(-30, Math.min(SIZE + 30, dg.x + dg.hx * dg.v * dt)); dg.z = Math.max(-30, Math.min(SIZE + 50, dg.z + dg.hz * dg.v * dt)); p.x = dg.x; p.z = dg.z; p.fly = this.dalt; p.dx = dg.hx; p.dz = dg.hz; p.moving = false;
+    for (di = this.dfire.length - 1; di >= 0; di--) { var f = this.dfire[di]; f.vy -= 14 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt; if (f.y <= 0.4) { this.dfire.splice(di, 1); if (f.x > 1 && f.z > 1 && f.x < SIZE - 1 && f.z < SIZE - 1) this.explode(f.x, f.z, 3.4, 1); else this.ev('explode', { x: f.x, z: f.z, r: 3.4 }); } }
+    return;
+  }
   if (st === 'pilot') {       // you fly the saucer: the beam lifts whoever it touches whole, all the way up into the ship
     var uu = this.ufo, pmx = this.input.mx, pmz = this.input.mz, pl = Math.sqrt(pmx * pmx + pmz * pmz), pi2; if (pl > 1) { pmx /= pl; pmz /= pl; }
     this.pilotT += dt; this.ualt = Math.max(7, Math.min(22, this.ualt + (this.input.alt || 0) * 6 * dt));
@@ -514,7 +524,7 @@ Game.prototype.update = function (dt) {
       }
     }
     for (pi2 = 0; pi2 < this.cars.length; pi2++) {       // cars ride the beam too
-      var pc = this.cars[pi2]; if (pc.off && !pc.lift && !pc.aboard) continue;
+      var pc = this.cars[pi2]; if (pc.moonV) continue; if (pc.off && !pc.lift && !pc.aboard) continue;
       if (pc.aboard) { if (this.beamOn) { pc.x = p.x; pc.z = p.z; continue; } pc.aboard = false; pc.lift = this.ualt - 2.5; pc.fallV = 0; }
       var ch = pc.lift > 0.3 && !(pc.fallV > 0) ? 3.2 : 2.6, cin = this.beamOn && Math.abs(pc.x - p.x) < ch && Math.abs(pc.z - p.z) < ch;
       if (cin) { pc.ai = false; pc.fallV = 0; pc.lift = (pc.lift || 0) + 3.5 * dt; pc.x += (p.x - pc.x) * Math.min(1, dt * 4.4); pc.z += (p.z - pc.z) * Math.min(1, dt * 4.4); if (pc.lift >= this.ualt - 2.5) { pc.aboard = true; this.cargo++; this.cash += 200; this.ev('suck', { x: p.x, z: p.z, kind: 'car', n: this.cargo, v: 200 }); } }
@@ -549,13 +559,13 @@ Game.prototype.update = function (dt) {
   if (p.dashCd > 0) p.dashCd -= dt; if (p.dashT > 0) p.dashT -= dt;
   var sp = PSPEED * (p.dashT > 0 ? 1.75 : 1) * (this.bag.n > 9 ? 0.93 : 1);
   if (this.drive) {
-    var c = this.drive, ox = c.x, oz = c.z; c.v += ((ml > 0.12 ? 12 * ml : 0) - c.v) * Math.min(1, dt * 3.5);
-    if (ml > 0.12) { var tx = c.hx + (mx / ml - c.hx) * Math.min(1, dt * 7), tz = c.hz + (mz / ml - c.hz) * Math.min(1, dt * 7), tl = Math.sqrt(tx * tx + tz * tz) || 1; c.hx = tx / tl; c.hz = tz / tl; }
+    var c = this.drive, ox = c.x, oz = c.z; c.v += ((ml > 0.12 ? (c.moonV === 'tank' ? 7 : 12) * ml : 0) - c.v) * Math.min(1, dt * 3.5);
+    if (ml > 0.12) this.turnTo(c, mx, mz, (c.moonV === 'tank' ? 2.4 : 4.2) * dt);
     var cnx = c.x + c.hx * c.v * dt, cnz = c.z + c.hz * c.v * dt, cur = this.carBlocked(c.x, c.z, c.hx, c.hz), bump = false;
     if (!this.carBlocked(cnx, c.z, c.hx, c.hz) || (cur && !this.carHit(cnx, c.z))) c.x = cnx; else bump = true;
     if (!this.carBlocked(c.x, cnz, c.hx, c.hz) || (cur && !this.carHit(c.x, cnz))) c.z = cnz; else bump = true;
     c.dx = c.hx; c.dz = c.hz; if (c.hpc === undefined) c.hpc = 25;
-    if (bump && c.v > 4.5 && this.time - (c.hitT || -9) > 0.45) {
+    if (bump && c.v > 4.5 && !c.moonV && this.time - (c.hitT || -9) > 0.45) {
       c.hitT = this.time; c.hpc--; c.v *= 0.3; this.ev('crash', { x: c.x + c.hx, z: c.z + c.hz, left: c.hpc });
       if (c.hpc <= 0) { var bx = c.x, bz = c.z; this.toggleCar(); c.ai = true; c.t = -60; c.sp = c.sp || 7; c.x = -99; c.z = -99; c.hpc = 25; this.hp -= 15; this.hurtT = 4; this.lastBite = 'blast'; this.ev('explode', { x: bx, z: bz, r: 3 }); this.ev('carboom'); return; }
     } else if (bump) c.v *= 0.7;
@@ -621,6 +631,7 @@ Game.prototype.update = function (dt) {
 Game.prototype.tip = function (m) { if (this.time - this.tipT > 1.5) { this.tipT = this.time; this.ev('toast', { m: m }); } };
 Game.prototype.dash = function () { var p = this.p; if (this.calm && this.build >= 0) { var fc = this.frontCell(); if (fc && fc[1] > 0) this.removeBlock(fc[0], fc[1] - 1, fc[2]); return; } if (this.moon) { if (this.mride && this.mride.kind === 'tank') return; if (this.state === 'play' && (p.fly <= 0.05 || p.jumps < 2)) { p.jumps = p.fly <= 0.05 ? 1 : 2; p.vy = p.jumps === 1 ? 7.5 : 6; p.fly = Math.max(p.fly, 0.06); this.ev('jump', { n: p.jumps }); } return; } if (this.state === 'play' && p.dashCd <= 0) { p.dashT = 0.5; p.dashCd = 2.6; this.ev('dash'); } };
 Game.prototype.prime = function () { if (this.state !== 'hotwire') return; this.hot += 7; this.ev('prime'); if (this.hot >= 100) { this.cash += 1000000; this.state = 'launch'; this.launchT = 0; this.ev('launch'); } };
+var DRG = { x: SIZE - 9, z: SIZE + 8 };
 var BSZ = 0.5, BMAX = 800, BRACK = { x: SIZE / 2 - 9, z: SIZE + 4.5 }, BCOL = [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xf4f4f0, 0x8a5a2b, 0xff4d4d, 0x2a2a3a];
 var MOON = { x: -900, z: -900, r: 30 }, EPAD = { x: SIZE / 2 - 20, z: SIZE + 7 }, BEACH = 21, ZAC = { x: SIZE / 2 + 14, z: SIZE + 6.5 };
 var WEAPONS = ['PISTOL', 'BAZOOKA', 'SLINGSHOT', 'BROOM'];
@@ -667,8 +678,8 @@ Game.prototype.hurt = function (e, dmg) { e.hp = (e.hp || 1) - dmg; if (e.hp <= 
 Game.prototype.explode = function (x, z, r, power) {
   var T = this.targets(), p = this.p, w = this.w, i;
   this.ev('explode', { x: x, z: z, r: r });
-  for (i = 0; i < T.length; i++) { var e = T[i], d = Math.hypot(e.x - x, e.z - z); if (d < r) this.hurt(e, e.kind === 'bear' ? 4 : 9); if (this.state !== 'play') return; }
-  if (Math.hypot(p.x - x, p.z - z) < r * 0.75 && !p.inside) { this.hp -= 35; this.hurtT = 4; this.lastBite = 'blast'; this.ev('hurt'); }
+  for (i = 0; i < T.length; i++) { var e = T[i], d = Math.hypot(e.x - x, e.z - z); if (d < r) this.hurt(e, e.kind === 'bear' ? 4 : 9); if (this.state !== 'play' && this.state !== 'dragon') return; }
+  if (Math.hypot(p.x - x, p.z - z) < r * 0.75 && !p.inside && this.state !== 'dragon') { this.hp -= 35; this.hurtT = 4; this.lastBite = 'blast'; this.ev('hurt'); }
   for (i = 0; i < w.lots.length; i++) {
     var l = w.lots[i]; if (l.dead || l.use === 'home' || l.use === 'station') continue;
     var nx = Math.max(l.x, Math.min(x, l.x + l.w)), nz = Math.max(l.z, Math.min(z, l.z + l.d)); if (Math.hypot(nx - x, nz - z) > r * 0.8) continue;
@@ -684,9 +695,11 @@ Game.prototype.nextWeapon = function () { if (this.calm && this.build >= 0) { th
 Game.prototype.fire = function () {
   var p = this.p; if (this.state === 'inside') { this.threaten(); return; }
   if (this.moon) { var tk = this.mride; if (tk && tk.kind === 'tank') { if (!(tk.cd > 0)) { tk.cd = 0.55; this.mshells.push({ x: tk.x + tk.hx * 2.4, y: 1.9, z: tk.z + tk.hz * 2.4, vx: tk.hx * 16 + tk.hx * tk.v, vy: 5.5, vz: tk.hz * 16 + tk.hz * tk.v }); this.ev('mshot'); } } else this.dash(); return; }
+  if (this.state === 'dragon') { if (!(this.fireCd > 0)) { var dg = this.dragon; this.fireCd = 0.45; this.dfire.push({ x: dg.x + dg.hx * 5, y: this.dalt + 2.4, z: dg.z + dg.hz * 5, vx: dg.hx * (dg.v + 20), vy: -2, vz: dg.hz * (dg.v + 20) }); this.ev('dfire'); } return; }
   if (this.state === 'pilot') { if (this.pilotT - this.beamT > 0.2) { this.beamOn = !this.beamOn; this.ev('beam', { on: this.beamOn }); } this.beamT = this.pilotT; return; }
   if (this.state === 'play' && this.calm && this.build >= 0) { var fc = this.frontCell(); if (this.fireCd <= 0 && fc) { this.fireCd = 0.18; this.placeBlock(fc[0], fc[1], fc[2], this.build); } return; }
   if (this.state === 'play' && this.calm) { if (!this.maiGiven && Math.abs(p.x - ZAC.x) < 3.6 && Math.abs(p.z - ZAC.z) < 3.6) { this.maiGiven = true; this.ev('maitai'); } return; } if (this.state !== 'play' || p.inside || this.fireCd > 0 || this.calm) return;
+  if (this.drive && this.drive.moonV === 'tank') { var tc2 = this.drive; this.fireCd = 0.6; this.proj.push({ k: 'rocket', x: tc2.x + tc2.hx * 3, z: tc2.z + tc2.hz * 3, y: 1.9, vx: tc2.hx * 22, vz: tc2.hz * 22, life: 2.4 }); this.ev('whoosh'); return; }     // the tank's own gun
   var W = this.weapon, av = this.manual ? this.aimV : null, t = av ? null : this.aim(W === 0 ? 20 : 12), ox = av ? av.x : p.x, oz = av ? av.z : p.z, dx = av ? av.dx : (t ? t.x - p.x : p.dx), dz = av ? av.dz : (t ? t.z - p.z : p.dz), d = Math.sqrt(dx * dx + dz * dz) || 1; dx /= d; dz /= d;
   if (W === 3) {         // the broom: sweeps the street, and shoves whatever is in front of you
     this.fireCd = 0.38; p.dx = dx; p.dz = dz; var bt = this.targets(), bh = null, bdist = 1.9;
@@ -773,7 +786,7 @@ Game.prototype.toggleCar = function () {
   var p = this.p, w = this.w, i;
   if (this.moon) {       // on the Moon the same button climbs on and off tanks and buggies, and otherwise jumps
     if (this.mride) { var mv = this.mride; this.mride = null; mv.v = 0; p.x = mv.x + mv.hz * 2.2; p.z = mv.z - mv.hx * 2.2; p.vy = 4; p.fly = Math.max(p.fly, 0.3); this.ev('carout'); return; }
-    if (p.fly < 1.2) for (i = 0; i < this.mveh.length; i++) { var m2 = this.mveh[i]; if (Math.abs(m2.x - p.x) < 3 && Math.abs(m2.z - p.z) < 3) { this.mride = m2; p.x = m2.x; p.z = m2.z; p.fly = 0; p.vy = 0; this.ev('mride', { kind: m2.kind }); return; } }
+    if (p.fly < 1.2) for (i = 0; i < this.mveh.length; i++) { var m2 = this.mveh[i]; if (m2.gone) continue; if (Math.abs(m2.x - p.x) < 3 && Math.abs(m2.z - p.z) < 3) { this.mride = m2; p.x = m2.x; p.z = m2.z; p.fly = 0; p.vy = 0; this.ev('mride', { kind: m2.kind }); return; } }
     this.dash(); return;
   }
   if (this.state === 'pilot') {
@@ -781,6 +794,8 @@ Game.prototype.toggleCar = function () {
     this.state = 'play'; this.ufo.on = false; this.ufo.next = 90; p.fly = 0; p.x = ZAC.x - 1.5; p.z = ZAC.z + 1.5; this.grace = 2; this.cargo = 0; this.ev('ufoland'); return;
   }
   if (this.state === 'play' && this.calm && this.build >= 0) { this.build = -1; this.ev('bstop'); return; }
+  if (this.state === 'dragon') { var dg = this.dragon; this.state = 'play'; p.fly = 0; dg.x = DRG.x; dg.z = DRG.z; dg.hx = -1; dg.hz = 0; dg.v = 0; this.dfire = []; p.x = DRG.x - 4; p.z = DRG.z + 2; this.grace = 2; this.ev('dland'); return; }
+  if (this.state === 'play' && this.calm && Math.abs(p.x - DRG.x) < 6 && Math.abs(p.z - DRG.z) < 6) { this.state = 'dragon'; this.build = -1; this.dalt = 0.5; this.dclimb = 3; this.dfire = []; this.fireCd = 0.5; this.ev('dride'); return; }
   if (this.nearRack()) { this.build = 0; this.ev('bstart'); return; }
   if (this.nearZach()) { this.state = 'pilot'; this.cargo = 0; this.beamOn = true; this.ualt = 14; this.pilotT = 0; this.beamT = -1; this.pilotAway = false; this.ev('ufofly'); return; }
   if (this.state !== 'play') return;
@@ -789,7 +804,8 @@ Game.prototype.toggleCar = function () {
   n.ai = false; n.v = 0; n.hx = n.dx; n.hz = n.dz; this.drive = n; p.x = n.x; p.z = n.z; this.ev('jack');
   if (this.mode === 'robber' && !this.wanted) for (i = 0; i < this.cops.length; i++) if (Math.abs(this.cops[i].x - p.x) + Math.abs(this.cops[i].z - p.z) < 12) { this.startChase(1); break; }
 };
-Game.prototype.carHit = function (x, z) { var w = this.w, r = 0.42, a, b; for (a = -1; a <= 1; a += 2) for (b = -1; b <= 1; b += 2) { var tx = Math.floor(x + a * r), tz = Math.floor(z + b * r); if (tz >= SIZE || !w.walk(tx, tz) || !w.isRoad(tx, tz)) return true; } return false; };
+Game.prototype.carHit = function (x, z) { var w = this.w, r = 0.42, a, b; if (this.drive && this.drive.moonV) { if (z >= SIZE - 0.5) return !(x > 0.8 && x < SIZE - 0.8 && z < SIZE + 14); return this.hit(x, z); } for (a = -1; a <= 1; a += 2) for (b = -1; b <= 1; b += 2) { var tx = Math.floor(x + a * r), tz = Math.floor(z + b * r); if (tz >= SIZE || !w.walk(tx, tz) || !w.isRoad(tx, tz)) return true; } return false; };
+Game.prototype.turnTo = function (c, mx, mz, step) { var ca = Math.atan2(c.hx, c.hz), da = Math.atan2(mx, mz) - ca; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; ca += Math.max(-step, Math.min(step, da)); c.hx = Math.sin(ca); c.hz = Math.cos(ca); };   // steer by angle, so pulling straight back turns the car round instead of locking up
 Game.prototype.carBlocked = function (x, z, hx, hz) { return this.carHit(x, z) || this.carHit(x + hx * 0.85, z + hz * 0.85) || this.carHit(x - hx * 0.85, z - hz * 0.85); };
 Game.prototype.canMug = function () { var e = this.aimed; return this.state === 'play' && !!e && e.dead <= 0 && !(e.flee > 0) && e.held > 0.25; };
 Game.prototype.mug = function () {        // "give me your money"
@@ -799,19 +815,20 @@ Game.prototype.mug = function () {        // "give me your money"
 };
 // Building on the beach: half-metre blocks on a grid, stacked like you would expect.
 Game.prototype.nearRack = function () { return this.state === 'play' && !!this.calm && Math.abs(this.p.x - BRACK.x) < 2.6 && Math.abs(this.p.z - BRACK.z) < 2.6; };
-Game.prototype.blockOk = function (ix, iy, iz) { var wx = ix * BSZ, wz = iz * BSZ; return iy >= 0 && iy < 24 && wx >= 0.5 && wx <= SIZE - 1 && wz >= SIZE + 1 && wz <= SIZE + 14.5 && !(Math.abs(wx - BRACK.x) < 2.2 && Math.abs(wz - BRACK.z) < 1); };
+Game.prototype.blockOk = function (ix, iy, iz) { var wx = ix * BSZ, wz = iz * BSZ; if (Math.abs(wx - DRG.x) < 7 && Math.abs(wz - DRG.z) < 5) return false; return iy >= 0 && iy < 24 && wx >= 0.5 && wx <= SIZE - 1 && wz >= SIZE + 1 && wz <= SIZE + 14.5 && !(Math.abs(wx - BRACK.x) < 2.2 && Math.abs(wz - BRACK.z) < 1); };
 Game.prototype.placeBlock = function (ix, iy, iz, c) { var k = ix + ',' + iy + ',' + iz; if (!this.blockOk(ix, iy, iz) || this.blocks[k] !== undefined || this.nblocks >= BMAX) return false; this.blocks[k] = c; this.nblocks++; this.ev('block', { n: this.nblocks }); return true; };
 Game.prototype.removeBlock = function (ix, iy, iz) { var k = ix + ',' + iy + ',' + iz; if (this.blocks[k] === undefined) return false; delete this.blocks[k]; this.nblocks--; this.ev('unblock'); return true; };
 Game.prototype.colTop = function (x, z) { var ix = Math.floor(x / BSZ), iz = Math.floor(z / BSZ), n = 0; while (n < 24 && this.blocks[ix + ',' + n + ',' + iz] !== undefined) n++; return n; };
 Game.prototype.frontCell = function () { var p = this.p, ix = Math.floor((p.x + p.dx * 1.3) / BSZ), iz = Math.floor((p.z + p.dz * 1.3) / BSZ), iy = 0; while (this.blocks[ix + ',' + iy + ',' + iz] !== undefined && iy < 24) iy++; return this.blockOk(ix, iy, iz) ? [ix, iy, iz] : null; };   // flat screens build on the column in front of you
 // The Moon: a low-gravity playground you reach by rocket, and by teleporter ever after.
 Game.prototype.goMoon = function (first) {
-  var p = this.p, i; this.moon = true; this.moonOpen = true; this.state = 'play'; this.mode = 'robber'; this.heistAlarm = false; this.hot = 0; this.won = true; this.drive = null; this.ufo.on = false; this.ufo.next = 90; this.clearWanted(); this.tpCd = 4;
+  var p = this.p, i; this.moon = true; this.moonOpen = true; this.state = 'play'; this.mode = 'robber'; this.heistAlarm = false; this.hot = 0; this.won = true; var dv = this.drive && this.drive.moonV ? this.drive : null; this.drive = null; this.mride = null; this.ufo.on = false; this.ufo.next = 90; this.clearWanted(); this.tpCd = 4;
   p.x = MOON.x; p.z = MOON.z + 4; p.fly = first ? 32 : 6; p.vy = 0; p.jumps = 2; p.inside = false; p.hidden = false; p.dx = 0; p.dz = -1;
   if (!this.mstars) { this.mstars = []; for (i = 0; i < 16; i++) { var a = i * 2.4, r = 6 + (i * 7 % 20); this.mstars.push({ x: MOON.x + Math.cos(a) * r, z: MOON.z + Math.sin(a) * r, y: 2.5 + (i * 5 % 11), t: 0 }); }
     this.mpads = []; for (i = 0; i < 7; i++) { var a2 = i * 0.9 + 0.4, r2 = 9 + (i % 3) * 7; this.mpads.push({ x: MOON.x + Math.cos(a2) * r2, z: MOON.z + Math.sin(a2) * r2 }); }
     this.mveh = [{ kind: 'tank', x: MOON.x - 14, z: MOON.z + 2 }, { kind: 'tank', x: MOON.x + 15, z: MOON.z - 6 }, { kind: 'buggy', x: MOON.x + 6, z: MOON.z + 8 }, { kind: 'buggy', x: MOON.x - 6, z: MOON.z + 9 }, { kind: 'buggy', x: MOON.x + 10, z: MOON.z + 16 }]; this.mveh.forEach(function (v) { v.hx = 0; v.hz = -1; v.v = 0; v.cd = 0; }); this.mshells = [];
     this.mballs = []; for (i = 0; i < 6; i++) this.mballs.push({ x: MOON.x - 8 + i * 3.2, z: MOON.z + 12 + (i % 2) * 3, y: 1.2, vx: 0, vy: 0, vz: 0, r: 1.2 }); }
+  if (dv) { dv.off = true; dv.x = -99; dv.z = -99; dv.v = 0; var mv0 = this.mveh[dv.mi]; mv0.gone = false; mv0.x = p.x; mv0.z = p.z; mv0.v = 0; this.mride = mv0; p.fly = 0; }     // you brought a vehicle back with you
   this.ev('moon', { first: !!first });
 };
 Game.prototype.updateMoon = function (dt) {
@@ -820,7 +837,7 @@ Game.prototype.updateMoon = function (dt) {
   var rv = this.mride;
   if (rv) {            // riding: tanks are slow and stay planted, buggies are quick and hop
     var top = rv.kind === 'tank' ? 6.5 : 14; rv.v += ((ml > 0.12 ? top * ml : 0) - rv.v) * Math.min(1, dt * 2.5); if (rv.cd > 0) rv.cd -= dt;
-    if (ml > 0.12) { var tr = rv.kind === 'tank' ? 2.5 : 5, hx2 = rv.hx + (mx / ml - rv.hx) * Math.min(1, dt * tr), hz2 = rv.hz + (mz / ml - rv.hz) * Math.min(1, dt * tr), hl2 = Math.sqrt(hx2 * hx2 + hz2 * hz2) || 1; rv.hx = hx2 / hl2; rv.hz = hz2 / hl2; }
+    if (ml > 0.12) this.turnTo(rv, mx, mz, (rv.kind === 'tank' ? 2.2 : 4) * dt);
     p.x += rv.hx * rv.v * dt; p.z += rv.hz * rv.v * dt; p.dx = rv.hx; p.dz = rv.hz; p.moving = rv.kind !== 'tank' && rv.v > 4;
   } else if (ml > 0.12) { p.x += mx * PSPEED * dt; p.z += mz * PSPEED * dt; p.dx = mx / ml; p.dz = mz / ml; p.moving = true; } else p.moving = false;
   var ox = p.x - MOON.x, oz = p.z - MOON.z, od = Math.sqrt(ox * ox + oz * oz); if (od > MOON.r - 1) { p.x = MOON.x + ox / od * (MOON.r - 1); p.z = MOON.z + oz / od * (MOON.r - 1); }
@@ -838,7 +855,11 @@ Game.prototype.updateMoon = function (dt) {
     b.vy -= 2.6 * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt; if (b.y < b.r) { b.y = b.r; if (b.vy < -0.6) b.vy = -b.vy * 0.78; else b.vy = 0; b.vx *= 1 - dt * 0.6; b.vz *= 1 - dt * 0.6; }
     var rx = b.x - MOON.x, rz = b.z - MOON.z, rd = Math.sqrt(rx * rx + rz * rz); if (rd > MOON.r - 2) { var nxx = rx / rd, nzz = rz / rd, dot = b.vx * nxx + b.vz * nzz; if (dot > 0) { b.vx -= 2 * dot * nxx; b.vz -= 2 * dot * nzz; } b.x = MOON.x + nxx * (MOON.r - 2); b.z = MOON.z + nzz * (MOON.r - 2); }
   }
-  if (!rv && !(this.tpCd > 0) && p.fly < 1.5 && Math.abs(p.x - MOON.x) < 1.4 && Math.abs(p.z - (MOON.z - 14)) < 1.4) { this.moon = false; this.mride = null; p.fly = 0; p.vy = 0; p.x = EPAD.x + 2.5; p.z = EPAD.z; this.tpCd = 4; this.grace = 2; this.ev('toearth'); }
+  if (!(this.tpCd > 0) && p.fly < 1.5 && Math.abs(p.x - MOON.x) < (rv ? 2.2 : 1.4) && Math.abs(p.z - (MOON.z - 14)) < (rv ? 2.2 : 1.4)) {      // the ring takes you home, and whatever you are driving comes too
+    this.moon = false; this.mride = null; p.fly = 0; p.vy = 0; p.x = EPAD.x + 3.5; p.z = EPAD.z; this.tpCd = 5; this.grace = 2;
+    if (rv) { rv.gone = true; var mi = this.mveh.indexOf(rv), gc = null; for (i = 0; i < this.cars.length; i++) if (this.cars[i].moonV && this.cars[i].mi === mi) gc = this.cars[i]; gc.off = false; gc.x = p.x; gc.z = p.z; gc.hx = gc.dx = 0; gc.hz = gc.dz = -1; gc.v = 0; this.drive = gc; }
+    this.ev('toearth', { veh: rv ? rv.kind : null });
+  }
 };
 /*ENDSIM*/
 
@@ -1031,6 +1052,68 @@ Game.prototype.updateMoon = function (dt) {
     c.legL.rotation.x = sw; c.legR.rotation.x = -sw; c.body.rotation.z = Math.sin(c.phase) * (mv ? 0.07 : 0.02); c.body.position.y = mv ? Math.abs(Math.cos(c.phase)) * 0.05 : 0; c.body.rotation.x = 0.1;
     c.head.rotation.y = Math.sin(c.phase * 0.31) * 0.5; c.head.rotation.z = Math.sin(c.phase * 0.23) * 0.12; c.armL.rotation.x = -1.1 + Math.sin(c.phase * 2) * 0.08; c.armR.rotation.x = -1.1 - Math.sin(c.phase * 2) * 0.08;
     for (var t = 0; t < c.tail.length; t++) c.tail[t].rotation.y = Math.sin(c.phase * 0.9 - t * 0.7) * 0.22;
+  }
+  function vbx(b, w, h, d, hex, x, y, z, top) { b.box(x - w / 2, y - h / 2, z - d / 2, w, h, d, hex, top); }
+  function vehMesh(b) { var m = b.mesh(new THREE.MeshLambertMaterial({ vertexColors: true })); m.castShadow = true; var g = new THREE.Group(); g.add(m); return g; }
+  function buildCar(i) {         // four body styles, each with glass, pillars, bumpers, grille, lights, mirrors, plates and hubcaps
+    var b = new Builder(), ch = [0xff4fa3, 0x35e8ff, 0xffe14f, 0xf4f4f0, 0x7b4fff, 0xff8a2b, 0x5dfc8a, 0xe5463a][i % 8], ty = i % 4, GL = 0x9fd8ff, DK = 0x1a1a22, k;
+    if (ty === 3) ch = 0xffd23f;
+    vbx(b, 1.14, 0.36, 2.36, ch, 0, 0.5, 0); vbx(b, 1.18, 0.1, 2.2, DK, 0, 0.3, 0); vbx(b, 1.2, 0.14, 0.12, 0x8d94a0, 0, 0.4, 1.2); vbx(b, 1.2, 0.14, 0.12, 0x8d94a0, 0, 0.4, -1.2);
+    vbx(b, 0.56, 0.14, 0.04, DK, 0, 0.54, 1.19); for (k = 0; k < 4; k++) vbx(b, 0.03, 0.12, 0.05, 0x8d94a0, -0.21 + k * 0.14, 0.54, 1.2);
+    vbx(b, 0.22, 0.13, 0.05, 0xfff2c0, -0.42, 0.56, 1.19); vbx(b, 0.22, 0.13, 0.05, 0xfff2c0, 0.42, 0.56, 1.19); vbx(b, 0.1, 0.07, 0.05, 0xffb62e, -0.5, 0.44, 1.2); vbx(b, 0.1, 0.07, 0.05, 0xffb62e, 0.5, 0.44, 1.2);
+    vbx(b, 0.26, 0.12, 0.05, 0xff2030, -0.4, 0.56, -1.19); vbx(b, 0.26, 0.12, 0.05, 0xff2030, 0.4, 0.56, -1.19); vbx(b, 0.3, 0.1, 0.04, 0xf4f4f0, 0, 0.44, -1.21); vbx(b, 0.3, 0.1, 0.04, 0xf4f4f0, 0, 0.38, 1.27);
+    vbx(b, 1.04, 0.05, 0.72, ch, 0, 0.7, 0.8, 0xffffff); vbx(b, 0.02, 0.3, 0.02, DK, -0.58, 0.5, -0.1); vbx(b, 0.02, 0.3, 0.02, DK, 0.58, 0.5, -0.1); vbx(b, 0.03, 0.03, 0.1, 0x8d94a0, -0.585, 0.58, 0.05); vbx(b, 0.03, 0.03, 0.1, 0x8d94a0, 0.585, 0.58, 0.05);
+    [[-0.52, 0.74], [0.52, 0.74], [-0.52, -0.74], [0.52, -0.74]].forEach(function (o) { vbx(b, 0.22, 0.48, 0.48, 0x14141c, o[0], 0.24, o[1]); vbx(b, 0.24, 0.2, 0.2, 0xb9c0cc, o[0], 0.24, o[1]); vbx(b, 0.3, 0.06, 0.6, DK, o[0] * 0.98, 0.5, o[1]); });
+    vbx(b, 0.1, 0.08, 0.14, DK, -0.64, 0.8, 0.46); vbx(b, 0.1, 0.08, 0.14, DK, 0.64, 0.8, 0.46);
+    function cabin(z, d, h) { vbx(b, 0.98, h, d, GL, 0, 0.68 + h / 2, z); vbx(b, 1.02, 0.07, d - 0.08, ch, 0, 0.7 + h, z, 0xffffff); [[-0.47, d / 2 - 0.04], [0.47, d / 2 - 0.04], [-0.47, -d / 2 + 0.04], [0.47, -d / 2 + 0.04], [-0.48, 0], [0.48, 0]].forEach(function (o) { vbx(b, 0.07, h, 0.07, ch, o[0], 0.68 + h / 2, z + o[1]); }); vbx(b, 0.5, 0.2, 0.06, DK, 0, 0.74, z - 0.1); }
+    if (ty === 0) { cabin(-0.12, 1.15, 0.32); vbx(b, 1.04, 0.05, 0.4, ch, 0, 0.7, -0.95); }
+    else if (ty === 1) { cabin(-0.3, 1.5, 0.3); vbx(b, 1.1, 0.06, 0.18, DK, 0, 1.12, -1.02); vbx(b, 0.06, 0.12, 0.06, DK, -0.45, 1.05, -1.02); vbx(b, 0.06, 0.12, 0.06, DK, 0.45, 1.05, -1.02); vbx(b, 0.14, 0.02, 2.3, 0xf4f4f0, 0, 0.73, 0.8); }
+    else if (ty === 2) { cabin(0.12, 0.85, 0.36); vbx(b, 0.08, 0.24, 0.92, ch, -0.53, 0.8, -0.68); vbx(b, 0.08, 0.24, 0.92, ch, 0.53, 0.8, -0.68); vbx(b, 1.14, 0.24, 0.08, ch, 0, 0.8, -1.14); vbx(b, 0.4, 0.3, 0.4, 0xb5793a, -0.2, 0.84, -0.6, 0xc98b48); vbx(b, 0.3, 0.22, 0.3, 0x8a5a3c, 0.25, 0.8, -0.85); vbx(b, 0.9, 0.05, 0.05, 0x8d94a0, 0, 1.1, -0.3); }
+    else { cabin(-0.2, 1.75, 0.46); vbx(b, 0.44, 0.14, 0.16, 0x14141c, 0, 1.28, 0); vbx(b, 0.4, 0.1, 0.17, 0xfff2c0, 0, 1.28, 0); for (k = 0; k < 6; k++) vbx(b, 0.1, 0.08, 0.02, k % 2 ? 0x14141c : 0xf4f4f0, -0.25 + k * 0.1, 0.6, 1.0 - 2.0 * 0 + (k % 2 ? 0 : 0) - 1.0 + 0.6 * 0 + 0, 0); }
+    vbx(b, 0.02, 0.5, 0.02, DK, 0.44, 1.2, -0.7); vbx(b, 1.3, 0.04, 2.5, NEON[i % 5], 0, 0.05, 0);
+    return vehMesh(b);
+  }
+  function buildTank() {
+    var b = new Builder(), GR = 0x4f6b3a, G2 = 0x5f7f46, G3 = 0x3e5630, TR = 0x23262e, MT = 0x8d94a0, k, sd;
+    vbx(b, 2.5, 0.55, 3.9, GR, 0, 0.92, 0, G2); vbx(b, 2.5, 0.3, 0.7, G3, 0, 0.75, 2.1); vbx(b, 2.3, 0.2, 0.5, GR, 0, 1.05, 1.85); vbx(b, 2.5, 0.4, 0.5, G3, 0, 0.85, -2.05);
+    for (sd = -1; sd <= 1; sd += 2) {
+      vbx(b, 0.62, 0.72, 4.5, TR, sd * 1.55, 0.44, 0); vbx(b, 0.74, 0.1, 4.3, G3, sd * 1.55, 0.86, 0); for (k = 0; k < 14; k++) { vbx(b, 0.66, 0.06, 0.14, 0x3a3f4c, sd * 1.55, 0.83, -2.05 + k * 0.315); vbx(b, 0.66, 0.06, 0.14, 0x3a3f4c, sd * 1.55, 0.05, -2.05 + k * 0.315); }
+      for (k = 0; k < 6; k++) { vbx(b, 0.1, 0.46, 0.46, MT, sd * 1.88, 0.36, -1.7 + k * 0.68); vbx(b, 0.12, 0.16, 0.16, 0x4a4f5c, sd * 1.9, 0.36, -1.7 + k * 0.68); } vbx(b, 0.1, 0.36, 0.36, MT, sd * 1.88, 0.58, 2.12); vbx(b, 0.1, 0.36, 0.36, MT, sd * 1.88, 0.58, -2.12);
+      vbx(b, 0.5, 0.2, 0.7, G3, sd * 1.0, 1.3, -1.5); vbx(b, 0.2, 0.14, 0.08, 0xfff2c0, sd * 0.95, 1.05, 2.3); vbx(b, 0.12, 0.12, 0.5, 0x2a2a3a, sd * 0.7, 1.08, -2.3); vbx(b, 0.6, 0.3, 0.04, 0xff4fa3, sd * 1.26, 0.95, -0.9);
+    }
+    vbx(b, 1.8, 0.6, 2.0, G2, 0, 1.5, -0.15, 0x6f9152); vbx(b, 1.4, 0.5, 0.6, GR, 0, 1.48, -1.4); vbx(b, 1.5, 0.44, 0.3, G3, 0, 1.5, 0.98); vbx(b, 0.5, 0.5, 0.3, TR, 0, 1.52, 1.2);
+    vbx(b, 0.24, 0.24, 2.9, 0x2e3a26, 0, 1.54, 2.75); vbx(b, 0.32, 0.32, 0.5, 0x3e5630, 0, 1.54, 2.5); vbx(b, 0.38, 0.38, 0.36, TR, 0, 1.54, 4.2); vbx(b, 0.42, 0.1, 0.14, TR, 0, 1.54, 4.2);
+    vbx(b, 0.6, 0.14, 0.6, G3, 0.42, 1.87, -0.4); vbx(b, 0.46, 0.08, 0.46, TR, 0.42, 1.97, -0.4); vbx(b, 0.5, 0.1, 0.5, G3, -0.45, 1.85, -0.2); vbx(b, 0.07, 0.07, 0.8, TR, 0.42, 2.1, 0.1); vbx(b, 0.14, 0.2, 0.14, TR, 0.42, 2.02, -0.2);
+    vbx(b, 0.03, 1.5, 0.03, MT, -0.75, 2.5, -1.0); vbx(b, 0.03, 1.1, 0.03, MT, 0.75, 2.3, -1.1); vbx(b, 0.4, 0.3, 0.3, 0x5a4a2e, -0.5, 1.9, -1.45); vbx(b, 0.5, 0.22, 0.3, 0x6b5a3a, 0.3, 1.86, -1.5); vbx(b, 0.14, 0.14, 0.14, 0x35e8ff, -0.6, 1.62, 0.9);
+    return vehMesh(b);
+  }
+  function buildBuggy(q) {
+    var b = new Builder(), bc = [0xff8a2b, 0x35e8ff, 0xb06bff][q % 3], FR = 0xf4f4f0, TR = 0x23262e, GOLD = 0xd9a520, k, sd, fz;
+    vbx(b, 1.5, 0.12, 2.9, 0x8d94a0, 0, 0.78, 0); vbx(b, 1.3, 0.3, 0.9, bc, 0, 0.98, 1.05, 0xffffff); vbx(b, 1.3, 0.1, 0.4, TR, 0, 1.2, 0.72); vbx(b, 0.3, 0.14, 0.05, 0x35e8ff, -0.3, 1.26, 0.52); vbx(b, 0.2, 0.14, 0.05, 0x5dfc8a, 0.2, 1.26, 0.52);
+    for (sd = -1; sd <= 1; sd += 2) {
+      vbx(b, 0.08, 0.08, 2.9, FR, sd * 0.72, 0.9, 0); vbx(b, 0.07, 1.15, 0.07, FR, sd * 0.7, 1.4, -0.75); vbx(b, 0.07, 1.0, 0.07, FR, sd * 0.7, 1.35, 0.55); vbx(b, 0.07, 0.07, 1.36, FR, sd * 0.7, 1.96, -0.1);
+      for (fz = -1; fz <= 1; fz += 2) { vbx(b, 0.5, 1.1, 1.1, TR, sd * 1.12, 0.6, fz * 1.15); vbx(b, 0.54, 0.86, 0.86, 0x3a3f4c, sd * 1.12, 0.6, fz * 1.15); vbx(b, 0.56, 0.36, 0.36, bc, sd * 1.12, 0.6, fz * 1.15); for (k = 0; k < 4; k++) vbx(b, 0.56, 0.1, 0.16, TR, sd * 1.12, 0.1 + (k % 2) * 1.0, fz * 1.15 - 0.3 + (k >> 1) * 0.6); vbx(b, 0.6, 0.06, 1.3, bc, sd * 1.12, 1.24, fz * 1.15); vbx(b, 0.3, 0.07, 0.07, 0x8d94a0, sd * 0.86, 0.66, fz * 1.15); }
+      vbx(b, 0.5, 0.12, 0.5, 0x2a2a3a, sd * 0.36, 0.92, -0.3); vbx(b, 0.5, 0.6, 0.12, 0x2a2a3a, sd * 0.36, 1.24, -0.58); vbx(b, 0.22, 0.14, 0.06, 0xfff2c0, sd * 0.45, 1.0, 1.52);
+    }
+    vbx(b, 1.44, 0.07, 0.07, FR, 0, 1.96, -0.75); vbx(b, 1.44, 0.07, 0.07, FR, 0, 1.84, 0.55); vbx(b, 0.05, 0.36, 0.05, TR, -0.36, 1.26, 0.42); vbx(b, 0.3, 0.06, 0.3, TR, -0.36, 1.46, 0.36);
+    vbx(b, 1.2, 0.5, 0.6, GOLD, 0, 1.1, -1.15, 0xf0c040); vbx(b, 1.3, 0.05, 0.9, 0x24407a, 0, 1.42, -1.15, 0x3f6fd0); vbx(b, 0.4, 0.3, 0.3, FR, -0.3, 1.0, -1.1);
+    vbx(b, 0.05, 1.5, 0.05, FR, 0.6, 2.0, 1.3); vbx(b, 0.7, 0.5, 0.06, FR, 0.6, 2.9, 1.3); vbx(b, 0.5, 0.34, 0.06, 0xb9c0cc, 0.6, 2.9, 1.36); vbx(b, 0.08, 0.08, 0.3, GOLD, 0.6, 2.9, 1.5); vbx(b, 0.05, 1.0, 0.05, FR, -0.6, 1.9, 1.3); vbx(b, 0.2, 0.16, 0.26, TR, -0.6, 2.46, 1.34); vbx(b, 0.12, 0.12, 0.12, 0xff4d4d, 0.6, 3.22, 1.3);
+    return vehMesh(b);
+  }
+  function buildDragon() {          // a big green dragon, nose to tail about fourteen metres, with a saddle
+    var g = new THREE.Group(), b = new Builder(), GRN = 0x2f9e5a, DKG = 0x1f7a44, CRM = 0xe9d6a0, ORG = 0xff8a2b, k, sd;
+    vbx(b, 2.0, 1.6, 5.0, GRN, 0, 2.3, 0, 0x3fb86c); vbx(b, 1.6, 0.3, 4.6, CRM, 0, 1.42, 0); vbx(b, 2.2, 1.2, 2.2, GRN, 0, 2.3, 0.9, 0x3fb86c);
+    vbx(b, 1.3, 1.3, 1.5, GRN, 0, 3.0, 3.0, 0x3fb86c); vbx(b, 1.0, 0.25, 1.4, CRM, 0, 2.3, 3.1); vbx(b, 1.1, 1.1, 1.4, GRN, 0, 3.7, 4.0, 0x3fb86c); vbx(b, 0.8, 0.25, 1.2, CRM, 0, 3.1, 4.2);
+    vbx(b, 1.4, 1.1, 1.8, GRN, 0, 4.3, 5.2, 0x3fb86c); vbx(b, 1.0, 0.65, 1.3, GRN, 0, 4.15, 6.5, 0x3fb86c); vbx(b, 0.9, 0.24, 1.2, DKG, 0, 3.66, 6.4); vbx(b, 0.16, 0.12, 0.1, 0x14141c, -0.28, 4.4, 7.16); vbx(b, 0.16, 0.12, 0.1, 0x14141c, 0.28, 4.4, 7.16);
+    for (sd = -1; sd <= 1; sd += 2) { vbx(b, 0.12, 0.34, 0.4, 0xffe14f, sd * 0.71, 4.55, 5.7); vbx(b, 0.13, 0.26, 0.12, 0x14141c, sd * 0.72, 4.55, 5.76); vbx(b, 0.22, 0.95, 0.22, CRM, sd * 0.42, 5.25, 4.6); vbx(b, 0.16, 0.5, 0.16, CRM, sd * 0.42, 5.9, 4.45); vbx(b, 0.5, 0.1, 0.6, DKG, sd * 0.8, 4.75, 4.7);
+      for (k = 0; k < 4; k++) vbx(b, 0.1, 0.2, 0.1, 0xffffff, sd * 0.36, 3.86, 5.95 + k * 0.3);
+      for (k = -1; k <= 1; k += 2) { vbx(b, 0.75, 1.6, 0.9, GRN, sd * 1.05, 0.95, k * 1.7, 0x3fb86c); vbx(b, 0.95, 0.32, 1.3, DKG, sd * 1.05, 0.16, k * 1.7 + 0.2); for (var cl = 0; cl < 3; cl++) vbx(b, 0.16, 0.2, 0.26, 0xffffff, sd * 1.05 - 0.3 + cl * 0.3, 0.1, k * 1.7 + 0.95); } }
+    for (k = 0; k < 9; k++) vbx(b, 0.24, 0.55 + (k % 2) * 0.2, 0.44, ORG, 0, 3.3 + (k > 5 ? (k - 5) * 0.62 : 0), -2.2 + k * 0.72 + (k > 5 ? 0.3 : 0));
+    var tw = [[1.5, 1.2, 1.7, 2.1, -3.2], [1.1, 0.9, 1.7, 1.8, -4.8], [0.8, 0.62, 1.7, 1.55, -6.4], [0.5, 0.4, 1.6, 1.35, -7.9]]; tw.forEach(function (t, q) { vbx(b, t[0], t[1], t[2], GRN, 0, t[3], t[4], 0x3fb86c); vbx(b, 0.2, 0.4, 0.4, ORG, 0, t[3] + t[1] / 2 + 0.15, t[4]); }); vbx(b, 1.1, 0.16, 0.9, ORG, 0, 1.3, -9.0); vbx(b, 0.5, 0.16, 0.5, ORG, 0, 1.3, -9.6);
+    vbx(b, 1.1, 0.3, 1.3, 0x8a5a2b, 0, 3.25, 0.3, 0xb5793a); vbx(b, 1.1, 0.5, 0.2, 0x8a5a2b, 0, 3.6, -0.3); vbx(b, 0.16, 0.5, 0.16, 0x5a3a1c, 0, 3.6, 0.95); vbx(b, 2.1, 0.1, 0.3, 0x5a3a1c, 0, 2.6, 0.3);
+    var body = b.mesh(new THREE.MeshLambertMaterial({ vertexColors: true })); body.castShadow = true; g.add(body);
+    g.wings = [-1, 1].map(function (sd2) { var wb = new Builder(), w = new THREE.Group(); vbx(wb, 4.2, 0.28, 0.34, DKG, sd2 * 2.1, 0, 0); vbx(wb, 3.2, 0.24, 0.3, DKG, sd2 * 5.6, 0.1, -0.5); vbx(wb, 4.0, 0.08, 3.0, ORG, sd2 * 2.1, -0.02, -1.6, 0xffb062); vbx(wb, 3.0, 0.08, 2.4, 0xff6f3c, sd2 * 5.5, 0.05, -1.7, 0xff9a5c); for (var q = 0; q < 3; q++) vbx(wb, 0.12, 0.12, 2.8 - q * 0.5, DKG, sd2 * (1.2 + q * 2.2), 0.04, -1.5); vbx(wb, 0.2, 0.4, 0.2, CRM, sd2 * 7.2, 0.2, -0.4); w.add(wb.mesh(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }))); w.position.set(sd2 * 0.95, 3.0, 0.9); g.add(w); return w; });
+    g.scale.setScalar(0.82); return g;
   }
   function animBear(c, e, dt) {
     c.position.set(e.x, 0.15, e.z); if (e.dx || e.dz) { var ta = Math.atan2(e.dx, e.dz), da = ta - c.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; c.rotation.y += da * Math.min(1, dt * 8); }
@@ -1227,15 +1310,7 @@ Game.prototype.updateMoon = function (dt) {
     R.blasts = []; for (i = 0; i < 5; i++) { var bl = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffb62e, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); bl.visible = false; bl.life = 0; world.add(bl); R.blasts.push(bl); }
     R.projC = [];
     G.cars.forEach(function (cs, i) {
-      var car = new THREE.Group(), ch = [0xff4fa3, 0x35e8ff, 0xffe14f, 0xf4f4f0, 0x7b4fff, 0xff8a2b][i % 6];
-      [[-0.52, 0.72], [0.52, 0.72], [-0.52, -0.72], [0.52, -0.72]].forEach(function (o) { var wh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.44, 0.44), new THREE.MeshLambertMaterial({ color: 0x14141c })); wh.position.set(o[0], 0.22, o[1]); car.add(wh); });
-      [[-0.38, -1.17], [0.38, -1.17]].forEach(function (o) { var tl = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.12, 0.05), new THREE.MeshBasicMaterial({ color: 0xff2030 })); tl.position.set(o[0], 0.55, o[1]); car.add(tl); });
-      var hd = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.3, 0.06), new THREE.MeshLambertMaterial({ color: 0x9fd8ff })); hd.position.set(0, 0.86, 0.5); hd.rotation.x = -0.5; car.add(hd);
-      var b1 = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.42, 2.3), new THREE.MeshLambertMaterial({ color: ch })); b1.position.y = 0.52; b1.castShadow = true; car.add(b1);
-      var glow = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 2.5), new THREE.MeshBasicMaterial({ color: NEON[i % 5] })); glow.position.y = 0.05; car.add(glow);
-      var spo = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, 0.2), new THREE.MeshLambertMaterial({ color: 0x1a1a22 })); spo.position.set(0, 0.82, -1.1); car.add(spo);
-      var b2 = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.34, 1.1), new THREE.MeshLambertMaterial({ color: 0x1f2233 })); b2.position.set(0, 0.84, -0.05); car.add(b2);
-      [[-0.4, 1.16], [0.4, 1.16]].forEach(function (o) { var hl = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.14, 0.06), new THREE.MeshBasicMaterial({ color: 0xfff2c0 })); hl.position.set(o[0], 0.45, o[1]); car.add(hl); });
+      var car = cs.moonV === 'tank' ? buildTank() : cs.moonV ? buildBuggy(cs.mi) : buildCar(i);
       world.add(car); R.cars.push(car);
     });
     // liquid: glossy pools that spread, and droplets that arc and splash
@@ -1276,11 +1351,7 @@ Game.prototype.updateMoon = function (dt) {
       R.mpads = [0, 1, 2, 3, 4, 5, 6].map(function (q) { var g = new THREE.Group(); var b1 = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.9, 0.4, 16), new THREE.MeshLambertMaterial({ color: 0x2a2a3a })); b1.position.y = 0.2; g.add(b1); var t1 = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, 0.14, 16), new THREE.MeshBasicMaterial({ color: PC[q] })); t1.position.y = 0.46; g.add(t1); g.top = t1; g.sq = 0; world.add(g); return g; });
       R.mstars = []; for (k2 = 0; k2 < 16; k2++) { var stm = new THREE.Mesh(new THREE.OctahedronGeometry(0.55), new THREE.MeshBasicMaterial({ color: 0xffe14f })); world.add(stm); R.mstars.push(stm); }
       R.mballs = []; for (k2 = 0; k2 < 6; k2++) { var bm2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 1), new THREE.MeshLambertMaterial({ color: PC[k2], flatShading: true })); world.add(bm2); R.mballs.push(bm2); }
-      R.mveh = [0, 1, 2, 3, 4].map(function (q) {
-        var g = new THREE.Group(); function vb(w, h, d, hex, x, y, z, basic) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), basic ? new THREE.MeshBasicMaterial({ color: hex }) : new THREE.MeshLambertMaterial({ color: hex })); m.position.set(x, y, z); g.add(m); return m; }
-        if (q < 2) { vb(2.6, 0.7, 4, 0x4f6b3a, 0, 0.85, 0); vb(0.6, 0.7, 4.3, 0x23262e, -1.5, 0.45, 0); vb(0.6, 0.7, 4.3, 0x23262e, 1.5, 0.45, 0); for (var w2 = 0; w2 < 5; w2++) { vb(0.64, 0.4, 0.4, 0x8d94a0, -1.5, 0.3, -1.7 + w2 * 0.85); vb(0.64, 0.4, 0.4, 0x8d94a0, 1.5, 0.3, -1.7 + w2 * 0.85); } vb(1.7, 0.6, 1.9, 0x5f7f46, 0, 1.5, -0.2); vb(0.26, 0.26, 2.6, 0x2e3a26, 0, 1.55, 2); vb(0.34, 0.34, 0.3, 0x23262e, 0, 1.55, 3.2); vb(0.5, 0.14, 0.5, 0x2e3a26, 0.4, 1.86, -0.5); vb(0.5, 0.3, 0.06, 0xff4fa3, -0.9, 1.0, -2.02, true); }
-        else { var bc = [0xff8a2b, 0x35e8ff, 0xb06bff][q - 2]; vb(1.6, 0.25, 2.8, bc, 0, 0.75, 0); vb(1.6, 0.5, 0.5, bc, 0, 0.95, 1.2); [[-1, 1.1], [1, 1.1], [-1, -1.1], [1, -1.1]].forEach(function (o) { var wh = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.45, 10), new THREE.MeshLambertMaterial({ color: 0x23262e, flatShading: true })); wh.rotation.z = Math.PI / 2; wh.position.set(o[0], 0.6, o[1]); g.add(wh); }); vb(0.08, 1.1, 0.08, 0xf4f4f0, -0.7, 1.4, -0.9); vb(0.08, 1.1, 0.08, 0xf4f4f0, 0.7, 1.4, -0.9); vb(1.5, 0.08, 0.08, 0xf4f4f0, 0, 1.95, -0.9); vb(0.6, 0.5, 0.5, 0x2a2a3a, 0, 1.1, -0.5); vb(0.04, 1.6, 0.04, 0xf4f4f0, 0.7, 1.7, 1.3); vb(0.16, 0.16, 0.16, 0xff4d4d, 0.7, 2.5, 1.3, true); vb(0.5, 0.2, 0.06, 0xfff2c0, 0, 0.95, 1.46, true); }
-        world.add(g); return g; });
+      R.mveh = [0, 1, 2, 3, 4].map(function (q) { var g = q < 2 ? buildTank() : buildBuggy(q); world.add(g); return g; });
       R.mshells = [];
       R.aliens = []; for (k2 = 0; k2 < 6; k2++) { var al2 = makeChar({ shirt: PC[k2], pants: 0x2a2a3a, shoes: 0x2a2a3a, skin: 0x8cff6b }); al2.ax = MOON.x + Math.cos(k2 * 1.05 + 0.5) * (14 + (k2 % 2) * 8); al2.az = MOON.z + Math.sin(k2 * 1.05 + 0.5) * (14 + (k2 % 2) * 8); world.add(al2); R.aliens.push(al2); }
     })();
@@ -1293,6 +1364,8 @@ Game.prototype.updateMoon = function (dt) {
       var bl = new THREE.Sprite(new THREE.SpriteMaterial({ map: pixelTex(128, 24, function (x) { x.fillStyle = '#14041f'; x.fillRect(0, 0, 128, 24); x.fillStyle = '#ffd23f'; x.font = 'bold 14px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('BUILDING BLOCKS', 64, 13); }), depthTest: false })); bl.scale.set(3.4, 0.64, 1); bl.position.set(BRACK.x, 2.2, BRACK.z); bl.renderOrder = 12; world.add(bl); })();
     try { var sv = JSON.parse(localStorage.getItem('breadrun-blocks') || 'null'); if (sv && typeof sv === 'object') { var svn = 0; for (var sk2 in sv) { if (svn >= BMAX) break; G.blocks[sk2] = sv[sk2] | 0; svn++; } G.nblocks = svn; } } catch (e3) {}
     syncBlocks(false);
+    R.dragon = buildDragon(); world.add(R.dragon); R.dfire = [];
+    R.dtag = new THREE.Sprite(new THREE.SpriteMaterial({ map: pixelTex(128, 24, function (x) { x.fillStyle = '#14041f'; x.fillRect(0, 0, 128, 24); x.fillStyle = '#5dfc8a'; x.font = 'bold 14px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('RIDE THE DRAGON', 64, 13); }), depthTest: false })); R.dtag.scale.set(4.4, 0.82, 1); R.dtag.position.set(DRG.x, 6.4, DRG.z); R.dtag.renderOrder = 12; world.add(R.dtag);
     R.robMark = new THREE.Group(); R.robRing = new THREE.Mesh(new THREE.RingGeometry(0.75, 1.05, 24), new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, fog: false })); R.robRing.rotation.x = -Math.PI / 2; R.robRing.position.y = 0.2; R.robMark.add(R.robRing); R.robGem = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 4), new THREE.MeshBasicMaterial({ color: 0xff3030, fog: false, depthTest: false })); R.robGem.rotation.x = Math.PI; R.robGem.renderOrder = 20; R.robMark.add(R.robGem); R.robMark.visible = false; world.add(R.robMark);   // the suspect you are chasing gets a red ring and an arrow overhead
     R.foam = []; for (q = 0; q < 3; q++) { var fm = new THREE.Mesh(new THREE.PlaneGeometry(400 + SIZE, 0.7), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false })); fm.rotation.x = -Math.PI / 2; fm.position.set(SIZE / 2, 0.09, SIZE + 16); fm.renderOrder = 2; world.add(fm); R.foam.push(fm); }
     var spk = new Float32Array(260 * 3); for (q = 0; q < 260; q++) { spk[q * 3] = -40 + Math.random() * (SIZE + 80); spk[q * 3 + 1] = 0.12; spk[q * 3 + 2] = SIZE + 17 + Math.random() * 60; }
@@ -1450,8 +1523,11 @@ Game.prototype.updateMoon = function (dt) {
     else if (t === 'bstart') toast(vr ? 'TRIGGER: PLACE.  LEFT TRIGGER: REMOVE.' : 'BUILD: FIRE PLACES, DASH REMOVES, WEAPON BUTTON CHANGES COLOUR', 6, '#ffd23f');
     else if (t === 'bstop') toast('DONE BUILDING', 1.4, '#ffd23f');
     else if (t === 'bcol') tone(700, 0.05, 0.1, 'square');
+    else if (t === 'dride') { toast(vr ? 'TRIGGER: FIRE.  RIGHT STICK: HEIGHT.' : 'DRAGON! FIRE BREATHES FIRE.  R / C: UP AND DOWN.', 5, '#5dfc8a'); tone(90, 1.2, 0.35, 'sawtooth', 240); tone(140, 0.9, 0.2, 'square', 60, 0.3); }
+    else if (t === 'dland') { toast('THE DRAGON TAKES YOU HOME', 2.2, '#5dfc8a'); tone(200, 0.8, 0.2, 'sawtooth', 70); }
+    else if (t === 'dfire') { tone(260, 0.5, 0.3, 'sawtooth', 60); tone(900, 0.3, 0.08, 'square', 200); }
     else if (t === 'moon') { toast(ev.first ? 'THE MOON! JUMP, BOUNCE, GRAB THE STARS' : 'BACK ON THE MOON', 4, '#35e8ff'); jingle([392, 523, 659, 784, 1047], 0.13, 'sine'); }
-    else if (t === 'toearth') { toast('BACK ON EARTH. THE RING ON THE BEACH GOES TO THE MOON.', 4, '#35e8ff'); jingle([1047, 784, 523], 0.13, 'sine'); }
+    else if (t === 'toearth') { toast(ev.veh ? 'YOU BROUGHT THE ' + ev.veh.toUpperCase() + ' HOME. DRIVE IT ANYWHERE.' : 'BACK ON EARTH. THE RING ON THE BEACH GOES TO THE MOON.', 4, '#35e8ff'); jingle([1047, 784, 523], 0.13, 'sine'); }
     else if (t === 'mride') toast(ev.kind === 'tank' ? (vr ? 'TANK! TRIGGER FIRES. A GETS OUT' : 'TANK! FIRE SHOOTS. E GETS OUT') : (vr ? 'MOON BUGGY! TRIGGER JUMPS. A GETS OUT' : 'MOON BUGGY! DASH JUMPS. E GETS OUT'), 3, '#35e8ff');
     else if (t === 'mshot') { tone(120, 0.3, 0.35, 'sawtooth', 40); shake = Math.max(shake, 0.25); }
     else if (t === 'mboom') { debris(ev.x, 0.4, ev.z, 60, [0xb9bcc6, 0xffe14f, 0xff5a1f, 0x6f7380], 11, 2); blast(ev.x, ev.z, 4); shake = Math.max(shake, 0.5); tone(70, 0.7, 0.4, 'sawtooth', 25); }
@@ -1527,7 +1603,7 @@ Game.prototype.updateMoon = function (dt) {
     if (started) { var steps = 2; for (var s2 = 0; s2 < steps; s2++) G.update(sdt / steps); while (G.events.length) handle(G.events.shift()); }
     var p = G.p, w = G.w, i, L = w.launch;
     // characters
-    R.player.visible = !vr && (!p.inside || G.state === 'inside') && !G.drive && !G.mride && G.state !== 'pilot' && G.state !== 'launch' && G.state !== 'win'; animChar(R.player, p, dt, p.dashT > 0 ? 1.6 : 1); R.player.position.y += (p.fly || 0) + (p.bh || 0); if (p.fly && G.state === 'ufo') R.player.rotation.y += dt * 3;
+    R.player.visible = !vr && (!p.inside || G.state === 'inside') && !G.drive && !G.mride && G.state !== 'dragon' && G.state !== 'pilot' && G.state !== 'launch' && G.state !== 'win'; animChar(R.player, p, dt, p.dashT > 0 ? 1.6 : 1); R.player.position.y += (p.fly || 0) + (p.bh || 0); if (p.fly && G.state === 'ufo') R.player.rotation.y += dt * 3;
     R.chute.visible = G.state === 'chute'; if (R.chute.visible) { R.chute.position.set(p.x, p.fly + (vr ? 3.6 : 3.0), p.z); R.chute.rotation.z = Math.sin(clock * 1.3) * 0.06; }
     var isCop = G.mode === 'cop'; if (R.lastMode !== G.mode) { R.lastMode = G.mode; var sc = isCop ? 0x24407a : 0xff4fa3, hc = isCop ? 0x16264d : 0xf4f4f0; R.player.body.material.color.setHex(sc); R.player.slL.material.color.setHex(sc); R.player.slR.material.color.setHex(sc); R.player.hat.material.color.setHex(hc); R.player.brim.material.color.setHex(hc); R.player.ghost.material.color.setHex(isCop ? 0x3f8cff : 0x39ff7a); }
     R.bag.visible = G.bag.n > 0; R.bag.scale.setScalar(0.7 + G.bag.n * 0.07); R.player.ghost.material.opacity = p.hidden ? 0.2 : 0.6;
@@ -1561,7 +1637,7 @@ Game.prototype.updateMoon = function (dt) {
     var uf = G.ufo; R.ufo.visible = uf.on; if (uf.on) { var pil = G.state === 'pilot', ud2 = pil ? G.ualt - 14 : 0; R.beam.visible = R.beamRing.visible = !pil || G.beamOn; R.beam.scale.y = (13.4 + ud2) / 13.4; R.beam.position.y = (13.4 - ud2) / 2 + 0.1; R.beamRing.position.y = 0.2 - ud2; R.ufo.position.set(uf.x, ud2 + Math.sin(clock * 2) * 0.3, uf.z); R.ufo.rotation.y = clock * 0.8; R.beam.material.opacity = 0.2 + Math.abs(Math.sin(clock * 6)) * 0.14; for (i = 0; i < 8; i++) R.ufoLights[i].material.color.setHex((i + Math.floor(clock * 6)) % 2 ? 0xff4fa3 : 0xffe14f); if (started && soundOn && Math.random() < 0.05) tone(300 + Math.sin(clock * 5) * 120, 0.25, 0.05, 'sine', 520); }
     var sp3 = R.steam.geometry.attributes.position.array; for (i = 0; i < sp3.length / 3; i++) { var vi = Math.floor(i / 6) * 2, ph = (clock * 0.3 + i * 0.37) % 1; sp3[i * 3] = R.vents[vi] + Math.sin(i * 2.1 + clock) * 0.3 * ph; sp3[i * 3 + 1] = 0.2 + ph * 3.4; sp3[i * 3 + 2] = R.vents[vi + 1] + Math.cos(i * 1.7) * 0.3 * ph; } R.steam.geometry.attributes.position.needsUpdate = true;
     for (i = 0; i < R.flick.length; i++) R.flick[i].visible = Math.sin(clock * (7 + i * 3)) + Math.sin(clock * 23 + i) > -1.2;
-    for (i = 0; i < G.cars.length; i++) { var cs = G.cars[i], cm = R.cars[i]; cm.visible = (!cs.off || cs.lift > 0) && !cs.aboard && !(vr && G.drive === cs); cm.position.set(cs.x, cs.lift || 0, cs.z); if (cs.lift) cm.rotation.y += dt * 0.5; var cta = Math.atan2(cs.dx, cs.dz), cda = cta - cm.rotation.y; while (cda > Math.PI) cda -= 6.2832; while (cda < -Math.PI) cda += 6.2832; cm.rotation.y += cda * Math.min(1, dt * 10); }
+    for (i = 0; i < G.cars.length; i++) { var cs = G.cars[i], cm = R.cars[i]; cm.visible = (!cs.off || cs.lift > 0) && !cs.aboard && !(vr && G.drive === cs && !cs.moonV); cm.position.set(cs.x, cs.lift || 0, cs.z); if (cs.lift) cm.rotation.y += dt * 0.5; var cta = Math.atan2(cs.dx, cs.dz), cda = cta - cm.rotation.y; while (cda > Math.PI) cda -= 6.2832; while (cda < -Math.PI) cda += 6.2832; cm.rotation.y += cda * Math.min(1, dt * 10); }
     var inn = G.inn;
     R.clerk.visible = R.ccone.visible = R.shut.visible = !!inn; R.reg.visible = !!(inn && inn.reg && !inn.reg.taken);
     for (i = 0; i < R.items.length; i++) { var itm = inn && inn.items[i]; R.items[i].visible = !!(itm && !itm.taken); if (itm) { R.items[i].position.set(itm.x, (vr ? 1.05 : 0.75) + Math.sin(clock * 4 + i) * 0.06, itm.z); R.items[i].rotation.y = clock * 2 + i; } }
@@ -1580,6 +1656,11 @@ Game.prototype.updateMoon = function (dt) {
     var building = G.build >= 0 && G.calm && G.state === 'play'; if (building && !vr) { var fcl = G.frontCell(); bT.place = fcl; bT.hit = null; } if (!building) bT.place = bT.hit = null;
     R.ghost.visible = building && !!bT.place; if (R.ghost.visible) { R.ghost.position.set(bT.place[0] * BSZ + BSZ / 2, 0.08 + bT.place[1] * BSZ + BSZ / 2, bT.place[2] * BSZ + BSZ / 2); R.ghost.material.color.setHex(BCOL[G.build]); R.ghost.material.opacity = 0.35 + 0.2 * Math.sin(clock * 8); }
     if (G.danceT > 0) { danceBeat -= dt; if (danceBeat <= 0) { danceBeat = 1.92; var DN2 = [392, 0, 494, 392, 587, 0, 494, 587, 659, 0, 587, 494, 440, 494, 392, 0]; DN2.forEach(function (f, q) { if (f) tone(f, 0.11, 0.09, 'square', null, q * 0.12); if (q % 4 === 0) tone(70, 0.12, 0.3, 'sine', 40, q * 0.12); if (q % 4 === 2) tone(1800, 0.04, 0.05, 'sawtooth', 900, q * 0.12); }); } }
+    (function () { var dg = G.dragon, fly = G.state === 'dragon', fl = fly ? Math.sin(clock * 5.2) : Math.sin(clock * 1.4) * 0.25, ta2 = Math.atan2(dg.hx, dg.hz), dd = ta2 - R.dragon.rotation.y; while (dd > Math.PI) dd -= 6.2832; while (dd < -Math.PI) dd += 6.2832;
+      R.dragon.rotation.y += dd * Math.min(1, dt * 6); R.dragon.rotation.z += ((fly ? -dd * 1.6 : 0) - R.dragon.rotation.z) * Math.min(1, dt * 4); R.dragon.position.set(dg.x, (fly ? G.dalt : 0.08) + (fly ? Math.sin(clock * 5.2 + 1.2) * 0.35 : 0), dg.z);
+      R.dragon.wings[0].rotation.z = fly ? 0.15 + fl * 0.6 : 1.05 + fl * 0.1; R.dragon.wings[1].rotation.z = fly ? -0.15 - fl * 0.6 : -1.05 - fl * 0.1; R.dtag.visible = !fly && G.calm;
+      syncList(R.dfire, G.dfire.length, function () { return new THREE.Mesh(new THREE.IcosahedronGeometry(0.7, 0), new THREE.MeshBasicMaterial({ color: 0xff8a2b })); });
+      for (var q = 0; q < G.dfire.length; q++) { var f = G.dfire[q]; R.dfire[q].position.set(f.x, f.y, f.z); R.dfire[q].rotation.x += dt * 9; R.dfire[q].material.color.setHex(Math.random() < 0.5 ? 0xffe14f : 0xff5a1f); if (Math.random() < 0.9) debris(f.x, f.y, f.z, 2, [0xffe14f, 0xff5a1f, 0xff8a2b], 3); } })();
     R.glowP.material.opacity = 0.15 + 0.8 * nightF; R.glowP.material.size = 2.4 + 2.2 * nightF; palSync(building);
     for (i = 0; i < R.rack.length; i++) { R.rack[i].rotation.y = clock + i; R.rack[i].scale.setScalar(G.build === i ? 1.35 : 1); }
     env(dt, p); R.epad.visible = !!G.moonOpen; R.epad.rotation.y = clock;
@@ -1588,7 +1669,7 @@ Game.prototype.updateMoon = function (dt) {
       for (i = 0; i < R.mpads.length; i++) { var mp = R.mpads[i]; mp.position.set(G.mpads[i].x, 0, G.mpads[i].z); mp.sq = Math.max(0, mp.sq - dt * 3); mp.top.position.y = 0.46 - mp.sq * 0.2; mp.top.scale.y = 1 + Math.sin(clock * 5 + i) * 0.2; }
       for (i = 0; i < R.mballs.length; i++) { var mb2 = G.mballs[i]; R.mballs[i].position.set(mb2.x, mb2.y, mb2.z); R.mballs[i].rotation.x += mb2.vz * dt * 0.6; R.mballs[i].rotation.z -= mb2.vx * dt * 0.6; }
       for (i = 0; i < R.aliens.length; i++) { var al = R.aliens[i], hop = Math.abs(Math.sin(clock * 1.3 + i * 1.7)); al.position.set(al.ax, hop * 2.2, al.az); al.rotation.y = Math.atan2(p.x - al.ax, p.z - al.az); al.armL.rotation.x = al.armR.rotation.x = Math.PI - hop * 0.6; }
-      for (i = 0; i < R.mveh.length; i++) { var mv2 = G.mveh[i], on = G.mride === mv2; R.mveh[i].position.set(mv2.x, on ? p.fly || 0 : 0, mv2.z); R.mveh[i].rotation.y = Math.atan2(mv2.hx, mv2.hz); }
+      for (i = 0; i < R.mveh.length; i++) { var mv2 = G.mveh[i], on = G.mride === mv2; R.mveh[i].visible = !mv2.gone; R.mveh[i].position.set(mv2.x, on ? p.fly || 0 : 0, mv2.z); R.mveh[i].rotation.y = Math.atan2(mv2.hx, mv2.hz); }
       syncList(R.mshells, G.mshells.length, function () { return new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.MeshBasicMaterial({ color: 0xffe14f })); }); for (i = 0; i < G.mshells.length; i++) { R.mshells[i].position.set(G.mshells[i].x, G.mshells[i].y, G.mshells[i].z); R.mshells[i].rotation.x += dt * 9; }
       R.earth.rotation.y = clock * 0.03;
     }
@@ -1630,7 +1711,7 @@ Game.prototype.updateMoon = function (dt) {
     music(dt);
     $('wanted').textContent = G.wanted ? 'WANTED ' + '★'.repeat(G.wanted) : (isCop ? 'ON DUTY' : (G.mode === 'heist' ? (G.heistAlarm ? 'ALARM' : 'HEIST') : (p.hidden ? 'HIDDEN' : '')));
     var goal = 'Rob a store';
-    if (G.moon) goal = G.mride ? (G.mride.kind === 'tank' ? 'Tank: fire to shoot' : 'Buggy: jump off the pads') : 'The Moon. Jump twice, bounce on pads, drive the tanks and buggies. Blue ring goes home'; else if (G.mode === 'robber') goal = G.wanted ? (p.hidden ? 'Stay still...' : 'Lose the cops. Hide in a bush or bin') : (G.bag.n >= BAGMAX ? 'Bag full. Get home' : (G.bag.n ? 'Take it home, or grab more' : 'Rob a store'));
+    if (G.state === 'dragon') goal = 'Riding the dragon. Steer, climb, breathe fire'; else if (G.moon) goal = G.mride ? (G.mride.kind === 'tank' ? 'Tank: fire to shoot' : 'Buggy: jump off the pads') : 'The Moon. Jump twice, bounce on pads, drive the tanks and buggies. Blue ring goes home'; else if (G.mode === 'robber') goal = G.wanted ? (p.hidden ? 'Stay still...' : 'Lose the cops. Hide in a bush or bin') : (G.bag.n >= BAGMAX ? 'Bag full. Get home' : (G.bag.n ? 'Take it home, or grab more' : 'Rob a store'));
     else if (isCop) goal = G.robber ? (G.robber.phase === 'in' ? 'Robbery at ' + G.robber.s.name : 'Chase the suspect') : 'On patrol. Wait for a call';
     else goal = G.heistAlarm ? 'Reach the rocket hatch!' : 'Sneak to the rocket. Stay out of the light';
     if (G.state === 'ufo') goal = 'Beamed up. Enjoy the view'; else if (G.ufo.on && G.state === 'play') goal = 'UFO! It only gives up at the beach';
@@ -1639,7 +1720,7 @@ Game.prototype.updateMoon = function (dt) {
     if ($('goal').textContent !== goal) $('goal').textContent = goal;
     var showPlay = G.state === 'play' || G.state === 'inside', nc = G.state === 'play' && (G.drive || G.nearCar());
     $('mug').style.display = G.canMug() && !vr ? 'block' : 'none';
-    var nz2 = G.state === 'pilot' || G.nearZach(); if (nz2) nc = true; var nrk = G.state === 'play' && G.calm && (G.build >= 0 || G.nearRack()); if (nrk) nc = true; var mnear = G.moon && G.state === 'play' && (G.mride || G.mveh.some(function (v) { return Math.abs(v.x - p.x) < 3 && Math.abs(v.z - p.z) < 3; })); if (mnear) nc = true; $('carb').style.display = nc ? 'block' : 'none'; if (nc) { var ctx2 = nrk ? (G.build >= 0 ? 'STOP' : 'BUILD') : mnear ? (G.mride ? 'GET OUT' : 'RIDE') : G.state === 'pilot' ? 'LAND' : (nz2 ? 'FLY UFO' : (G.drive ? 'EXIT' : 'HIJACK')); if ($('carb').textContent !== ctx2) $('carb').textContent = ctx2; }
+    var nz2 = G.state === 'pilot' || G.nearZach(); if (nz2) nc = true; var nrk = G.state === 'play' && G.calm && (G.build >= 0 || G.nearRack()); if (nrk) nc = true; var ndr = G.state === 'dragon' || (G.state === 'play' && G.calm && Math.abs(p.x - DRG.x) < 6 && Math.abs(p.z - DRG.z) < 6); if (ndr) nc = true; var mnear = G.moon && G.state === 'play' && (G.mride || G.mveh.some(function (v) { return Math.abs(v.x - p.x) < 3 && Math.abs(v.z - p.z) < 3; })); if (mnear) nc = true; $('carb').style.display = nc ? 'block' : 'none'; if (nc) { var ctx2 = ndr ? (G.state === 'dragon' ? 'LAND' : 'RIDE') : nrk ? (G.build >= 0 ? 'STOP' : 'BUILD') : mnear ? (G.mride ? 'GET OUT' : 'RIDE') : G.state === 'pilot' ? 'LAND' : (nz2 ? 'FLY UFO' : (G.drive ? 'EXIT' : 'HIJACK')); if ($('carb').textContent !== ctx2) $('carb').textContent = ctx2; }
     $('sus').style.display = inn ? 'grid' : 'none'; if (inn) { $('susB').style.width = Math.min(100, inn.susp) + '%'; var stx = inn.watched ? 'CLERK SEES YOU' : 'SUSPICION'; if ($('susT').textContent !== stx) $('susT').textContent = stx; }
     var ftx = inn ? 'THREAT' : 'FIRE'; if ($('fire').textContent !== ftx) $('fire').textContent = ftx;
     $('dash').disabled = p.dashCd > 0; $('dash').style.display = $('fire').style.display = showPlay && !G.drive ? '' : 'none'; $('wpn').style.display = G.state === 'play' && !G.drive ? '' : 'none'; stick.style.display = showPlay && started ? '' : 'none';
@@ -1746,7 +1827,7 @@ Game.prototype.updateMoon = function (dt) {
   var palC = document.createElement('canvas'); palC.width = 512; palC.height = 96; var palX = palC.getContext('2d'), palTex = new THREE.CanvasTexture(palC), pal3 = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.116), new THREE.MeshBasicMaterial({ map: palTex, transparent: true, depthTest: false, depthWrite: false, fog: false })); pal3.position.set(0, -0.4, -1.05); pal3.renderOrder = 64; pal3.visible = false; camera.add(pal3);
   function calmB() { return G.build >= 0 && !!G.calm && G.state === 'play'; }
   var bhand = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.11), new THREE.MeshLambertMaterial({ color: 0xffffff })); bhand.position.set(0, 0.07, -0.05); bhand.visible = false; gunRoot.add(bhand);
-  var eul = new THREE.Euler(), cockWas = false, mapHold = false, carHint = false, hackBtn = new THREE.Group(), hackCap, hackOn = false, hackDown = false, pod = new THREE.Group();
+  var drWas = false, drPrev = 0, eul = new THREE.Euler(), cockWas = false, mapHold = false, carHint = false, hackBtn = new THREE.Group(), hackCap, hackOn = false, hackDown = false, pod = new THREE.Group();
   vbox(hackBtn, 0.3, 0.9, 0.3, 0x3a3f55, 0, 0.45, 0); vbox(hackBtn, 0.36, 0.04, 0.36, 0xffd23f, 0, 0.91, 0); hackCap = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.07, 14), new THREE.MeshBasicMaterial({ color: 0xff2030 })); hackCap.position.y = 0.965; hackBtn.add(hackCap); hackBtn.visible = false; scene.add(hackBtn);
   vbox(pod, 1.7, 0.06, 1.7, 0x2a2a3a, 0, 0.02, 0); vbox(pod, 1.7, 0.06, 1.7, 0xf4f4f0, 0, 2.3, 0); vbox(pod, 1.7, 2.3, 0.06, 0xf4f4f0, 0, 1.15, 0.85);                                   // floor, ceiling, back wall
   [-0.85, 0.85].forEach(function (x) { vbox(pod, 0.06, 0.9, 1.7, 0xf4f4f0, x, 0.45, 0); vbox(pod, 0.06, 0.5, 1.7, 0xf4f4f0, x, 2.05, 0); vbox(pod, 0.06, 0.9, 0.3, 0xe5463a, x, 1.35, 0.7); vbox(pod, 0.06, 0.9, 0.3, 0xe5463a, x, 1.35, -0.7); });   // side walls with long windows
@@ -1813,6 +1894,7 @@ Game.prototype.updateMoon = function (dt) {
       }
       return;
     }
+    if (G.state === 'dragon') { if (trigR || (heldR && primeT <= 0)) { G.fire(); primeT = 0.2; } primeT -= dt; if (aB) G.toggleCar(); G.input.alt = Rg && Rg.axes.length > 3 ? -Rg.axes[3] : 0; return; }
     if (G.state === 'pilot') { if (trigR) G.fire(); if (aB) G.toggleCar(); G.input.alt = Rg && Rg.axes.length > 3 ? -Rg.axes[3] : 0; return; } G.input.alt = 0;
     if (G.state !== 'play') return;
     if (G.calm && (gripR || gripL)) { for (var rh = 0; rh < 2; rh++) { if (!(rh === vrRi ? gripR : gripL)) continue; hands[rh].getWorldPosition(tmpV); for (var rq = 0; rq < R.rack.length; rq++) if (tmpV.distanceTo(R.rack[rq].position) < 0.45) { var was2 = G.build; G.build = rq; if (was2 < 0) G.ev('bstart'); else G.ev('bcol', { c: rq }); buzz(rh === vrRi ? padR : padL, 0.6, 50); } } }
@@ -1821,11 +1903,11 @@ Game.prototype.updateMoon = function (dt) {
     if (trigL) { if (!G.mug()) G.dash(); } if (aB) G.toggleCar(); if (bB) G.nextWeapon();
   }
   function vrCamera(dt, lifting) {
-    var p = G.p, L = G.w.launch, tx = p.x, tz = p.z, ty = G.state === 'inside' ? 0.04 : (G.drive ? -0.5 : (G.w.isRoad(Math.floor(p.x), Math.floor(p.z)) ? 0 : 0.15));
-    if (p.fly) ty = p.fly - 0.6; if (p.bh) ty += p.bh; if (G.moon) ty = (p.fly || 0) + (G.mride ? (G.mride.kind === 'tank' ? 1.5 : 0.55) : 0); if (G.state === 'pilot') { tx = p.x + Math.sin(vrYaw) * 17; tz = p.z + Math.cos(vrYaw) * 17; ty = G.ualt - 5; } if (lifting) ty = p.fly + 2.2; pod.visible = lifting;
+    var p = G.p, L = G.w.launch, tx = p.x, tz = p.z, ty = G.state === 'inside' ? 0.04 : (G.drive ? (G.drive.moonV === 'tank' ? 1.5 : G.drive.moonV ? 0.55 : -0.5) : (G.w.isRoad(Math.floor(p.x), Math.floor(p.z)) ? 0 : 0.15));
+    if (p.fly) ty = p.fly - 0.6; if (p.bh) ty += p.bh; if (G.state === 'dragon') { var dh = Math.atan2(G.dragon.hx, G.dragon.hz); if (!drWas) { eul.setFromQuaternion(camera.quaternion, 'YXZ'); vrYaw = dh + Math.PI - eul.y; } else { var dd2 = dh - drPrev; while (dd2 > Math.PI) dd2 -= 6.2832; while (dd2 < -Math.PI) dd2 += 6.2832; vrYaw += dd2; } drPrev = dh; drWas = true; ty = p.fly + 2.75; tx = p.x + G.dragon.hx * 0.2; tz = p.z + G.dragon.hz * 0.2; } else drWas = false; if (G.moon) ty = (p.fly || 0) + (G.mride ? (G.mride.kind === 'tank' ? 1.5 : 0.55) : 0); if (G.state === 'pilot') { tx = p.x + Math.sin(vrYaw) * 17; tz = p.z + Math.cos(vrYaw) * 17; ty = G.ualt - 5; } if (lifting) ty = p.fly + 2.2; pod.visible = lifting;
     if (lifting) { rig.position.y = ty + (Math.random() - 0.5) * 0.03; altT -= dt; if (altT <= 0) { altT = 0.2; altX.fillStyle = '#14041f'; altX.fillRect(0, 0, 256, 64); altX.fillStyle = '#5dfc8a'; altX.font = 'bold 30px monospace'; altX.textAlign = 'center'; altX.textBaseline = 'middle'; altX.fillText(G.launchT < 1.2 ? 'IGNITION' : 'ALT ' + Math.round(p.fly * 40) + ' M', 128, 34); altTex.needsUpdate = true; buzz(padL, 0.7, 180); buzz(padR, 0.7, 180); } }
     wayfind(); wrist.scale.setScalar(mapHold ? 2.8 : 1); wrist.position.y = mapHold ? 0.2 : 0.06;
-    var nzv = G.nearZach(), ncv = nzv || (G.state === 'play' && !G.drive && !!G.nearCar()); if (G.moon) ncv = false; var nrv = G.nearRack() && G.build < 0; if (nrv) ncv = true; if (ncv && !carHint) toast(nrv ? 'GRIP A BLOCK ON THE RACK, OR PRESS A, TO BUILD' : nzv ? 'PRESS A TO FLY THE UFO' : 'PRESS A TO TAKE THE CAR', 2.5, '#ffd23f'); carHint = ncv;
+    var nzv = G.nearZach(), ncv = nzv || (G.state === 'play' && !G.drive && !!G.nearCar()); if (G.moon) ncv = false; var nrv = G.nearRack() && G.build < 0; if (nrv) ncv = true; var ndv = G.state === 'play' && G.calm && Math.abs(p.x - DRG.x) < 6 && Math.abs(p.z - DRG.z) < 6; if (ndv) ncv = true; if (ncv && !carHint) toast(ndv ? 'PRESS A TO RIDE THE DRAGON' : nrv ? 'PRESS A TO BUILD' : nzv ? 'PRESS A TO FLY THE UFO' : 'PRESS A TO TAKE THE CAR', 2.5, '#ffd23f'); carHint = ncv;
     hackBtn.visible = G.state === 'hotwire';
     if (hackBtn.visible) {
       if (!hackOn) { camera.getWorldPosition(tmpV); camera.getWorldDirection(lpos); var fl2 = Math.hypot(lpos.x, lpos.z) || 1; hackBtn.position.set(tmpV.x + lpos.x / fl2 * 0.5, rig.position.y, tmpV.z + lpos.z / fl2 * 0.5); toast('PUSH THE RED BUTTON', 2.5, '#ff4fa3'); }
@@ -1869,11 +1951,11 @@ Game.prototype.updateMoon = function (dt) {
     }
     hud3.visible = hudOn && started && !curDialog; hudT -= dt; if (hud3.visible && hudT <= 0) { hudT = 0.2; drawHud(); }
     // the gun in your right hand
-    var calmNow = !!G.calm && G.state === 'play'; for (var gi = 0; gi < 4; gi++) guns[gi].visible = gi === G.weapon && !calmNow && !G.moon && G.state !== 'pilot'; mai.visible = calmNow && !G.drive && !G.maiGiven && G.build < 0; bhand.visible = calmB(); if (bhand.visible) bhand.material.color.setHex(BCOL[G.build]); var GRIP0 = calmNow ? [0, 0, -0.03] : GRIP[G.weapon]; handR.position.set(GRIP0[0], GRIP0[1], GRIP0[2]); handR.visible = G.state !== 'pilot'; handL.visible = !G.drive && G.state !== 'pilot'; wrist.visible = wrist.visible && G.state !== 'pilot'; if (handR.parent !== gunRoot) gunRoot.add(handR);   // the fist moves with the weapon, so it always looks held
+    var calmNow = !!G.calm && G.state === 'play'; for (var gi = 0; gi < 4; gi++) guns[gi].visible = gi === G.weapon && !calmNow && !G.moon && G.state !== 'pilot' && G.state !== 'dragon'; mai.visible = calmNow && !G.drive && !G.maiGiven && G.build < 0; bhand.visible = calmB(); if (bhand.visible) bhand.material.color.setHex(BCOL[G.build]); var GRIP0 = calmNow ? [0, 0, -0.03] : GRIP[G.weapon]; handR.position.set(GRIP0[0], GRIP0[1], GRIP0[2]); handR.visible = G.state !== 'pilot'; handL.visible = !G.drive && G.state !== 'pilot'; wrist.visible = wrist.visible && G.state !== 'pilot'; if (handR.parent !== gunRoot) gunRoot.add(handR);   // the fist moves with the weapon, so it always looks held
     vrKick *= Math.max(0, 1 - dt * 14); gunRoot.position.z = vrKick; if (!twoH) gunRoot.rotation.set(vrKick * 5, 0, 0); muzzle.position.set(0, G.weapon === 1 ? 0.06 : 0.012, gunTip[G.weapon]); if (flashT > 0) flashT -= dt; muzzle.visible = flashT > 0; muzzle.scale.setScalar(1 + Math.random());
 
     // the driver's seat
-    cockpit.visible = !!G.drive; if (!G.drive) cockWas = false; if (G.drive) { camera.getWorldPosition(headP); var want2 = Math.atan2(G.drive.hx, G.drive.hz), cd = want2 - cockpit.rotation.y; while (cd > Math.PI) cd -= 6.2832; while (cd < -Math.PI) cd += 6.2832; cockpit.rotation.y += cd; if (cockWas) vrYaw += cd; else { eul.setFromQuaternion(camera.quaternion, 'YXZ'); vrYaw = cockpit.rotation.y + Math.PI - eul.y; } cockWas = true; var cs2 = Math.sin(cockpit.rotation.y), cc2 = Math.cos(cockpit.rotation.y); cockpit.position.set(p.x - (-0.36 * cc2), headP.y - 1.3, p.z - (0.36 * cs2));   /* you sit on the left, behind the wheel */ cockWheel.rotation.z += (-cd * 30 - cockWheel.rotation.z) * Math.min(1, dt * 6); cockHood.material.color.setHex([0xff4fa3, 0x35e8ff, 0xffe14f, 0xf4f4f0, 0x7b4fff, 0xff8a2b][G.drive.look % 6]); }
+    cockpit.visible = !!G.drive && !G.drive.moonV; if (!G.drive) cockWas = false; if (G.drive) { camera.getWorldPosition(headP); var want2 = Math.atan2(G.drive.hx, G.drive.hz), cd = want2 - cockpit.rotation.y; while (cd > Math.PI) cd -= 6.2832; while (cd < -Math.PI) cd += 6.2832; cockpit.rotation.y += cd; if (cockWas) vrYaw += cd; else { eul.setFromQuaternion(camera.quaternion, 'YXZ'); vrYaw = cockpit.rotation.y + Math.PI - eul.y; } cockWas = true; var cs2 = Math.sin(cockpit.rotation.y), cc2 = Math.cos(cockpit.rotation.y); cockpit.position.set(p.x - (-0.36 * cc2), headP.y - 1.3, p.z - (0.36 * cs2));   /* you sit on the left, behind the wheel */ cockWheel.rotation.z += (-cd * 30 - cockWheel.rotation.z) * Math.min(1, dt * 6); cockHood.material.color.setHex([0xff4fa3, 0x35e8ff, 0xffe14f, 0xf4f4f0, 0x7b4fff, 0xff8a2b][G.drive.look % 6]); }
     // short messages float in view for a moment
     vtoast.visible = vrToastT > 0 && started && !curDialog; if (vtoast.visible && tShown !== vrToast) { tShown = vrToast; tctx.clearRect(0, 0, 512, 96); tctx.fillStyle = 'rgba(18,10,36,0.8)'; tctx.fillRect(0, 0, 512, 96); tctx.fillStyle = '#fff'; tctx.font = 'bold ' + (vrToast.length > 26 ? 26 : 36) + 'px sans-serif'; tctx.textAlign = 'center'; tctx.textBaseline = 'middle'; tctx.fillText(vrToast, 256, 50); ttex.needsUpdate = true; }
     // info panel floats low in front of you and follows when you turn away from it
