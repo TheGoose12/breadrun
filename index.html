@@ -72,6 +72,7 @@
   .overlay { position: fixed; inset: 0; display: none; place-items: center; padding: 16px; background: rgba(8, 10, 18, 0.55); }
   .overlay.on { display: grid; }
   .card { width: min(430px, 100%); padding: 18px; display: grid; gap: 12px; }
+  #title .card { max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .card h2 { font-family: var(--font-display); font-size: clamp(22px, 6.4vw, 34px); margin: 0; line-height: 1.05; text-wrap: balance; }
   .card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
   .card p b { color: var(--ink); }
@@ -114,7 +115,7 @@
   <div id="stats"><span>Bag <b id="sBag">0/14</b></span><span>Day <b id="sDay">1</b></span></div>
   <div id="wanted"></div>
 </div>
-<div id="mini"><button id="snd" type="button">Sound: On</button><button id="hideui" type="button">Hide</button><button id="lofi" type="button">Pixels: Fine</button><button id="glowb" type="button">Glow: On</button><button id="vrbtn" type="button">Enter VR</button><button id="vigbtn" type="button">Vignette: On</button></div>
+<div id="mini"><button id="snd" type="button">Sound: On</button><button id="hideui" type="button">Hide</button><button id="lofi" type="button">Pixels: Fine</button><button id="glowb" type="button">Glow: On</button><button id="mpbtn" type="button">Together</button><button id="vrbtn" type="button">Enter VR</button><button id="vigbtn" type="button">Vignette: On</button></div>
 <div id="money"><span id="bill">$</span><span id="cashbig">$0</span></div>
 <div id="rate"></div>
 <div id="map" class="panel"><canvas id="mapc" width="464" height="464" role="button" aria-label="City map. Tap to enlarge"></canvas></div>
@@ -129,13 +130,21 @@
 <div id="sus" class="panel"><span id="susT">SUSPICION</span><div class="bar"><i id="susB"></i></div></div>
 <div id="flash"></div>
 
+<div id="mp" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;background:#14041f;border:2px solid #35e8ff;border-radius:14px;padding:16px 18px;color:#fff;font:15px sans-serif;width:min(86vw,330px);text-align:center">
+  <div style="font-weight:800;font-size:19px;color:#35e8ff;margin-bottom:10px">PLAY TOGETHER</div>
+  <button id="mphost" type="button" class="primary" style="width:100%;margin-bottom:12px">Start a game for friends</button>
+  <div style="margin-bottom:6px;color:#b3b9c7">or type a friend's code</div>
+  <div style="display:flex;gap:8px;justify-content:center"><input id="mpcode" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" style="width:110px;font:800 24px monospace;text-align:center;letter-spacing:4px;text-transform:uppercase;border-radius:8px;border:2px solid #ffd23f;background:#23102f;color:#ffd23f;padding:6px"><button id="mpjoin" type="button" class="primary">Join</button></div>
+  <div id="mpstat" style="margin:12px 0 10px;min-height:22px;color:#5dfc8a;font-weight:700"></div>
+  <button id="mpx" type="button">Close</button>
+</div>
 <div id="title" class="overlay on"><div class="card panel">
   <h2>BREAD RUN</h2>
   <p><b>Rob the block. Feed the family. Watch the money climb.</b></p>
   <p>Walk into a shop, take things off the shelves while the clerk looks away, or pull FIRE to threaten the clerk for the register, then get out the door and carry it home before the cupboard runs empty. Trip the alarm and the police come running. The counter never stops, and it runs fastest when you are being chased.</p>
   <p>Also: the streets have zombies (their leader is El Jefe), bears called Gemma, and a giant otter called Julia Otter. If Gemma or Julia catches you they take half your money. Any car can be taken and driven through them. On Medium and Hard you start with a pistol and buy the slingshot and bazooka from gold crates around town. Days turn to night, and it rains or snows every other day. Walk south off the last street to reach the beach: nothing follows you there and you heal. Follow the beach west to the airport. You have a pistol, a bazooka that levels buildings, and a slingshot that lobs grenades over rooftops.</p>
   <div id="diff"><button type="button" data-d="easy" aria-pressed="false">Easy</button><button type="button" data-d="medium" aria-pressed="true">Medium</button><button type="button" data-d="hard" aria-pressed="false">Hard</button></div>
-  <div class="btns"><button id="start" class="primary" type="button">Start the run</button></div>
+  <div class="btns"><button id="start" class="primary" type="button">Start the run</button><button id="mptitle" type="button">Play together</button></div>
   <p>Left thumb moves. DASH is a short burst. On a keyboard: arrows or WASD, Space to dash or grab, F to fire or threaten, Q to switch weapon, E to take or leave a car, M to mug someone with their hands up.</p>
 </div></div>
 
@@ -1315,7 +1324,7 @@ Game.prototype.updateMoon = function (dt) {
   var BOOMCOL = { zombie: [0x8fcf6a, 0x5a8a3a, 0x6b7a4a, 0xb02a3a], bear: [0x7a4a2a, 0x5f3a20, 0xd9b48a, 0xb02a3a], cop: [0x24407a, 0x16264d, 0xe8b88a, 0xffd23f], ped: [0xffe14f, 0x35e8ff, 0xff8a5c, 0xe8b88a, 0xb07cff], guard: [0x5a5f6b, 0xffb62e, 0xe8b88a], robber: [0xc0392b, 0x23232b, 0xc98f62] };
   function build(seed, diff) {
     if (world) { scene.remove(world); world.traverse(function (o) { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== winMat) { if (o.material.map && o.material.map !== winTex && o.material.map !== haloTex) o.material.map.dispose(); o.material.dispose(); } }); }
-    world = new THREE.Group(); scene.add(world); G = new Game(seed, diff);
+    world = new THREE.Group(); scene.add(world); G = new Game(seed, diff); curSeed = seed; curDiff = diff; MP.buds = {};
     var w = G.w, flat = new Builder(), walls = new Builder(), neon = new Builder(), glass = new Builder(), rnd = mulberry(seed + 5), i, j, k, vents = [];
     var glows = [], gcol = [], pools = new Builder();
     function glow(x, y, z, hex, pool) { tc.setHex(hex); glows.push(x, y, z); gcol.push(tc.r, tc.g, tc.b); if (pool) pools.box(x - pool, 0.17, z - pool, pool * 2, 0.01, pool * 2, hex); }
@@ -1758,8 +1767,65 @@ Game.prototype.updateMoon = function (dt) {
   $('snd').addEventListener('click', function () { soundOn = !soundOn; this.textContent = 'Sound: ' + (soundOn ? 'On' : 'Off'); });
   $('hideui').addEventListener('click', function () { var h = $('hud').style.display === 'none'; ['hud', 'map', 'goal', 'money', 'rate'].forEach(function (id) { $(id).style.display = h ? '' : 'none'; }); this.textContent = h ? 'Hide' : 'Show'; });
   Array.prototype.forEach.call($('diff').children, function (b) { b.addEventListener('click', function () { diffPick = b.dataset.d; Array.prototype.forEach.call($('diff').children, function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); }); });
-  function startGame() { initAudio(); build(Math.floor(Math.random() * 1e9), diffPick); shownCash = 0; lastCash = 0; started = true; $('title').classList.remove('on'); $('dialog').classList.remove('on'); toast(diffPick === 'easy' ? 'Rob a store. Bring it home.' : 'Rob a store. Follow the floating labels to weapon crates.', 3.2); jingle([392, 523, 659], 0.09); }
-  $('start').addEventListener('click', startGame);
+
+  // ---- playing together: every player runs their own city from the same seed, and they see each other in it ----
+  var curSeed = 7, curDiff = 'medium', MP = { peer: null, conns: [], host: false, code: '', id: Math.random().toString(36).slice(2, 8), buds: {}, sendT: 0, five: 0, n: 0 };
+  function mpStat(t, bad) { $('mpstat').textContent = t; $('mpstat').style.color = bad ? '#ff8a8a' : '#5dfc8a'; }
+  function mpLoad(cb) { if (window.Peer) return cb(); mpStat('Connecting...'); var sc = document.createElement('script'); sc.src = window.__peerSrc || 'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js'; sc.onload = cb; sc.onerror = function () { mpStat('Could not connect. Check the internet', true); }; document.head.appendChild(sc); }
+  function mpReset() { if (MP.peer) { try { MP.peer.destroy(); } catch (e) {} } MP.peer = null; MP.conns = []; for (var k in MP.buds) world.remove(MP.buds[k].g); MP.buds = {}; }
+  function mpHost(tries) {
+    mpLoad(function () {
+      mpReset(); MP.host = true; MP.code = ''; for (var i = 0; i < 4; i++) MP.code += 'ABCDEFGHJKLMNPQRSTUVWXYZ'.charAt(Math.floor(Math.random() * 24));
+      MP.peer = new Peer('breadrun-' + MP.code, window.__peerOpts); mpStat('Getting a code...');
+      MP.peer.on('open', function () { mpStat('Your code is  ' + MP.code + '  Tell your friends'); $('mpbtn').textContent = 'Code ' + MP.code; if (!started) startGame(); });
+      MP.peer.on('connection', mpConn); MP.peer.on('disconnected', function () { try { MP.peer.reconnect(); } catch (e) {} });
+      MP.peer.on('error', function (e) { if (e.type === 'unavailable-id' && (tries || 0) < 4) mpHost((tries || 0) + 1); else mpStat('Problem: ' + e.type, true); });
+    });
+  }
+  function mpJoin(code) {
+    code = (code || '').toUpperCase().replace(/[^A-Z]/g, ''); if (code.length !== 4) { mpStat('The code is 4 letters', true); return; }
+    mpLoad(function () {
+      mpReset(); MP.host = false; MP.code = code; MP.peer = new Peer(undefined, window.__peerOpts); mpStat('Looking for ' + code + '...');
+      MP.peer.on('open', function () { mpConn(MP.peer.connect('breadrun-' + code, { reliable: true })); });
+      MP.peer.on('error', function (e) { mpStat(e.type === 'peer-unavailable' ? 'No game with that code' : 'Problem: ' + e.type, true); });
+    });
+  }
+  function mpConn(c) {
+    c.on('open', function () { MP.conns.push(c); if (MP.host) { c.send({ t: 'hello', seed: curSeed, diff: curDiff }); toast('A FRIEND JOINED!', 3, '#5dfc8a'); jingle([523, 659, 784, 1047], 0.09); mpStat('Friends connected: ' + MP.conns.length + '   Code ' + MP.code); } else mpStat('Joined ' + MP.code + '!'); });
+    c.on('data', function (d) { mpData(d, c); });
+    c.on('close', function () { var i = MP.conns.indexOf(c); if (i >= 0) MP.conns.splice(i, 1); for (var k in MP.buds) if (MP.buds[k].via === c) { world.remove(MP.buds[k].g); delete MP.buds[k]; } toast(MP.host ? 'A FRIEND LEFT' : 'LOST THE CONNECTION', 3, '#ffd23f'); mpStat(MP.host ? 'Friends connected: ' + MP.conns.length + '   Code ' + MP.code : 'Disconnected', !MP.host); });
+  }
+  function mpData(d, c) {
+    if (!d || typeof d !== 'object') return;
+    if (d.t === 'hello' && !MP.host) { startGame(d.seed, d.diff); $('mp').style.display = 'none'; $('mpbtn').textContent = 'With ' + MP.code; toast('YOU ARE IN THE SAME CITY. FIND YOUR FRIEND', 4, '#5dfc8a'); return; }
+    if (d.t === 's' && d.id && d.id !== MP.id) { var b = MP.buds[d.id]; if (!b) b = MP.buds[d.id] = mpBud(d); b.d = d; b.at = clock; b.via = c; if (MP.host) for (var i = 0; i < MP.conns.length; i++) if (MP.conns[i] !== c && MP.conns[i].open) MP.conns[i].send(d); }
+  }
+  function mpBud(d) {
+    var COLS = [0x35e8ff, 0xffd23f, 0x5dfc8a, 0xb06bff, 0xff8a2b], n = MP.n++, col = COLS[n % 5], g = new THREE.Group(), ch = makeChar({ shirt: col, pants: 0x23262e, shoes: 0xf4f4f0, hair: 0x1c1410, hat: col, backwards: true, scale: 1 }); ch.ghost.visible = false; g.add(ch);
+    var nm = 'PLAYER ' + (n + 2), tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: pixelTex(96, 24, function (x) { x.fillStyle = '#14041f'; x.fillRect(0, 0, 96, 24); x.fillStyle = '#' + ('00000' + col.toString(16)).slice(-6); x.fillRect(0, 0, 96, 3); x.font = 'bold 14px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(nm, 48, 13); }), depthTest: false, sizeAttenuation: false })); tag.scale.set(0.1, 0.025, 1); tag.renderOrder = 50; g.add(tag);
+    world.add(g); return { g: g, ch: ch, tag: tag, veh: {}, e: { x: d.x, z: d.z, dx: 0, dz: 1, moving: false }, y: d.y || 0, vy: 0, col: col };
+  }
+  function mpVeh(b, kind) { if (b.veh[kind]) return b.veh[kind]; var m; if (kind === 'car') m = buildCar(1); else if (kind === 'plane') { m = buildPlane(); if (m.inner) m.inner.visible = false; } else if (kind === 'dragon') m = buildDragon(); else { m = new THREE.Group(); var d1 = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.2, 0.7, 14), new THREE.MeshLambertMaterial({ color: 0x9aa1b0 })), d2 = new THREE.Mesh(new THREE.SphereGeometry(1.4, 12, 8), new THREE.MeshBasicMaterial({ color: b.col, transparent: true, opacity: 0.7 })); d2.position.y = 0.5; m.add(d1); m.add(d2); } b.g.add(m); b.veh[kind] = m; return m; }
+  function mpTick(dt) {
+    if (!MP.peer) return; var p = G.p, k, live = 0;
+    MP.sendT -= dt; if (MP.sendT <= 0 && MP.conns.length && started) { MP.sendT = 0.1;
+      var v = G.drive ? 'car' : (G.state === 'plane' && G.plane.phase === 'fly') ? 'plane' : G.state === 'dragon' ? 'dragon' : G.state === 'pilot' ? 'ufo' : '', sx = p.x, sz = p.z, hx = p.dx, hz = p.dz, sy = (p.fly || 0) + (p.bh || 0) + (p.jh || 0);
+      if (v === 'car') { sx = G.drive.x; sz = G.drive.z; hx = G.drive.hx; hz = G.drive.hz; sy = 0; } else if (v === 'plane') { sx = G.plane.x; sz = G.plane.z; hx = G.plane.hx; hz = G.plane.hz; sy = G.plane.alt; } else if (v === 'dragon') { sx = G.dragon.x; sz = G.dragon.z; hx = G.dragon.hx; hz = G.dragon.hz; sy = Math.max(0, (p.fly || 0) - 2); }
+      var msg = { t: 's', id: MP.id, x: Math.round(sx * 100) / 100, z: Math.round(sz * 100) / 100, y: Math.round(sy * 100) / 100, dx: Math.round(hx * 100) / 100, dz: Math.round(hz * 100) / 100, mv: !!p.moving, v: v, moon: !!G.moon, hid: G.state === 'inside' || (G.state === 'plane' && !v) || G.state === 'launch' || G.state === 'ufo' };
+      for (k = 0; k < MP.conns.length; k++) if (MP.conns[k].open) MP.conns[k].send(msg); }
+    for (k in MP.buds) { var b = MP.buds[k], d = b.d, e = b.e, a = Math.min(1, dt * 10); if (clock - b.at > 6 || d.hid || d.moon !== !!G.moon) { b.g.visible = false; continue; } b.g.visible = true; live++;
+      if (Math.abs(d.x - e.x) > 30 || Math.abs(d.z - e.z) > 30) { e.x = d.x; e.z = d.z; b.y = d.y; } e.x += (d.x - e.x) * a; e.z += (d.z - e.z) * a; b.y += (d.y - b.y) * a; e.dx = d.dx; e.dz = d.dz; e.moving = d.mv && !d.v;
+      b.ch.visible = !d.v; if (!d.v) { animChar(b.ch, e, dt, 1); b.ch.position.y += b.y; } for (var vk in b.veh) b.veh[vk].visible = vk === d.v; if (d.v) { var m = mpVeh(b, d.v); m.position.set(e.x, b.y, e.z); var ta = Math.atan2(d.dx, d.dz), da = ta - m.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; m.rotation.y += da * Math.min(1, dt * 8); }
+      b.tag.position.set(e.x, b.y + (d.v === 'plane' ? 8 : d.v === 'dragon' ? 6 : d.v ? 3.4 : 2.7), e.z);
+      if (!d.v && !G.drive && G.state === 'play' && clock - MP.five > 12 && Math.abs(e.x - p.x) < 1.5 && Math.abs(e.z - p.z) < 1.5 && Math.abs(b.y - ((p.fly || 0) + (p.bh || 0))) < 1.5) { MP.five = clock; debris((e.x + p.x) / 2, 1.8, (e.z + p.z) / 2, 70, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 8, 0.4); toast('HIGH FIVE!', 1.6, '#ffd23f'); jingle([659, 784, 1047], 0.08, 'triangle'); } }
+  }
+  $('mpbtn').addEventListener('click', function () { var m = $('mp'); m.style.display = m.style.display === 'none' ? 'block' : 'none'; });
+  $('mptitle').addEventListener('click', function () { $('mp').style.display = 'block'; });
+  $('mpx').addEventListener('click', function () { $('mp').style.display = 'none'; });
+  $('mphost').addEventListener('click', function () { initAudio(); mpHost(0); });
+  $('mpjoin').addEventListener('click', function () { initAudio(); mpJoin($('mpcode').value); });
+  function startGame(sd, df) { initAudio(); build(typeof sd === 'number' ? sd : Math.floor(Math.random() * 1e9), typeof df === 'string' ? df : diffPick); shownCash = 0; lastCash = 0; started = true; $('title').classList.remove('on'); $('dialog').classList.remove('on'); toast(diffPick === 'easy' ? 'Rob a store. Bring it home.' : 'Rob a store. Follow the floating labels to weapon crates.', 3.2); jingle([392, 523, 659], 0.09); }
+  $('start').addEventListener('click', function () { startGame(); });
 
   // ---------- overlays
   var curDialog = null, vrToast = '', vrToastT = 0;
@@ -2000,7 +2066,7 @@ Game.prototype.updateMoon = function (dt) {
         for (q = 0; q < G.peds.length; q++) if (G.peds[q].dead <= 0 && !G.peds[q].lift) put(G.peds[q].x, G.peds[q].z, 0.8, 0.8); for (q = 0; q < G.mobs.length; q++) if (G.mobs[q].dead <= 0 && !G.mobs[q].lift) put(G.mobs[q].x, G.mobs[q].z, G.mobs[q].kind === 'bear' ? 1.7 : 0.8, G.mobs[q].kind === 'bear' ? 2.2 : 0.8, Math.atan2(G.mobs[q].dx, G.mobs[q].dz));
         for (q = 0; q < G.cops.length; q++) put(G.cops[q].x, G.cops[q].z, 0.8, 0.8); for (q = 0; q < G.cars.length; q++) if (!G.cars[q].off && !G.cars[q].lift) put(G.cars[q].x, G.cars[q].z, 1.5, 2.8, Math.atan2(G.cars[q].dx, G.cars[q].dz)); }
       R.blobs.count = n; R.blobs.instanceMatrix.needsUpdate = true; })();
-    smokeTick(dt); if (G.drive && G.drive.hpc < 8 && Math.random() < dt * 6) smoke(G.drive.x, 1, G.drive.z, 1, 0.5);
+    mpTick(dt); smokeTick(dt); if (G.drive && G.drive.hpc < 8 && Math.random() < dt * 6) smoke(G.drive.x, 1, G.drive.z, 1, 0.5);
     R.glowP.material.opacity = 0.15 + 0.8 * nightF; R.glowP.material.size = 2.4 + 2.2 * nightF; palSync(building);
     for (i = 0; i < R.rack.length; i++) { R.rack[i].rotation.y = clock + i; R.rack[i].scale.setScalar(G.build === i ? 1.35 : 1); }
     env(dt, p); R.epad.visible = !!G.moonOpen; R.epad.rotation.y = clock;
