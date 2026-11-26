@@ -302,7 +302,7 @@ function Game(seed, diff) {
   this.mobs.push(this.spawnMob({ kind: 'bear', otter: true, name: 'Julia Otter', df: new Int16Array(SIZE * SIZE) }));
   for (i = 0; i < 16; i++) this.peds.push(this.spawnPed({ kind: 'ped', look: i }));
   this.mobs[0].boss = true; this.mobs[0].name = 'El Jefe'; this.mobs[0].hp = 14; this.gemmaT = 0;
-  this.giant = { on: false, x: 0, z: 0, tx: 0, tz: 0, t: 0, step: 0, hx: 1, hz: 0 }; this.tall = { on: false, x: 0, z: 0, t: 0, next: 120 + this.rnd() * 80 }; this.cars = []; this.drive = null; this.inn = null; this.ufo = { on: false, x: 0, z: 0, t: 0, next: 45 + this.rnd() * 30, fx: 0, fz: 0, tx: 0, tz: 0 }; this.p.fly = 0;
+  this.wave = { n: 0, next: 90, on: false, left: 0, total: 0 }; this.giant = { on: false, x: 0, z: 0, tx: 0, tz: 0, t: 0, step: 0, hx: 1, hz: 0 }; this.tall = { on: false, x: 0, z: 0, t: 0, next: 120 + this.rnd() * 80 }; this.cars = []; this.drive = null; this.inn = null; this.ufo = { on: false, x: 0, z: 0, t: 0, next: 45 + this.rnd() * 30, fx: 0, fz: 0, tx: 0, tz: 0 }; this.p.fly = 0;
   for (i = 0; i < 12; i++) this.cars.push({ look: i, ai: true, horiz: i % 2 === 0, lane: Math.floor(this.rnd() * 9), dir: this.rnd() < 0.5 ? 1 : -1, t: -40 + this.rnd() * (SIZE + 80), sp: 6 + this.rnd() * 3, x: 0, z: 0, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: false });
   for (i = 0; i < 6; i++) { var pk, pz, pn = 0; do { pk = 1 + Math.floor(this.rnd() * 7); pz = 10 + Math.floor(this.rnd() * (SIZE - 20)); } while (this.carBlocked(pk * PITCH + 0.62, pz + 0.5, 0, 1) && pn++ < 200); this.cars.push({ look: 12 + i, ai: false, horiz: false, lane: pk, dir: 1, t: 0, sp: 0, x: pk * PITCH + 0.62, z: pz + 0.5, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: false }); }   // parked at the curb, clear of trees and posts
   ['tank', 'tank', 'buggy', 'buggy', 'buggy'].forEach(function (k, q) { this.cars.push({ look: 30 + q, moonV: k, mi: q, ai: false, horiz: false, lane: 0, dir: 1, t: 0, sp: 0, x: -99, z: -99, dx: 0, dz: 1, v: 0, hx: 0, hz: 1, off: true }); }, this);   // garage slots for Moon vehicles driven home through the portal
@@ -612,6 +612,7 @@ Game.prototype.update = function (dt) {
   var wasCalm = this.calm; this.calm = !this.drive && p.z > SIZE + 1.5;
   if (this.fireCd > 0 && this.calm) this.fireCd -= dt;
   if (this.ladCd > 0) this.ladCd -= dt;
+  if (!this.drive && !p.onRoof && !p.inside && !this.moon && p.x > 0 && p.z > 0 && p.x < SIZE && p.z < SIZE && !w.walk(Math.floor(p.x), Math.floor(p.z))) { this.stuckT = (this.stuckT || 0) + dt; if (this.stuckT > 0.4) { var sb = null, sbd = 1e9; for (var sxx = -6; sxx <= 6; sxx++) for (var szz = -6; szz <= 6; szz++) { var qx = Math.floor(p.x) + sxx, qz = Math.floor(p.z) + szz; if (qx > 0 && qz > 0 && qx < SIZE - 1 && qz < SIZE - 1 && w.walk(qx, qz) && sxx * sxx + szz * szz < sbd) { sbd = sxx * sxx + szz * szz; sb = [qx + 0.5, qz + 0.5]; } } if (sb) { p.x = sb[0]; p.z = sb[1]; p.bh = 0; } this.stuckT = 0; } } else this.stuckT = 0;       /* never left standing inside a wall */
   var lcl = !this.drive && !p.onRoof && !this.calm && p.moving && !(this.ladCd > 0) ? this.nearLadder() : null;      // walk into a ladder and keep pushing at the wall, and up you go
   if (lcl && Math.abs(p.x - lcl.bx) < 0.8 && Math.abs(p.z - lcl.bz) < 0.8 && -(p.dx * lcl.ox + p.dz * lcl.oz) > 0.5) { this.ladHold = (this.ladHold || 0) + dt; if (this.ladHold > 0.3) { this.ladHold = 0; p.onRoof = true; p.x = lcl.tx; p.z = lcl.tz; p.bh = lcl.h; this.ladCd = 1.2; this.ev('ladder', { h: lcl.h }); } } else this.ladHold = 0;
   if (p.jh > 0 || p.jv > 0) { p.jv -= 18 * dt; p.jh += p.jv * dt; if (p.jh <= 0) { p.jh = 0; p.jv = 0; } }       // a hop
@@ -629,6 +630,10 @@ Game.prototype.update = function (dt) {
     tl.t += dt; var tdx = p.x - tl.x, tdz = p.z - tl.z, tdd = Math.sqrt(tdx * tdx + tdz * tdz) || 1, tsp = tdd > 22 ? 6.5 : 3.4; tl.x += tdx / tdd * tsp * dt; tl.z += tdz / tdd * tsp * dt; tl.d = tdd;
     if (this.calm || tl.t > 40) { tl.on = false; tl.next = 150 + this.rnd() * 120; this.ev('tallgone'); }
     else if (tdd < 1.4 && this.grace <= 0 && !p.inside) { var tlost = Math.floor(this.cash / 4), thd = w.home.door; this.cash -= tlost; tl.on = false; tl.next = 170 + this.rnd() * 120; if (this.drive) { this.drive.v = 0; this.drive = null; } this.clearWanted(); p.x = thd.x; p.z = thd.z + 1.2; this.grace = 3; this.ev('tallgot', { lost: tlost }); }
+  }
+  var wv = this.wave; if (!wv.net && !this.moon) {       /* zombie waves: a crowd arrives, clear them all for a bonus, then a bigger one comes */
+    if (!wv.on) { wv.next -= dt; if (wv.next <= 0 && this.mode !== 'heist') this.startWave(); }
+    else { var wl = 0; for (var wi = 0; wi < this.mobs.length; wi++) if (this.mobs[wi].wave && this.mobs[wi].dead <= 0) wl++; wv.left = wl; if (!wl) this.endWave(); }
   }
   var uf = this.ufo;
   if (uf.net) { if (uf.on && uf.mine && !this.calm && Math.hypot(p.x - uf.x, p.z - uf.z) < 1.6) { if (this.drive) { this.drive.v = 0; this.drive = null; } var best = null, bd = -1, cs = [[Math.max(30, Math.min(SIZE - 30, p.x)), SIZE + 6]]; /* the saucer always sets you down on the beach */ cs.forEach(function (c) { var d2 = Math.abs(c[0] - p.x) + Math.abs(c[1] - p.z); if (d2 > bd) { bd = d2; best = c; } });
@@ -690,6 +695,14 @@ var DRG = { x: SIZE - 9, z: SIZE + 8 };
 var BSZ = 0.5, BMAX = 800, BRACK = { x: SIZE / 2 - 9, z: SIZE + 4.5 }, BCOL = [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xf4f4f0, 0x8a5a2b, 0xff4d4d, 0x2a2a3a];
 var MOON = { x: -900, z: -900, r: 30 }, EPAD = { x: SIZE / 2 - 20, z: SIZE + 7 }, BEACH = 21, ZAC = { x: SIZE / 2 + 14, z: SIZE + 6.5 };
 var WEAPONS = ['PISTOL', 'BAZOOKA', 'SLINGSHOT', 'BROOM'];
+Game.prototype.startWave = function () {
+  var wv = this.wave, easy = this.diff === 'easy', n = ++wv.n, count = Math.min(28, (easy ? 4 : 6) + n * (easy ? 2 : 3) + (this.friends ? this.friends.length * 3 : 0)), k;
+  for (k = 0; k < count; k++) { var wm = this.spawnMob({ kind: 'zombie', wave: true, df: new Int16Array(SIZE * SIZE) }), ws, wt = 0, wd; do { ws = this.roadSpot(); wd = Math.abs(ws.x - this.p.x) + Math.abs(ws.z - this.p.z); } while ((wd < 24 || wd > 62) && wt++ < 60); wm.x = ws.x + 0.5; wm.z = ws.z + 0.5; this.mobs.push(wm); }       /* they arrive from a few blocks away, on all sides */
+  wv.on = true; wv.total = wv.left = count; this.ev('wave', { n: n, count: count });
+};
+Game.prototype.endWave = function () {
+  var wv = this.wave, bonus = 150 * wv.n; this.mobs = this.mobs.filter(function (m) { return !m.wave; }); this.cash += bonus; wv.on = false; wv.left = 0; wv.next = 75; this.ev('waveclear', { n: wv.n, bonus: bonus });
+};
 Game.prototype.spawnMob = function (m) {
   var s, p = this.p, n = 0; do { s = this.roadSpot(); } while (Math.abs(s.x - p.x) + Math.abs(s.z - p.z) < 22 && n++ < 50);
   m.x = s.x + 0.5; m.z = s.z + 0.5; m.dx = 0; m.dz = 1; m.moving = true; m.hp = m.boss ? 14 : (m.kind === 'bear' ? 6 : 2); m.dead = 0; m.carN = 0; m.beach = false; m.lift = 0; m.aboard = false; m.goal = null; m.hunt = false; m.charge = 0; return m;
@@ -799,16 +812,16 @@ Game.prototype.combat = function (dt) {
   }
   // zombies shuffle after you; bears charge, and also swat any zombie in reach
   for (i = 0; i < this.mobs.length; i++) {
-    m = this.mobs[i]; if (m.dead > 0) { m.dead -= dt; if (m.dead <= 0) this.spawnMob(m); continue; } if (m.beach) { m.moving = false; m.hunt = false; continue; }   // anyone set down on the sand just stays and relaxes
+    m = this.mobs[i]; if (m.dead > 0) { if (!m.wave) { m.dead -= dt; if (m.dead <= 0) this.spawnMob(m); } continue; } if (m.beach) { m.moving = false; m.hunt = false; continue; }   // anyone set down on the sand just stays and relaxes
     var dx = p.x - m.x, dz = p.z - m.z, d = Math.sqrt(dx * dx + dz * dz) || 1, bear = m.kind === 'bear';
-    var was = m.hunt; if (m.fedT > 0) m.fedT -= dt; m.hunt = !(m.fedT > 0) && !this.calm && !p.onRoof && !p.inside && !p.hidden && d < (m.boss ? 17 : (bear ? 8 : 10)); if (m.hunt) hunting = true;
+    var was = m.hunt; if (m.fedT > 0) m.fedT -= dt; m.hunt = !(m.fedT > 0) && !this.calm && !p.onRoof && !p.inside && !p.hidden && d < (m.wave ? 400 : (m.boss ? 17 : (bear ? 8 : 10))); if (m.hunt) hunting = true;
     if (m.boss && m.hunt && !was && this.time - this.gemmaT > 20) { this.gemmaT = this.time; this.ev('gemma'); }
     if (bear) {
       var prey = null, pd = 4.5; for (var z2 = 0; z2 < this.mobs.length; z2++) { var o = this.mobs[z2]; if (o.kind !== 'zombie' || o.dead > 0) continue; var od = Math.hypot(o.x - m.x, o.z - m.z); if (od < pd) { pd = od; prey = o; } }
       if (prey && (!m.hunt || pd < d)) { this.move(m, (prey.x - m.x) / pd * 4.4, (prey.z - m.z) / pd * 4.4, dt); if (pd < 0.9) this.kill(prey); continue; }
       m.charge -= dt; if (m.charge < -3) m.charge = 1.4;
     }
-    var fb = null, fbd = m.boss ? 17 : (bear ? 8 : 10); if (this.friends && !(m.fedT > 0)) for (var fi = 0; fi < this.friends.length; fi++) { var ff = this.friends[fi]; if (ff.safe) continue; var fd0 = Math.hypot(ff.x - m.x, ff.z - m.z); if (fd0 < fbd) { fbd = fd0; fb = ff; } }
+    var fb = null, fbd = m.wave ? 400 : (m.boss ? 17 : (bear ? 8 : 10)); if (this.friends && !(m.fedT > 0)) for (var fi = 0; fi < this.friends.length; fi++) { var ff = this.friends[fi]; if (ff.safe) continue; var fd0 = Math.hypot(ff.x - m.x, ff.z - m.z); if (fd0 < fbd) { fbd = fd0; fb = ff; } }
     if (fb && (!m.hunt || fbd < d)) {       /* playing together: a friend is closer, so go for them. Their own game decides what a bite costs them */
       m.hunt = false; var fsp = bear ? PSPEED * (m.charge > 0 ? 1.08 : 0.55) : PSPEED * (m.boss ? 0.68 : 0.5); fb.t = (fb.t || 0) - dt; if (fb.t <= 0) { w.bfs(fb.df, Math.floor(fb.x), Math.min(SIZE - 1, Math.floor(fb.z))); fb.t = 0.35; }
       if (fbd < 1.8 && w.los(m.x, m.z, fb.x, fb.z)) { if (fbd > 0.6) this.move(m, (fb.x - m.x) / fbd * fsp, (fb.z - m.z) / fbd * fsp, dt); } else this.steer(m, fb.df, fsp, dt); continue;
@@ -950,7 +963,7 @@ Game.prototype.buildRoofs = function () {
     if (gz >= 0 && gz <= 3 && x1 - x0 >= 1.3) { var xc = (x0 + x1) / 2; this.bridges.push({ ax: 0, z0: A.z + A.d - ma - 0.2, z1: B.z + mb + 0.2, x0: xc - Math.min(1, (x1 - x0) / 2), x1: xc + Math.min(1, (x1 - x0) / 2), ha: ha, hb: hb, i: i, j: j }); }
   }
   for (i = 0; i < L.length; i++) {
-    A = L[i]; if (A.use || A.h > 18 || i % 3) continue; var m = this.roofIn(A) + 0.35, h = this.roofH(A), c = [[A.x + 0.8, A.z + A.d + 0.5, A.x + 0.8, A.z + A.d - m, 0, 1], [A.x + 0.8, A.z - 0.5, A.x + 0.8, A.z + m, 0, -1], [A.x + A.w + 0.5, A.z + 0.8, A.x + A.w - m, A.z + 0.8, 1, 0], [A.x - 0.5, A.z + 0.8, A.x + m, A.z + 0.8, -1, 0]];
+    A = L[i]; if (A.use || A.h > 18 || i % 3) continue; var m = this.roofIn(A) + 0.35, h = this.roofH(A), ti = Math.max(0.8, m), c = [[A.x + 0.8, A.z + A.d + 0.5, A.x + ti, A.z + A.d - m, 0, 1], [A.x + 0.8, A.z - 0.5, A.x + ti, A.z + m, 0, -1], [A.x + A.w + 0.5, A.z + 0.8, A.x + A.w - m, A.z + ti, 1, 0], [A.x - 0.5, A.z + 0.8, A.x + m, A.z + ti, -1, 0]];       /* the top of the ladder has to land on the walkable part of the roof */
     for (j = 0; j < 4; j++) { var q = c[j]; if (!self.hit(q[0], q[1]) && self.w.isRoad(Math.floor(q[0] + q[4] * 1.2), Math.floor(q[1] + q[5] * 1.2)) | 1 && self.roofAt(q[0], q[1]) === null && !self.hit(q[0] + q[4] * 0.6, q[1] + q[5] * 0.6)) { this.ladders.push({ bx: q[0], bz: q[1], tx: q[2], tz: q[3], ox: q[4], oz: q[5], i: i, h: h, f: j }); break; } }
   }
 };
@@ -1806,7 +1819,7 @@ Game.prototype.updateMoon = function (dt) {
   var curSeed = 7, curDiff = 'medium', MP = { peer: null, conns: [], host: false, code: '', id: Math.random().toString(36).slice(2, 8), buds: {}, sendT: 0, five: 0, n: 0, rx: false, snap: null, pend: {}, wT: 0 };
   function mpStat(t, bad) { $('mpstat').textContent = t; $('mpstat').style.color = bad ? '#ff8a8a' : '#5dfc8a'; }
   function mpLoad(cb) { if (window.Peer) return cb(); mpStat('Connecting...'); var sc = document.createElement('script'); sc.src = window.__peerSrc || 'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js'; sc.onload = cb; sc.onerror = function () { mpStat('Could not connect. Check the internet', true); }; document.head.appendChild(sc); }
-  function mpReset() { MP.snap = null; MP.pend = {}; if (G) { G.friends = null; if (G.ufo.net) { G.ufo.net = false; G.ufo.on = false; G.ufo.next = 40; } } if (MP.peer) { try { MP.peer.destroy(); } catch (e) {} } MP.peer = null; MP.conns = []; for (var k in MP.buds) world.remove(MP.buds[k].g); MP.buds = {}; }
+  function mpReset() { MP.snap = null; MP.pend = {}; if (G) { G.friends = null; if (G.ufo.net) { G.ufo.net = false; G.ufo.on = false; G.ufo.next = 40; } mpWaveOff(); } if (MP.peer) { try { MP.peer.destroy(); } catch (e) {} } MP.peer = null; MP.conns = []; for (var k in MP.buds) world.remove(MP.buds[k].g); MP.buds = {}; }
   function mpHost(tries) {
     mpLoad(function () {
       mpReset(); MP.host = true; MP.code = ''; for (var i = 0; i < 4; i++) MP.code += 'ABCDEFGHJKLMNPQRSTUVWXYZ'.charAt(Math.floor(Math.random() * 24));
@@ -1827,12 +1840,14 @@ Game.prototype.updateMoon = function (dt) {
   function mpConn(c) {
     c.on('open', function () { MP.conns.push(c); if (MP.host) { var dl = []; G.w.lots.forEach(function (l, li) { if (l.dead) dl.push(li); }); c.send({ t: 'hello', seed: curSeed, diff: curDiff, dead: dl, blocks: G.blocks }); toast('A FRIEND JOINED!', 3, '#5dfc8a'); jingle([523, 659, 784, 1047], 0.09); mpStat('Friends connected: ' + MP.conns.length + '   Code ' + MP.code); } else mpStat('Joined ' + MP.code + '!'); });
     c.on('data', function (d) { mpData(d, c); });
-    c.on('close', function () { var i = MP.conns.indexOf(c); if (i >= 0) MP.conns.splice(i, 1); for (var k in MP.buds) if (MP.buds[k].via === c) { world.remove(MP.buds[k].g); delete MP.buds[k]; } if (!MP.host) { MP.snap = null; if (G.ufo.net) { G.ufo.net = false; if (G.state !== 'ufo') G.ufo.on = false; G.ufo.next = 40; } G.mobs.forEach(function (m) { if (m.netDead) { m.netDead = false; m.dead = 0.1; } }); G.peds.forEach(function (m) { if (m.netDead) { m.netDead = false; m.dead = 0.1; } }); } toast(MP.host ? 'A FRIEND LEFT' : 'LOST THE CONNECTION', 3, '#ffd23f'); mpStat(MP.host ? 'Friends connected: ' + MP.conns.length + '   Code ' + MP.code : 'Disconnected', !MP.host); });
+    c.on('close', function () { var i = MP.conns.indexOf(c); if (i >= 0) MP.conns.splice(i, 1); for (var k in MP.buds) if (MP.buds[k].via === c) { world.remove(MP.buds[k].g); delete MP.buds[k]; } if (!MP.host) { MP.snap = null; mpWaveOff(); if (G.ufo.net) { G.ufo.net = false; if (G.state !== 'ufo') G.ufo.on = false; G.ufo.next = 40; } G.mobs.forEach(function (m) { if (m.netDead) { m.netDead = false; m.dead = 0.1; } }); G.peds.forEach(function (m) { if (m.netDead) { m.netDead = false; m.dead = 0.1; } }); } toast(MP.host ? 'A FRIEND LEFT' : 'LOST THE CONNECTION', 3, '#ffd23f'); mpStat(MP.host ? 'Friends connected: ' + MP.conns.length + '   Code ' + MP.code : 'Disconnected', !MP.host); });
   }
   function mpData(d, c) {
     if (!d || typeof d !== 'object') return;
     if (d.t === 'hello' && !MP.host) { startGame(d.seed, d.diff); (d.dead || []).forEach(mpCollapse); if (d.blocks && typeof d.blocks === 'object') { G.blocks = {}; G.nblocks = 0; for (var bk in d.blocks) { if (G.nblocks >= BMAX) break; G.blocks[bk] = d.blocks[bk] | 0; G.nblocks++; } syncBlocks(false); } $('mp').style.display = 'none'; $('mpbtn').textContent = 'With ' + MP.code; toast('YOU ARE IN THE SAME CITY. FIND YOUR FRIEND', 4, '#5dfc8a'); return; }
     if (d.t === 'w' && !MP.host) { var uf2 = G.ufo, gi2 = G.giant; uf2.net = true; uf2.next = 1e9;
+      var hn = Math.floor((d.m || []).length / 4), wv2 = G.wave; wv2.net = true; while (G.mobs.length < hn) G.mobs.push(G.spawnMob({ kind: 'zombie', wave: true, df: new Int16Array(SIZE * SIZE) })); if (hn >= 10 && G.mobs.length > hn) G.mobs.length = hn;
+      if (d.wv) { if (d.wv[1] && !wv2.on) G.ev('wave', { n: d.wv[0], count: d.wv[3] }); else if (!d.wv[1] && wv2.on) { var wb = 150 * wv2.n; G.cash += wb; G.ev('waveclear', { n: wv2.n, bonus: wb }); } wv2.n = d.wv[0]; wv2.on = !!d.wv[1]; wv2.left = d.wv[2]; wv2.total = d.wv[3]; }
       if (d.u && G.state !== 'ufo') { if (!uf2.on) { uf2.on = true; uf2.x = d.u[0]; uf2.z = d.u[1]; uf2.t = 0; G.ev('ufo'); } uf2.hx = d.u[0]; uf2.hz = d.u[1]; uf2.mine = d.u[2] === MP.id; } else if (!d.u && uf2.on && G.state !== 'ufo') { uf2.on = false; G.ev('ufogone'); }
       if (d.g) { if (!gi2.on) { gi2.on = true; gi2.x = d.g[0]; gi2.z = d.g[1]; gi2.step = 0.5; G.ev('giant'); } gi2.nx = d.g[0]; gi2.nz = d.g[1]; gi2.nhx = d.g[2]; gi2.nhz = d.g[3]; } else if (gi2.on) { gi2.on = false; G.ev('giantgone'); }
       MP.snap = d; if (typeof d.tm === 'number' && Math.abs(G.time - d.tm) > 1) G.time = d.tm; return; }
@@ -1840,6 +1855,7 @@ Game.prototype.updateMoon = function (dt) {
     if (d.t === 'e') { MP.rx = true; try { if (d.k === 'col') mpCollapse(d.i); else if (d.k === 'gi') { var gw = G.giant; if (MP.host && !gw.on) { gw.on = true; gw.t = 0; gw.x = -6; gw.z = SIZE * 0.5; gw.tx = SIZE * 0.5; gw.tz = SIZE * 0.5; G.ev('giant'); } } else if (d.k === 'bp' && d.b) { var pk = d.b[0] + ',' + d.b[1] + ',' + d.b[2]; if (G.blocks[pk] === undefined && G.nblocks < BMAX) { G.blocks[pk] = d.b[3] | 0; G.nblocks++; syncBlocks(false); } } else if (d.k === 'br' && d.b) { var rk = d.b[0] + ',' + d.b[1] + ',' + d.b[2]; if (G.blocks[rk] !== undefined) { delete G.blocks[rk]; G.nblocks--; syncBlocks(false); } } } catch (e9) {} MP.rx = false; if (MP.host) mpSend(d, c); return; }
     if (d.t === 's' && d.id && d.id !== MP.id) { var b = MP.buds[d.id]; if (!b) b = MP.buds[d.id] = mpBud(d); b.d = d; b.at = clock; b.via = c; if (MP.host) for (var i = 0; i < MP.conns.length; i++) if (MP.conns[i] !== c && MP.conns[i].open) MP.conns[i].send(d); }
   }
+  function mpWaveOff() { if (G && G.wave.net) { G.wave.net = false; G.wave.on = false; G.wave.next = 60; G.mobs = G.mobs.filter(function (m) { return !m.wave; }); } }
   function mpSend(msg, except) { for (var i = 0; i < MP.conns.length; i++) if (MP.conns[i] !== except && MP.conns[i].open) MP.conns[i].send(msg); }
   function mpCollapse(i) { var l = G.w.lots[i]; if (!l || l.dead) return; l.dead = true; for (var k = 0; k < G.w.stores.length; k++) if (G.w.stores[k].lot === l) { G.w.stores[k].cool = 1e9; G.w.stores[k].dead = true; } var was = MP.rx; MP.rx = true; handle({ t: 'collapse', i: i, bonus: 0 }); MP.rx = was; }
   function mpEv(ev) {       /* things that happen here and should happen for everyone */
@@ -1867,7 +1883,7 @@ Game.prototype.updateMoon = function (dt) {
   function mpTick(dt) {
     if (!MP.peer) return; var p = G.p, k, live = 0;
     if (MP.host && started) { var fr = []; for (k in MP.buds) { var hb = MP.buds[k], hd = hb.d; if (!hb.fr) hb.fr = { df: new Int16Array(SIZE * SIZE), t: 0 }; hb.fr.id = k; hb.fr.x = hd.x; hb.fr.z = hd.z; hb.fr.calm = !!hd.calm || !!hd.moon; hb.fr.ab = !!hd.ab; hb.fr.gone = clock - hb.at > 3; hb.fr.safe = !!hd.safe || clock - hb.at > 3 || hd.x < 1 || hd.z < 1 || hd.x > SIZE - 1 || hd.z > SIZE - 1; fr.push(hb.fr); } G.friends = fr;
-      MP.wT -= dt; if (MP.wT <= 0 && MP.conns.length) { MP.wT = 0.12; mpSend({ t: 'w', tm: Math.round(G.time * 10) / 10, m: mpPack(G.mobs), p: mpPack(G.peds), u: G.ufo.on ? [Math.round(G.ufo.x * 10) / 10, Math.round(G.ufo.z * 10) / 10, G.state === 'ufo' ? MP.id : (G.ufo.tf || MP.id)] : null, g: G.giant.on ? [Math.round(G.giant.x * 10) / 10, Math.round(G.giant.z * 10) / 10, Math.round(G.giant.hx * 100) / 100, Math.round(G.giant.hz * 100) / 100] : null }); } }
+      MP.wT -= dt; if (MP.wT <= 0 && MP.conns.length) { MP.wT = 0.12; mpSend({ t: 'w', tm: Math.round(G.time * 10) / 10, m: mpPack(G.mobs), p: mpPack(G.peds), wv: [G.wave.n, G.wave.on ? 1 : 0, G.wave.left, G.wave.total], u: G.ufo.on ? [Math.round(G.ufo.x * 10) / 10, Math.round(G.ufo.z * 10) / 10, G.state === 'ufo' ? MP.id : (G.ufo.tf || MP.id)] : null, g: G.giant.on ? [Math.round(G.giant.x * 10) / 10, Math.round(G.giant.z * 10) / 10, Math.round(G.giant.hx * 100) / 100, Math.round(G.giant.hz * 100) / 100] : null }); } }
     else if (!MP.host && MP.snap && started && MP.conns.length) { G.friends = null; mpApply(G.mobs, MP.snap.m || [], 'm', dt); mpApply(G.peds, MP.snap.p || [], 'p', dt);
       var uf3 = G.ufo, gi3 = G.giant, sa = Math.min(1, dt * 8); if (uf3.on && G.state !== 'ufo' && uf3.hx !== undefined) { if (Math.abs(uf3.hx - uf3.x) > 25 || Math.abs(uf3.hz - uf3.z) > 25) { uf3.x = uf3.hx; uf3.z = uf3.hz; } uf3.x += (uf3.hx - uf3.x) * sa; uf3.z += (uf3.hz - uf3.z) * sa; }
       if (gi3.on && gi3.nx !== undefined) { gi3.x += (gi3.nx - gi3.x) * sa; gi3.z += (gi3.nz - gi3.z) * sa; gi3.hx = gi3.nhx; gi3.hz = gi3.nhz; gi3.tx = gi3.x + gi3.hx * 60; gi3.tz = gi3.z + gi3.hz * 60; gi3.t = 0; } }
@@ -1948,6 +1964,8 @@ Game.prototype.updateMoon = function (dt) {
     else if (t === 'tip') { if (clock - tipAt > 0.55) { var tb = null, tbd = 9; R.aptPeople.forEach(function (ap) { var dd = Math.sqrt(Math.pow(APT.x - ap.e.x - G.p.x, 2) + Math.pow(APT.z + ap.e.z - G.p.z, 2)); if (dd < tbd) { tbd = dd; tb = ap; } });
       if (tb) { tipAt = clock; var tx = APT.x - tb.e.x, tz = APT.z + tb.e.z, paid = G.cash >= 100; if (paid) G.cash -= 100; tb.joy = 3; R.aptPeople.forEach(function (ap, k) { if (ap !== tb && Math.abs(ap.e.x - tb.e.x) < 14 && Math.abs(ap.e.z - tb.e.z) < 14) ap.joy = Math.max(ap.joy || 0, 1.4 + (k % 4) * 0.25); });
         debris(tx, 1.9, tz, paid ? 90 : 30, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 8, 0.4); if (paid) debris(tx, 1.4, tz, 24, [0x3fae5a, 0x5dfc8a, 0x2f8a45], 4, 0.5); toast(paid ? 'YOU TIPPED $100!  EVERYONE CHEERS' : 'OUT OF CASH. HIGH FIVE INSTEAD', 1.6, '#5dfc8a'); jingle(paid ? [659, 784, 1047, 1319] : [523, 659], 0.08, 'triangle'); } } }
+    else if (t === 'wave') { toast('WAVE ' + ev.n + '!  ' + ev.count + ' ZOMBIES ARE COMING', 4.5, '#ff5a5a'); tone(220, 0.5, 0.25, 'sawtooth', 440); tone(220, 0.5, 0.25, 'sawtooth', 440, 0.6); tone(220, 0.7, 0.25, 'sawtooth', 520, 1.2); }
+    else if (t === 'waveclear') { toast('WAVE ' + ev.n + ' CLEARED!  +$' + ev.bonus + (MP.conns.length ? ' EACH' : ''), 4.5, '#5dfc8a'); debris(G.p.x, 2.2 + (G.p.fly || 0) + (G.p.bh || 0), G.p.z, 120, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 10, 0.4); jingle([523, 659, 784, 1047, 1319], 0.1, 'triangle'); }
     else if (t === 'popcop') { debris(ev.x, 1.2, ev.z, 110, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 11, 0.8); tone(900, 0.1, 0.2, 'square', 1800); tone(1400, 0.2, 0.12, 'sine', 500, 0.05); toast('POP!', 0.8, '#ff4fa3'); }
     else if (t === 'breach') { ev.tiles.forEach(function (k) { if (R.fence[k]) squash(R.flat, R.fence[k], 0.5); }); debris(ev.x, 0.8, ev.z, 70, [0x8d94a0, 0x4a4468, 0xffb62e], 11, 2); toast('WALL DOWN! GO FOR THE ROCKET', 3, '#ffb62e'); shake = Math.max(shake, 0.6); }
     else if (t === 'tall') { toast('SOMETHING TALL IS COMING', 3.5, '#b9b6ff'); tone(40, 3, 0.35, 'sawtooth', 70); tone(660, 2.5, 0.04, 'sine', 620); }
@@ -2074,13 +2092,14 @@ Game.prototype.updateMoon = function (dt) {
     syncList(R.cones, G.mode === 'heist' ? G.guards.length : 0, function () { var g = new THREE.CircleGeometry(6.2, 12, Math.PI / 2 - 0.64, 1.28); g.rotateX(-Math.PI / 2); return new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.28, depthWrite: false })); });
     for (i = 0; i < G.guards.length; i++) { var gd = G.guards[i]; animChar(R.guards[i], gd, dt, G.heistAlarm ? 1.2 : 0.5); R.guards[i].ghost.material.color.setHex(0xffb62e); if (R.cones[i]) { R.cones[i].position.set(gd.x, 0.2, gd.z); R.cones[i].rotation.y = Math.atan2(gd.dx, gd.dz) + Math.PI; R.cones[i].material.color.setHex(G.heistAlarm ? 0xff3030 : 0xffe066); R.cones[i].visible = i < G.guards.length; } }
     for (i = 0; i < G.peds.length; i++) { var pe = G.peds[i]; R.pedC[i].visible = pe.dead <= 0 && !pe.aboard; if (pe.dead <= 0) { animChar(R.pedC[i], pe, dt, pe.flee > 0 ? 1.4 : 0.45); if (pe.lift) { R.pedC[i].position.y += pe.lift; R.pedC[i].rotation.y = clock * 0.45 + i; R.pedC[i].armL.rotation.x = R.pedC[i].armR.rotation.x = Math.PI; } if (pe.held > 0 && !(pe.flee > 0)) { R.pedC[i].armL.rotation.x = Math.PI; R.pedC[i].armR.rotation.x = Math.PI; } } }
+    while (R.mobC.length < G.mobs.length) { var wz = makeChar({ shirt: [0xb0303a, 0x8a2a5a, 0xa04a1a][R.mobC.length % 3], pants: 0x2a2030, shoes: 0x2a2a2a, skin: 0x8fcf6a, hair: R.mobC.length % 2 ? 0x2a3a2a : undefined }); world.add(wz); R.mobC.push(wz); } for (i = G.mobs.length; i < R.mobC.length; i++) R.mobC[i].visible = false;
     for (i = 0; i < G.mobs.length; i++) {
       var mb = G.mobs[i], mc = R.mobC[i]; mc.visible = mb.dead <= 0 && !mb.aboard; if (mb.dead > 0) continue;
       if (mc.isOtter) animOtter(mc, mb, dt); else if (mc.isBear) animBear(mc, mb, dt); else { animChar(mc, mb, dt, mb.hunt ? 0.8 : 0.4); mc.armL.rotation.x = -1.45 + Math.sin(mc.phase) * 0.15; mc.armR.rotation.x = -1.45 - Math.sin(mc.phase) * 0.15; mc.rotation.z = Math.sin(mc.phase * 0.5) * 0.08; mc.ghost.visible = mb.hunt; }
       if (mb.lift) { mc.position.y += mb.lift; mc.rotation.y = clock * 0.45 + i; }
     }
     if (fireHeld || keys.f || keys.j) G.fire(); if (!vr) G.input.alt = (keys.r ? 1 : 0) - (keys.c ? 1 : 0) + altBtn;
-    if (vr) { var far2 = 38 * 38; for (i = 0; i < R.pedC.length; i++) if ((G.peds[i].x - p.x) * (G.peds[i].x - p.x) + (G.peds[i].z - p.z) * (G.peds[i].z - p.z) > far2) R.pedC[i].visible = false; for (i = 0; i < R.mobC.length; i++) if ((G.mobs[i].x - p.x) * (G.mobs[i].x - p.x) + (G.mobs[i].z - p.z) * (G.mobs[i].z - p.z) > far2) R.mobC[i].visible = false; for (i = 0; i < G.cops.length; i++) if ((G.cops[i].x - p.x) * (G.cops[i].x - p.x) + (G.cops[i].z - p.z) * (G.cops[i].z - p.z) > far2) R.cops[i].visible = false; }
+    if (vr) { var far2 = 38 * 38; for (i = 0; i < R.pedC.length; i++) if ((G.peds[i].x - p.x) * (G.peds[i].x - p.x) + (G.peds[i].z - p.z) * (G.peds[i].z - p.z) > far2) R.pedC[i].visible = false; for (i = 0; i < G.mobs.length; i++) if ((G.mobs[i].x - p.x) * (G.mobs[i].x - p.x) + (G.mobs[i].z - p.z) * (G.mobs[i].z - p.z) > far2) R.mobC[i].visible = false; for (i = 0; i < G.cops.length; i++) if ((G.cops[i].x - p.x) * (G.cops[i].x - p.x) + (G.cops[i].z - p.z) * (G.cops[i].z - p.z) > far2) R.cops[i].visible = false; }
     for (i = 0; i < DN; i++) { if (dLife[i] <= 0) continue; var da = i * 3; dLife[i] -= dt; dVel[da + 1] -= 22 * dt; dPos[da] += dVel[da] * dt; dPos[da + 1] += dVel[da + 1] * dt; dPos[da + 2] += dVel[da + 2] * dt; if (dPos[da + 1] < 0.12) { dPos[da + 1] = 0.12; dVel[da + 1] *= -0.35; dVel[da] *= 0.6; dVel[da + 2] *= 0.6; } dummy.position.set(dPos[da], dPos[da + 1], dPos[da + 2]); dummy.rotation.set(dSpin[i] + clock * 3, dSpin[i], 0); dummy.scale.setScalar(dLife[i] <= 0 ? 0 : Math.min(1, dLife[i] * 2)); dummy.updateMatrix(); R.deb.setMatrixAt(i, dummy.matrix); }
     R.deb.instanceMatrix.needsUpdate = true;
     for (i = 0; i < R.tracers.length; i++) if (R.tracers[i].life > 0) { R.tracers[i].life -= dt; if (R.tracers[i].life <= 0) R.tracers[i].visible = false; }
@@ -2190,6 +2209,7 @@ Game.prototype.updateMoon = function (dt) {
     if (G.state === 'ufo') goal = 'Beamed up. Enjoy the view'; else if (G.ufo.on && G.state === 'play') goal = 'UFO! It only gives up at the beach';
     if (inn) goal = inn.alarm ? (inn.lockT > 0 ? 'ALARM! Shutter drops in ' + Math.ceil(inn.lockT) : 'Locked in...') : (inn.threat ? 'Grab the register cash and run' : 'Take from the shelves. FIRE threatens the clerk. Leave by the door');
     else if (G.drive) goal = 'Driving. Run them down. E or EXIT to get out';
+    if (G.wave.on && G.state === 'play' && !inn && !G.calm) goal = 'WAVE ' + G.wave.n + ': ' + G.wave.left + ' of ' + G.wave.total + ' zombies left';
     if ($('goal').textContent !== goal) $('goal').textContent = goal;
     var showPlay = G.state === 'play' || G.state === 'inside', nc = G.state === 'play' && (G.drive || G.nearCar());
     $('mug').style.display = G.canMug() && !vr ? 'block' : 'none';
@@ -2201,7 +2221,7 @@ Game.prototype.updateMoon = function (dt) {
     if (G.state === 'hotwire') $('mHot').style.width = Math.min(100, G.hot) + '%';
     if (G.wanted && started) { sirenT -= dt; if (sirenT <= 0) { sirenT = 0.5; tone(Math.floor(clock * 2) % 2 ? 740 : 560, 0.45, 0.07, 'sawtooth'); } }
     drawMap();
-    if (ppOn && !vr && PP) { PP.mat.uniforms.k.value = 1 - 0.8 * calmK; renderer.getDrawingBufferSize(ppSize); if (ppSize.x !== PP.rt.width || ppSize.y !== PP.rt.height) PP.rt.setSize(ppSize.x, ppSize.y); renderer.setRenderTarget(PP.rt); renderer.render(scene, camera); renderer.setRenderTarget(null); renderer.render(PP.scene, PP.cam); }
+    if (ppOn && !vr && PP) { PP.mat.uniforms.k.value = G.state === 'inside' || G.state === 'rob' ? 0.2 : G.state === 'airport' ? 0.3 : 1 - 0.8 * calmK; renderer.getDrawingBufferSize(ppSize); if (ppSize.x !== PP.rt.width || ppSize.y !== PP.rt.height) PP.rt.setSize(ppSize.x, ppSize.y); renderer.setRenderTarget(PP.rt); renderer.render(scene, camera); renderer.setRenderTarget(null); renderer.render(PP.scene, PP.cam); }
     else renderer.render(scene, camera);
   }
   var tmpV = new V();
