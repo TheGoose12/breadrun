@@ -326,7 +326,7 @@ Game.prototype.newCop = function (temp, x, z) {
 };
 Game.prototype.startChase = function (stars) {
   if (this.state === 'dragon' || this.state === 'pilot') return;
-  if (this.danceT > 0) return;       // nobody chases anybody while the squad is dancing
+  if (this.danceT > 0) { if (this.danceT > 114) return; this.danceT = 0; this.ev('danceoff'); }       // the squad dances until you commit a new crime (after the first few seconds); then they are police again
   var p = this.p, w = this.w, N = SIZE, i; this.wanted = Math.max(this.wanted, stars); this.heat = 0; this.evadeT = 0; this.hideT = 0; this.wantedT = 0;
   w.bfs(this.pdf, Math.floor(p.x), Math.min(SIZE - 1, Math.floor(p.z))); this.pdfT = 0.25;
   for (i = 0; i < this.cops.length; i++) { var c = this.cops[i]; if (Math.abs(c.x - p.x) + Math.abs(c.z - p.z) < 34) c.chase = true; }
@@ -685,7 +685,7 @@ Game.prototype.crime = function (stars) { if (this.mode === 'robber') this.start
 Game.prototype.kill = function (e) {
   var k = e.kind, i;
   if (k === 'cop' && this.mode !== 'cop') {       // shoot one officer and the whole force becomes a dance squad in the street
-    e.hp = 2; var first = !(this.danceT > 0); this.danceT = 45; this.clearWanted(); this.bodies = 0;
+    e.hp = 2; var first = !(this.danceT > 0); this.danceT = 120; this.clearWanted(); this.bodies = 0;
     if (first) { var row = 0; for (i = 0; i < this.cops.length; i++) { var c = this.cops[i]; if (c.beach || c.aboard) continue; if (c !== e && Math.abs(c.x - e.x) + Math.abs(c.z - e.z) < 45) { var fx = e.x + ((row % 4) - 1.5) * 1.5, fz = e.z + (Math.floor(row / 4) + 1) * 1.6; if (!this.hit(fx, fz)) { c.x = fx; c.z = fz; } row++; } c.dx = 0; c.dz = 1; c.chase = false; } this.ev('dance', { x: e.x, z: e.z }); }
     return;
   } this.ev('boom', { x: e.x, z: e.z, kind: k, look: e.look || 0, otter: !!e.otter }); this.kills++;
