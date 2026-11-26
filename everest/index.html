@@ -45,15 +45,16 @@
   #throwbtn, #boostbtn, #skibtn, #menubtn, #racebar button { touch-action: manipulation; z-index: 14; }
   #throwbtn { position: fixed; right: calc(18px + env(safe-area-inset-right)); bottom: calc(56px + env(safe-area-inset-bottom)); width: 78px; height: 78px; border-radius: 50%; padding: 0; font-size: 12px; background: rgba(255, 255, 255, 0.92); display: none; }
   #boostbtn { position: fixed; right: calc(18px + env(safe-area-inset-right)); bottom: calc(146px + env(safe-area-inset-bottom)); width: 78px; height: 78px; border-radius: 50%; padding: 0; font-size: 12px; background: #ffd23f; color: #241a00; display: none; }
+  #score { font-size: 19px; color: #ffe27a; min-height: 0; }
   #mpinfo { font: 600 13px system-ui, sans-serif; font-style: normal; opacity: 0.95; }
   #fps { position: fixed; left: 14px; bottom: 10px; font-size: 12px; opacity: 0.8; pointer-events: none; }
 </style>
 </head>
 <body>
 <div id="stage"></div>
-<div id="read" class="serif"><div id="alt"></div><div id="spd"></div><div id="mpinfo"></div></div>
+<div id="read" class="serif"><div id="alt"></div><div id="spd"></div><div id="score"></div><div id="mpinfo"></div></div>
 <div id="btns"><button id="skibtn">SKIS ON</button><button id="menubtn">MENU</button></div>
-<div id="menu"><button id="racebtn">RACE</button><button id="mpbtn">TOGETHER</button><button id="yetibtn">BE THE YETI</button><button id="trailbtn">BACK TO THE TRAIL</button><button id="topbtn">SUMMIT</button><button id="viewbtn">VIEW: EYES</button><button id="skybtn">SKY: AUTO</button><button id="vrbtn">ENTER VR</button><button id="hubbtn">ALL GAMES</button></div>
+<div id="menu"><button id="racebtn">RACE</button><button id="mpbtn">TOGETHER</button><button id="flybtn">PARAGLIDER</button><button id="yetibtn">BE THE YETI</button><button id="wildbtn">WILD: ON</button><button id="trailbtn">BACK TO THE TRAIL</button><button id="topbtn">SUMMIT</button><button id="viewbtn">VIEW: EYES</button><button id="skybtn">SKY: AUTO</button><button id="vrbtn">ENTER VR</button><button id="hubbtn">ALL GAMES</button></div>
 <div id="racebar"><div id="rctext"></div><button id="rcyes">JOIN</button><button id="rcno">NO THANKS</button></div>
 <button id="throwbtn">SNOW BALL</button><button id="boostbtn">ROCKET</button>
 <div id="msg" class="serif"></div>
@@ -63,6 +64,7 @@
 <div id="mp">
   <h2 class="serif">Ski together</h2>
   <p>Everyone types the <b>same 4 letters</b> and taps PLAY TOGETHER. Make up any code you like.</p>
+  <div class="row"><input id="myname" maxlength="10" autocomplete="off" spellcheck="false" placeholder="YOUR NAME" style="width:100%;font:800 18px system-ui,sans-serif;text-align:center;border-radius:10px;border:2px solid rgba(255,255,255,0.5);background:#0a1c66;color:#fff;padding:8px;user-select:text;-webkit-user-select:text;touch-action:auto"></div>
   <div class="row"><input id="mpcode" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="CODE"><button id="mpjoin">PLAY TOGETHER</button></div>
   <button id="mphost" style="background:rgba(255,255,255,0.9);color:#0c2468;margin-bottom:10px">MAKE UP A CODE FOR ME</button>
   <div id="mpstat"></div>
@@ -143,6 +145,17 @@ function nearestOnRoute(x, z) {
   for (i = 0; i < RN; i++) { var dx = RT[2 * i] - x, dz = RT[2 * i + 1] - z, d = dx * dx + dz * dz; if (d < best) { best = d; bi = i; } }
   _near.arc = RARC[bi]; _near.d = Math.sqrt(best); return _near;
 }
+// kicker ramps down the route: part of the ground, so you really take off from them
+var KICKS = [];
+(function () { [2350, 2900, 3500, 4250, 5000, 5800, 6500, 7300, 8300, 9200, ROUTE_LEN - 330].forEach(function (a) { var p = routeAt(a).slice(), q = routeAt(a + 6), dx = q[0] - p[0], dz = q[1] - p[1], l = Math.hypot(dx, dz) || 1; KICKS.push([p[0], p[1], dx / l, dz / l, a]); }); })();
+function kickF(x, z) {
+  for (var i = 0; i < KICKS.length; i++) {
+    var K = KICKS[i], rx = x - K[0], rz = z - K[1]; if (rx * rx + rz * rz > 420) continue;
+    var u = rx * K[2] + rz * K[3], w = rz * K[2] - rx * K[3]; if (u < 0 || u > 18 || w > 7 || w < -7) return 0;
+    var t = u / 18, e = 1 - sstep(4.5, 7, Math.abs(w)); return 3.6 * t * t * e;
+  }
+  return 0;
+}
 // the summit ridge: a sharpened crest with a cornice hanging over the east side
 var RRES = 2.5, RBX, RBZ, RW, RH, RSD, RTT, RT_MIN;
 (function () {
@@ -203,7 +216,7 @@ function H(x, z, lod) {      // height of the mountain in metres at world x (eas
   if (e < 1500) { var f = e / 1500; f = f * f * (3 - 2 * f); h = SINK + (h - SINK) * f; }
   var r2 = x * x + z * z;
   if (r2 < 640000) { var b = 1 - r2 / 640000; h += BUMP * b * b; }   // the data smooths the top off; put it back to 8,849 m
-  h += ridgeF(x, z);
+  h += ridgeF(x, z) + kickF(x, z);
   h += 1.3 * nz(x * 0.33, z * 0.33);                                  // snow drifts
   if (lod < 2) h += 0.055 * nz(x * 2.9 + 31.7, z * 2.9 + 11.3);       // small bumps
   return h;
@@ -912,7 +925,7 @@ function lampAt(x, y, z, hx, hz) {       // someone else's headlamp: a bright do
 }
 var DRIFT_N = 220, driftPos, driftSl, driftGeo, driftD = new Float32Array(DRIFT_N * 8), driftF = 0;    // per streak: x, z, ground y, slope x, slope z, height, speed, phase
 function buildWind() {
-  puffs = new Batch(SPRAY_N + PLUME_N + FLAKE_N + BALL_N, U.uTint, false, 66); lamps = new Batch(64, { value: new V3(1.0, 0.9, 0.66) }, true, 67);
+  puffs = new Batch(SPRAY_N + PLUME_N + FLAKE_N + BALL_N + AV_N, U.uTint, false, 66); lamps = new Batch(64, { value: new V3(1.0, 0.9, 0.66) }, true, 67);
   function peak(x, z, r) { var bx = x, bz = z, bh = -1e9, i, j; for (j = -r; j <= r; j += 20) for (i = -r; i <= r; i += 20) { var h = H(x + i, z + j, 2); if (h > bh) { bh = h; bx = x + i; bz = z + j; } } return [bx, bh - Y0, bz]; }
   function em(p, n, L, s0, s1, a, sp) { plumes.push({ x: p[0], y: p[1], z: p[2], n: n, L: L, s0: s0, s1: s1, a: a, sp: sp, seed: plumes.length * 0.37 }); }
   em([2, 8849 - Y0 + 1, 1], 18, 760, 5, 120, 0.2, 15);                                       // the summit banner
@@ -1019,7 +1032,7 @@ function heliStep(dt) {       // it circles over base camp
   if (heliG) { var d = Math.hypot(x - P.x, y - P.ry, z - P.z); heliG.gain.setTargetAtTime(clamp(60 / (d + 40), 0, 0.5) * 0.35, AC.currentTime, 0.2); }
 }
 // snowballs
-var BALL_N = 28, balls = [], lastThrow = -9;
+var BALL_N = 28, AV_N = 46, balls = [], lastThrow = -9;
 function throwBall(ox, oy, oz, dx, dy, dz) {
   if (clock - lastThrow < 0.45 || P.lost || P.down > 0 || !started) return; lastThrow = clock;
   var sp = 23, hx = -Math.sin(P.head), hz = -Math.cos(P.head), pv = P.mode === 'ski' ? P.v : 0, b = { x: ox, y: oy, z: oz, vx: dx * sp + hx * pv, vy: dy * sp + 2.2, vz: dz * sp + hz * pv, own: true, id: MP.id, n: MP.n, life: 6 };
@@ -1071,15 +1084,15 @@ var vm = { open: false, idx: 0, mode: 0, code: [0, 0, 0, 0], pos: 0, ready: true
 function vmItems() {
   var inRoom = MP.code && NET.on;
   return [[inRoom ? 'Room ' + MP.code + '  (' + (MP.count + 1) + ' here)  Change' : 'Play with friends', 'join'],
-    [RC.st >= 2 && RC.st <= 4 ? 'Leave the race' : RC.st === 1 ? 'Join the race' : 'Start a race', 'race'], [P.yeti ? 'Stop being the yeti' : 'Be the yeti', 'yeti'], ['Back to the trail', 'trail'], ['Back to the summit', 'top'], [SKYNAME[SKY.mode].replace('SKY: ', 'Sky: '), 'sky'], ['All games (leave Mountain Run)', 'hub'], ['Close', 'close']];
+    [RC.st >= 2 && RC.st <= 4 ? 'Leave the race' : RC.st === 1 ? 'Join the race' : 'Start a race', 'race'], [P.mode === 'fly' ? 'Put the paraglider away' : 'Paraglider', 'fly'], [P.yeti ? 'Stop being the yeti' : 'Be the yeti', 'yeti'], [WILD ? 'Wild: on (avalanches, yeti)' : 'Wild: off', 'wild'], ['Back to the trail', 'trail'], ['Back to the summit', 'top'], [SKYNAME[SKY.mode].replace('SKY: ', 'Sky: '), 'sky'], ['All games (leave Mountain Run)', 'hub'], ['Close', 'close']];
 }
 function vmDraw() {
   var it = vmItems(), key = vm.mode + '|' + vm.idx + '|' + vm.pos + '|' + vm.code.join('') + '|' + (MP.stat || '') + '|' + it.map(function (q) { return q[0]; }).join('~'); if (key === vm.key) return; vm.key = key;
   var c = vm.ctx, i; c.clearRect(0, 0, 640, 560); c.fillStyle = 'rgba(8,26,96,0.9)'; c.fillRect(0, 0, 640, 560); c.strokeStyle = '#ffd23f'; c.lineWidth = 6; c.strokeRect(3, 3, 634, 554); c.textAlign = 'center';
   if (vm.mode === 0) {
     c.fillStyle = '#fff'; c.font = 'italic 44px Georgia, serif'; c.fillText('Mountain Run', 320, 56);
-    for (i = 0; i < it.length; i++) { if (i === vm.idx) { c.fillStyle = '#ffd23f'; c.fillRect(30, 74 + i * 50, 580, 45); } c.fillStyle = i === vm.idx ? '#241a00' : '#fff'; c.font = '600 28px system-ui, sans-serif'; c.fillText(it[i][0], 320, 106 + i * 50); }
-    c.fillStyle = '#cfe0ff'; c.font = '24px system-ui, sans-serif'; c.fillText('Stick: up and down    A or X: choose    B or Y: close', 320, 530);
+    for (i = 0; i < it.length; i++) { if (i === vm.idx) { c.fillStyle = '#ffd23f'; c.fillRect(30, 70 + i * 42, 580, 38); } c.fillStyle = i === vm.idx ? '#241a00' : '#fff'; c.font = '600 25px system-ui, sans-serif'; c.fillText(it[i][0], 320, 97 + i * 42); }
+    c.fillStyle = '#cfe0ff'; c.font = '22px system-ui, sans-serif'; c.fillText('Stick: up and down    A or X: choose    B or Y: close', 320, 540);
   } else {
     c.fillStyle = '#fff'; c.font = 'italic 36px Georgia, serif'; c.fillText('Everyone uses the same 4 letters', 320, 70);
     for (i = 0; i < 4; i++) { c.fillStyle = i === vm.pos ? '#ffd23f' : 'rgba(255,255,255,0.15)'; c.fillRect(70 + i * 130, 130, 110, 150); c.fillStyle = i === vm.pos ? '#241a00' : '#fff'; c.font = '800 110px monospace'; c.fillText(VABC.charAt(vm.code[i]), 125 + i * 130, 245); }
@@ -1099,6 +1112,8 @@ function vmPick() {
   else if (a === 'top') { vmToggle(false); toSummit(); say('Back on top', 2); }
   else if (a === 'trail') { vmToggle(false); toTrail(); }
   else if (a === 'hub') { vmToggle(false); toHub(); }
+  else if (a === 'fly') { vmToggle(false); toggleFly(); }
+  else if (a === 'wild') $('wildbtn').click();
   else vmToggle(false);
 }
 function vmStick(x, y) {       // one step per push of the stick
@@ -1116,7 +1131,7 @@ function drawVrHud(a, b, c) {
 }
 
 // ================= player =================
-var P = { boost: 0, boostCd: 0, jmp: false, yeti: false, stun: 0, catches: 0, down: 0, safe: 0, yb: 0, vy: 0, air: 0, gy0: 0, rock: 0, squat: 0, headTop: 0, x: 0, z: 0, y: 0, ry: 0, yaw: 0, pitch: -0.12, head: 0, v: 0, u: 0, turn: 0, mode: 'walk', roll: 0, autoPitch: 0, top: 0, t0: 0, timing: false, done: false, lost: 0, bob: 0, drop: 0 };
+var P = { score: 0, trick: 0, pose: false, fy: 0, buried: 0, boost: 0, boostCd: 0, jmp: false, yeti: false, stun: 0, catches: 0, down: 0, safe: 0, yb: 0, vy: 0, air: 0, gy0: 0, rock: 0, squat: 0, headTop: 0, x: 0, z: 0, y: 0, ry: 0, yaw: 0, pitch: -0.12, head: 0, v: 0, u: 0, turn: 0, mode: 'walk', roll: 0, autoPitch: 0, top: 0, t0: 0, timing: false, done: false, lost: 0, bob: 0, drop: 0 };
 var started = false, vr = false, xrSession = null, vrYaw = 0, snapReady = true, btnPrev = {}, headPrev = null, holdTop = 0, vigOn = QS.get('vig') !== '0';
 var inp = { mx: 0, my: 0, turn: 0, brake: 0, run: false };
 var keys = {}, joy = { id: -1, ox: 0, oy: 0, x: 0, y: 0 }, look = { id: -1, x: 0, y: 0 }, isTouch = false;
@@ -1130,12 +1145,13 @@ function setYeti(on) {
 function hint() {
   var h;
   if (vr) h = '';
-  else if (isTouch) h = P.mode === 'ski' ? 'Left thumb: steer, up to tuck, down to brake. Tap the screen to jump. ROCKET to go wild.' : 'Left thumb: walk. Drag right side to look. Tap the screen to jump.';
-  else h = P.mode === 'ski' ? 'A / D steer   W tuck   S brake   E rocket   J jump   F snowball' : 'W A S D walk   J jump   F snowball   Space: skis on   V view';
+  else if (P.mode === 'fly') h = isTouch ? 'Left thumb: steer. Push up to dive, pull down to float. Land anywhere.' : 'A / D steer   W dive   S float   E rocket   land anywhere';
+  else if (isTouch) h = P.mode === 'ski' ? 'Left thumb: steer, up to tuck, down to brake. Tap to jump, tap again in the air to flip.' : 'Left thumb: walk. Drag right side to look. Tap the screen to jump.';
+  else h = P.mode === 'ski' ? 'A / D steer   W tuck   S brake   E rocket   J jump, J again to flip   G glider' : 'W A S D walk   J jump   F snowball   Space: skis on   V view';
   $('hint').textContent = h; $('hint').style.opacity = 0.95; hintT = 9; $('skibtn').textContent = P.yeti ? (P.mode === 'ski' ? 'STAND UP' : 'BELLY SLIDE') : (P.mode === 'ski' ? 'SKIS OFF' : 'SKIS ON');
 }
 function toSummit() {
-  var p = routeAt(40).slice(), sp = routeAt(1.5 + (MP.n - 1) * 1.7); P.x = sp[0] + 0.4; P.z = sp[1]; P.v = 0; P.u = 0; P.mode = 'walk'; P.done = false; P.timing = false; P.top = 0; P.lost = 0; P.down = 0; cam3ok = false;
+  var p = routeAt(40).slice(), sp = routeAt(1.5 + (MP.n - 1) * 1.7); P.x = sp[0] + 0.4; P.z = sp[1]; P.v = 0; P.u = 0; P.mode = 'walk'; P.done = false; P.timing = false; P.top = 0; P.lost = 0; P.down = 0; cam3ok = false; wildReset();
   P.yaw = Math.atan2(-(p[0] - P.x), -(p[1] - P.z)); P.head = P.yaw; P.pitch = -0.1; vrYaw = P.yaw; headPrev = null;
   P.y = H(P.x, P.z, 0) - Y0; P.ry = P.y; P.jmp = false; P.air = 0; P.vy = 0; P.yb = P.y; P.gy0 = P.y; P.boost = 0; myTrack.last = null; skiGroup.visible = false;
   lodUpdate(P.x, P.z, true); hint();
@@ -1145,11 +1161,12 @@ function teleport(arc, ski) {
   P.y = H(P.x, P.z, 0) - Y0; P.ry = P.y; P.jmp = false; P.air = 0; P.vy = 0; P.yb = P.y; P.gy0 = P.y; P.boost = 0; P.mode = ski ? 'ski' : 'walk'; myTrack.last = null; lodUpdate(P.x, P.z, true); hint();
 }
 function jump() {
-  if (!started || P.lost || P.down > 0 || P.jmp || P.air > 0.05 || RC.st === 2 || RC.st === 3) return;
+  if (!started || P.lost || P.down > 0 || RC.st === 2 || RC.st === 3 || P.mode === 'fly') return;
+  if (P.jmp || P.air > 0.05) { trick(); return; }
   P.jmp = true; P.vy = Math.max(P.vy, 0) + (P.mode === 'ski' ? 5.8 : 4.6); P.yb = P.gy0 + 0.04; whoosh(); buzz(0, 0.5, 40); buzz(1, 0.5, 40);
 }
 function boost() {
-  if (!started || P.lost || P.down > 0 || P.mode !== 'ski' || P.boostCd > 0 || RC.st === 2 || RC.st === 3) return;
+  if (!started || P.lost || P.down > 0 || (P.mode !== 'ski' && P.mode !== 'fly') || P.boostCd > 0 || RC.st === 2 || RC.st === 3) return;
   P.boost = 3; P.boostCd = 20; say('Rocket boost!', 1.2); rocketSnd(); buzz(0, 1, 400); buzz(1, 1, 400);
 }
 function toHub() { try { netClose(); } catch (e) {} if (xrSession) { try { xrSession.end(); } catch (e) {} } setTimeout(function () { location.href = '../'; }, xrSession ? 500 : 0); }
@@ -1157,7 +1174,7 @@ function toTrail() {       // stuck on a cliff or lost: put me back on the route
   if (P.lost || RC.st === 2 || RC.st === 3) return; var a = clamp(nearestOnRoute(P.x, P.z).arc, 3, ROUTE_LEN - 100), was = P.done; teleport(a, false); P.down = 0; P.done = was; cam3ok = false; say('Back on the trail', 2);
 }
 function toggleSkis() {
-  if (P.lost || RC.st === 2 || RC.st === 3) return;
+  if (P.lost || RC.st === 2 || RC.st === 3 || P.mode === 'fly') return;
   if (P.mode === 'walk') { P.mode = 'ski'; P.head = vr ? viewYaw() : P.yaw; P.v = 0; P.u = 0; myTrack.last = null; if (!P.timing && !P.done) { P.timing = true; P.t0 = clock; P.drop = P.y; } say(P.yeti ? 'Belly slide!' : vr ? 'Look where you want to go. Crouch to go fast.\nSwing both poles back hard: ROCKET. Click a stick: jump.\nDig both poles in front: brake. Poke people over!' : 'Skis on. Point downhill.', P.yeti ? 2 : 7); }
   else { P.mode = 'walk'; P.v = 0; P.u = 0; say('Skis off', 1.5); }
   hint(); audioClick();
@@ -1177,6 +1194,7 @@ window.addEventListener('keydown', function (e) {
   if (e.code === 'KeyV') $('viewbtn').click();
   if (e.code === 'KeyF') throwNow(-1);
   if (e.code === 'KeyJ') jump();
+  if (e.code === 'KeyG') toggleFly();
   if (e.code === 'KeyE') boost();
 });
 window.addEventListener('keyup', function (e) { keys[e.code] = false; });
@@ -1277,6 +1295,7 @@ function initAudio() {
     skiF = AC.createBiquadFilter(); skiF.type = 'highpass'; skiF.frequency.value = 1800; skiG = AC.createGain(); skiG.gain.value = 0;
     src().connect(skiF); skiF.connect(skiG); skiG.connect(AC.destination);
     var hf = AC.createBiquadFilter(); hf.type = 'lowpass'; hf.frequency.value = 500; var hm = AC.createGain(); hm.gain.value = 0.5; var lfo = AC.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 13; var lg = AC.createGain(); lg.gain.value = 0.5; lfo.connect(lg); lg.connect(hm.gain); lfo.start();
+    var rf = AC.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 130; rumbleG = AC.createGain(); rumbleG.gain.value = 0; src().connect(rf); rf.connect(rumbleG); rumbleG.connect(AC.destination);
     heliG = AC.createGain(); heliG.gain.value = 0; src().connect(hf); hf.connect(hm); hm.connect(heliG); heliG.connect(AC.destination);
   } catch (e) { AC = null; }
 }
@@ -1437,12 +1456,14 @@ function mpData(d) {
     if (MP.n && dn === MP.n && d.id < MP.id) { b.n = dn; mpPickN(); }                                             // two of us picked the same number: the other one keeps it
     var x = num(d.x, WX0, WX0 + WS), z = num(d.z, WZ0, WZ0 + WS);
     if (b.tx === null || Math.hypot(x - b.tx, z - b.tz) > 60) { b.x = x; b.z = z; b.track.last = null; }
-    b.tx = x; b.tz = z; b.th = num(d.h, -1e4, 1e4); b.v = num(d.v, 0, 60); b.ski = d.m === 1; b.dn = d.k === 1; b.at = performance.now();
+    b.tx = x; b.tz = z; b.th = num(d.h, -1e4, 1e4); b.v = num(d.v, 0, 60); b.ski = d.m === 1 || d.m === 2; b.fly = d.m === 2; b.fyT = num(d.fy, -3000, 3000); b.dn = d.k === 1; b.at = performance.now();
+    var nm = typeof d.nm === 'string' ? d.nm.replace(/[^A-Za-z0-9 ]/g, '').slice(0, 10) : '', sc = num(d.sc, 0, 1e6); if (nm !== b.name || sc !== b.sc) { b.name = nm; b.sc = sc; budTag(b); }
     b.lky = num(d.ly, -1.3, 1.3); b.lkp = num(d.lp, -0.6, 0.6); b.wv = d.w === 1; b.arc = num(d.a, 0, 20000);
-    if ((d.y === 1) !== b.yeti) { b.yeti = d.y === 1; b.fig.geometry = b.yeti ? yetiFig(true) : figGeo(b.n + 1, true); b.fig.scale.setScalar(b.yeti ? 1.5 : 1); if (b.yeti) { say('Player ' + b.n + ' is the yeti. Run!', 3.5); roar(); } }
+    if ((d.y === 1) !== b.yeti) { b.yeti = d.y === 1; b.fig.geometry = b.yeti ? yetiFig(true) : figGeo(b.n + 1, true); b.fig.scale.setScalar(b.yeti ? 1.5 : 1); if (b.yeti) { say(who(b) + ' is the yeti. Run!', 3.5); roar(); } }
     if (typeof d.td === 'number' && MP.n && dn < MP.n && dn === mpLowest()) { var th = num(d.td, 0, 6.2832), sm = clamp(d.sm | 0, 0, 3); if (sm !== SKY.mode || Math.abs(angDiff(th, SKY.th)) > 0.06) setSky(sm, th); SKY.wc = num(d.wc, 0, 1e7); }
-    if (d.f === 1 && !b.done) { b.done = true; if (RC.st < 3 && !isNew) say('Player ' + b.n + ' reached Base Camp!', 4); } else if (d.f !== 1) b.done = false;
+    if (d.f === 1 && !b.done) { b.done = true; if (RC.st < 3 && !isNew) say(who(b) + ' reached Base Camp!', 4); } else if (d.f !== 1) b.done = false;
   } else if (d.t === 'r') raceData(d);
+  else if (d.t === 'a') { if (WILD && !AV.on && started) avStart(num(d.arc, 0, 20000), false); }
   else if (d.t === 'b' && Array.isArray(d.p) && Array.isArray(d.v)) {
     var o = MP.buds[d.id], px = num(d.p[0], WX0, WX0 + WS), py = num(d.p[1], -3000, 3000), pz = num(d.p[2], WZ0, WZ0 + WS);
     if (!o || Math.hypot(px - o.x, pz - o.z) > 40) return;       // a ball has to start where its thrower is
@@ -1456,7 +1477,7 @@ function mpData(d) {
 }
 function mpLowest() { var m = MP.n || 99, k; for (k in MP.buds) if (MP.buds[k].n < m) m = MP.buds[k].n; return m; }
 function budTag(b) {
-  var x = b.tag.material.map.image.getContext('2d'); x.clearRect(0, 0, 256, 64); x.textAlign = 'center'; x.shadowColor = 'rgba(6,26,96,0.9)'; x.shadowBlur = 8; x.fillStyle = '#ffe680'; x.font = 'italic 40px Georgia, serif'; x.fillText('Player ' + b.n, 128, 44); x.fillText('Player ' + b.n, 128, 44); b.tag.material.map.needsUpdate = true;
+  var x = b.tag.material.map.image.getContext('2d'); x.clearRect(0, 0, 256, 64); x.textAlign = 'center'; x.shadowColor = 'rgba(6,26,96,0.9)'; x.shadowBlur = 8; x.fillStyle = '#ffe680'; x.font = 'italic 40px Georgia, serif'; var tt = who(b) + (b.sc ? '  ' + b.sc : ''); x.font = 'italic ' + (tt.length > 11 ? 30 : 40) + 'px Georgia, serif'; x.fillText(tt, 128, 44); x.fillText(tt, 128, 44); b.tag.material.map.needsUpdate = true;
 }
 function num(v, a, b) { return typeof v === 'number' && isFinite(v) ? clamp(v, a, b) : 0; }
 function budMake(id, n) {
@@ -1466,7 +1487,7 @@ function budMake(id, n) {
   var tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
   var tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false })); tag.center.set(0.5, 0); tag.renderOrder = 75; scene.add(tag);
   MP.count++;
-  var nb = (MP.buds[id] = { n: n, g: g, fig: fig, sk: sk, tag: tag, track: new Track(260, 0.42, 0.56, 0.86, 0.6), x: 0, z: 0, tx: null, tz: 0, h: 0, th: 0, id: id, v: 0, walk: 0, cr: 0, fall: 0, lky: 0, lkp: 0, lys: 0, lps: 0, wv: false, yeti: false, arc: 0, dn: false, ski: false, at: performance.now(), done: false }); budTag(nb); return nb;
+  var nb = (MP.buds[id] = { n: n, g: g, fig: fig, sk: sk, tag: tag, track: new Track(260, 0.42, 0.56, 0.86, 0.6), x: 0, z: 0, tx: null, tz: 0, h: 0, th: 0, id: id, name: '', sc: 0, fly: false, fyT: 0, fy: 0, wing: null, v: 0, walk: 0, cr: 0, fall: 0, lky: 0, lkp: 0, lys: 0, lps: 0, wv: false, yeti: false, arc: 0, dn: false, ski: false, at: performance.now(), done: false }); budTag(nb); return nb;
 }
 function mpTick(dt) {
   if (!MP.code) return; var k, b;
@@ -1474,7 +1495,7 @@ function mpTick(dt) {
   if (NET.on && MP.count !== MP.shown) { MP.shown = MP.count; mpStat(MP.count ? 'Room ' + MP.code + ': ' + MP.count + (MP.count === 1 ? ' friend is here.' : ' friends are here.') : 'You are in room ' + MP.code + '. Friends type ' + MP.code + ' too.'); }
   MP.sendT -= dt;
   if (MP.sendT <= 0 && started && NET.on && MP.n) {
-    MP.sendT = 0.1; var msg = { t: 's', id: MP.id, n: MP.n, x: Math.round(P.x * 100) / 100, z: Math.round(P.z * 100) / 100, h: Math.round((P.mode === 'ski' ? P.head : (vr ? viewYaw() : P.yaw)) * 100) / 100, v: Math.round(P.v * 10) / 10, m: P.mode === 'ski' ? 1 : 0, f: P.done ? 1 : 0, k: P.down > 0 ? 1 : 0, y: P.yeti ? 1 : 0, a: Math.round(myArc), w: myWave ? 1 : 0,
+    MP.sendT = 0.1; var msg = { t: 's', id: MP.id, n: MP.n, x: Math.round(P.x * 100) / 100, z: Math.round(P.z * 100) / 100, h: Math.round((P.mode === 'ski' ? P.head : (vr ? viewYaw() : P.yaw)) * 100) / 100, v: Math.round(P.v * 10) / 10, m: P.mode === 'ski' ? 1 : P.mode === 'fly' ? 2 : 0, f: P.done ? 1 : 0, k: P.down > 0 ? 1 : 0, y: P.yeti ? 1 : 0, nm: MP.name || undefined, sc: Math.round(P.score / 10) * 10 || undefined, fy: P.mode === 'fly' ? Math.round(P.ry * 10) / 10 : undefined, a: Math.round(myArc), w: myWave ? 1 : 0,
       ly: Math.round(clamp(vr ? angDiff(viewYaw(), P.mode === 'ski' ? P.head : viewYaw()) : (P.mode === 'ski' ? angDiff(P.yaw, P.head) : 0), -1.3, 1.3) * 100) / 100, lp: Math.round(clamp(vr ? Math.asin(clamp(camera.getWorldDirection(_v2).y, -1, 1)) : P.pitch, -0.6, 0.6) * 100) / 100 };
     if (mpLowest() === MP.n) { msg.td = Math.round(SKY.th * 1000) / 1000; msg.sm = SKY.mode; msg.wc = Math.round(SKY.wc); }       // the lowest player number keeps the sky for everyone
     mpSendAll(msg);
@@ -1486,6 +1507,7 @@ function mpTick(dt) {
     var y = H(b.x, b.z, 0) - Y0, hx = -Math.sin(b.h), hz = -Math.cos(b.h), g = grad(b.x, b.z);
     b.g.position.set(b.x, y, b.z); b.g.rotation.y = b.h; b.sk.visible = b.ski && !b.yeti; b.sk.rotation.x = b.ski ? Math.atan(g[0] * hx + g[1] * hz) : 0; b.walk += Math.hypot((b.tx - b.x), (b.tz - b.z)) * al; b.cr += ((b.ski ? 0.55 + Math.min(b.v / 40, 0.3) : 0) - b.cr) * Math.min(1, dt * 5); b.fig.position.y = b.ski ? 0.05 : 0; b.fig.material.uniforms.uAnim.value.set(b.walk / 0.62 * Math.PI * 0.5, b.ski ? 0 : Math.min(b.v / 2, 1), b.ski ? 0 : 0.1, b.cr); b.lys += (b.lky - b.lys) * al; b.lps += (b.lkp - b.lps) * al; b.fig.material.uniforms.uLook.value.set(b.lys, b.lps, b.wv ? 1 : 0, clock * 1.5); if (b.yeti && b.ski) { b.fig.rotation.x = -1.2; b.fig.position.y = 0.75; b.fig.material.uniforms.uAnim.value.w = 0; } else b.fig.rotation.x = 0;
     b.fall += ((b.dn ? 1 : 0) - b.fall) * Math.min(1, dt * 6); b.g.rotation.order = 'YXZ'; b.g.rotation.x = 1.5 * b.fall; b.g.position.y = y + 0.2 * b.fall;
+    if (b.fly) { if (!b.wing) { b.wing = new THREE.Mesh(wingGeo, propMat); b.wing.frustumCulled = false; b.g.add(b.wing); } b.fy += (b.fyT - b.fy) * al; if (Math.abs(b.fyT - b.fy) > 80) b.fy = b.fyT; y = Math.max(y, b.fy); b.g.position.y = y; b.sk.rotation.x = 0.1; } if (b.wing) b.wing.visible = b.fly;
     var db = Math.hypot(b.x - P.x, b.z - P.z); if (b.yeti && !P.yeti && db < 1.9 && !b.dn && started && canKnock()) { knock((P.x - b.x) / (db || 1), (P.z - b.z) / (db || 1)); say('The yeti got you!', 2.5); roar(); mpSendAll({ t: 'e', id: MP.id, k: 'caught', to: b.id, n: MP.n }); }
     else if (db < 0.85 && !b.dn && !P.yeti && !b.yeti && started && (P.v > 2.5 || b.v > 2.5) && canKnock()) knock((P.x - b.x) / (db || 1), (P.z - b.z) / (db || 1));       // friends can crash into each other
     if (b.ski && b.v > 0.5 && !b.dn) b.track.step(b.x, b.z, hx, hz); else b.track.last = null;
@@ -1569,6 +1591,93 @@ press('throwbtn', function () { throwNow(-1); }); press('boostbtn', function () 
 $('menubtn').addEventListener('click', function () { $('menu').style.display = $('menu').style.display === 'flex' ? 'none' : 'flex'; });
 $('menu').addEventListener('click', function (e) { if (e.target.tagName === 'BUTTON') $('menu').style.display = 'none'; });
 
+// ================= the wild stuff: rings, tricks, avalanches, a hunting yeti, a paraglider =================
+var WILD = true, rings = [], ringGeo = null, AV = { on: false, arc: 0, t: 0, next: 75, hit: false, inv: false }, NY = { on: false, x: 0, z: 0, t: 0, next: 170, stun: 0, ph: 0, mesh: null }, wing = null, wingGeo = null, rumbleG = null;
+function ding() { if (!AC) return; try { var o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine'; o.frequency.value = 1320; o.frequency.setValueAtTime(1760, AC.currentTime + 0.07); g.gain.value = 0.09; g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.25); o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime + 0.26); } catch (e) {} }
+function addScore(n, text) { P.score = Math.max(0, P.score + n); if (text) say(text, 1.4); if (n > 0) ding(); }
+function buildWild() {
+  var b = new Builder(); b.bone = 10; b.add(new THREE.TorusGeometry(1.15, 0.14, 8, 22), [1.0, 0.76, 0.08]); ringGeo = b.geo();
+  function ring(x, z, up, pts) { var m = new THREE.Mesh(ringGeo, propMat); m.position.set(x, H(x, z, 0) - Y0 + up, z); m.visible = false; scene.add(m); rings.push({ m: m, x: x, z: z, y: m.position.y, got: false, pts: pts }); }
+  for (var a = 80; a < ROUTE_LEN - 190; a += 105) { var p = routeAt(a).slice(), q = routeAt(a + 3), tx = q[0] - p[0], tz = q[1] - p[1], tl = Math.hypot(tx, tz) || 1, lat = Math.sin(a * 0.013) * 7; ring(p[0] - tz / tl * lat, p[1] + tx / tl * lat, 1.4, 10); }
+  var kb = new Builder(); KICKS.forEach(function (K) { [-6.2, 6.2].forEach(function (w) { var x = K[0] + K[2] * 17 - K[3] * w, z = K[1] + K[3] * 17 + K[2] * w, y = H(x, z, 0) - Y0; kb.box(0.14, 4.4, 0.14, x, y + 2.2, z, [0.15, 0.15, 0.17]); kb.bone = 10; kb.box(0.9, 0.6, 0.9, x, y + 4.5, z, [1.0, 0.42, 0.05], 0, 0.78, 0); kb.bone = 0; }); });
+  var km = new THREE.Mesh(kb.geo(), propMat); km.frustumCulled = false; scene.add(km);
+  KICKS.forEach(function (K) { ring(K[0] + K[2] * 31, K[1] + K[3] * 31, 5.5, 50); ring(K[0] + K[2] * 46, K[1] + K[3] * 46, 4.5, 50); });
+  NY.mesh = new THREE.Mesh(yetiFig(true), figMat()); NY.mesh.scale.setScalar(1.6); NY.mesh.rotation.order = 'YXZ'; NY.mesh.visible = false; scene.add(NY.mesh);
+  // the paraglider wing
+  var w = new Builder(), cols = [[0.95, 0.4, 0.05], [0.97, 0.97, 0.97], [0.1, 0.35, 0.85]], i; 
+  for (i = -4; i <= 4; i++) { var an = i * 0.16; w.box(1.12, 0.14, 2.3, Math.sin(an) * 6.4, 3.9 - (1 - Math.cos(an)) * 6.4, -0.2, cols[(i + 4) % 3], 0.08, 0, -an); }
+  [-4, -2, 0, 2, 4].forEach(function (k) { var an = k * 0.16; w.tube([Math.sin(an) * 6.4, 3.85 - (1 - Math.cos(an)) * 6.4, -0.2], [k < 0 ? -0.22 : k > 0 ? 0.22 : 0, 1.35, 0], 0.012, 0.012, [0.2, 0.2, 0.22]); });
+  wingGeo = w.geo(); wing = new THREE.Mesh(wingGeo, propMat); wing.rotation.order = 'YXZ'; wing.visible = false; wing.frustumCulled = false; scene.add(wing);
+  try { WILD = localStorage.getItem('mr_wild') !== '0'; $('myname').value = localStorage.getItem('mr_name') || ''; } catch (e) {} $('wildbtn').textContent = WILD ? 'WILD: ON' : 'WILD: OFF'; myName();
+}
+function myName() { MP.name = ($('myname').value || '').replace(/[^A-Za-z0-9 ]/g, '').slice(0, 10).trim(); try { localStorage.setItem('mr_name', MP.name); } catch (e) {} }
+function who(b) { return b.name || 'Player ' + b.n; }
+function wildReset() { for (var j = 0; j < AV_N; j++) puffs.set(SPRAY_N + PLUME_N + FLAKE_N + BALL_N + j, 0, -1e5, 0, 0, 0); for (var i = 0; i < rings.length; i++) rings[i].got = false; P.score = 0; AV.on = false; NY.on = false; if (NY.mesh) NY.mesh.visible = false; AV.next = clock + 60 + Math.random() * 40; NY.next = clock + 140 + Math.random() * 60; if (P.mode === 'fly') P.mode = 'walk'; }
+function trick() {
+  if (P.trick > 0 || P.air < 0.08 || vr) return; P.trick = 0.75; addScore(100, ['Backflip! +100', 'Flip! +100', 'Big air! +100'][Math.floor(Math.random() * 3)]); whoosh();
+}
+function toggleFly() {
+  if (!started || P.lost || P.down > 0 || RC.st === 2 || RC.st === 3 || P.yeti) return;
+  if (P.mode === 'fly') { P.mode = 'ski'; P.jmp = true; P.yb = P.fy; P.vy = -1; say('Wing away', 1.5); }
+  else { P.fy = P.ry + 3.5; P.mode = 'fly'; P.v = Math.max(P.v, 12); P.head = vr ? viewYaw() : P.yaw; P.air = 0; P.jmp = false; say(vr ? 'Paraglider!\nLook where you want to fly. Look down to dive.' : 'Paraglider!\nSteer left and right. Push up to dive, pull down to float.', 5); whoosh(); if (!P.timing && !P.done) { P.timing = true; P.t0 = clock; } }
+  hint();
+}
+function stepFly(dt, vy) {
+  if (!vr) { P.yaw += (inp.turn - inp.mx) * 1.3 * dt; vy = P.yaw; }
+  var rate = clamp(angDiff(vy, P.head) * 2.5, -1.1, 1.1); P.head += rate * dt; P.turn = rate;
+  var look = vr ? -camera.getWorldDirection(_v2).y * 1.6 - 0.15 : 0, dive = clamp(Math.max(inp.my, look), 0, 1), flare = Math.max(clamp(-inp.my, 0, 1), xin.trig);
+  var dx = -Math.sin(P.head), dz = -Math.cos(P.head), g = grad(P.x, P.z), lift = clamp(-(g[0] * WDX + g[1] * WDZ), 0, 1.2) * clamp(1 - (P.fy - P.y) / 160, 0, 1) * 1.3;       // the wind rises up west-facing slopes
+  var sp = 13 + 14 * dive - 5 * flare + (P.boost > 0 ? 22 : 0), sink = 1.6 + 6.5 * dive - 0.45 * flare + Math.abs(rate) * 0.7 - lift - (P.boost > 0 ? 3.5 : 0);
+  P.v += (sp - P.v) * Math.min(1, dt * 1.6); P.x += dx * P.v * dt; P.z += dz * P.v * dt; P.fy -= sink * dt; if (P.v > P.top) P.top = P.v;
+  var gr = H(P.x, P.z, 2) - Y0; if (P.fy <= gr + 0.35) { P.mode = P.v > 7 ? 'ski' : 'walk'; P.yb = gr; P.vy = 0; P.gy0 = gr; myTrack.last = null; say('Touchdown!', 1.5); thump(0.5); hint(); }
+}
+function avStart(a, mine) {
+  AV.on = true; AV.arc = a; AV.t = 0; AV.hit = false; AV.next = clock + 110 + Math.random() * 80; var nr = nearestOnRoute(P.x, P.z);
+  AV.inv = nr.arc > a && nr.arc - a < 700 && nr.d < 260; if (AV.inv) { say('AVALANCHE!\nGo go go!', 3); roar(); }
+  if (mine) mpSendAll({ t: 'a', id: MP.id, arc: Math.round(a) });
+}
+function wildStep(dt) {
+  var i, k, base = SPRAY_N + PLUME_N + FLAKE_N + BALL_N, nr = nearestOnRoute(P.x, P.z), skiing = P.mode === 'ski' && !P.lost && started, bodyY = P.ry + 1;
+  // gold rings
+  for (i = 0; i < rings.length; i++) {
+    var r = rings[i], dx = r.x - P.x, dz = r.z - P.z, near = !r.got && Math.abs(dx) < 420 && Math.abs(dz) < 420; r.m.visible = near; if (!near) continue;
+    r.m.rotation.y = clock * 1.6 + i; if (dx * dx + dz * dz < 4.4 && Math.abs(r.y - bodyY) < 2.4 && started) { r.got = true; r.m.visible = false; addScore(r.pts, r.pts > 10 ? 'Air ring! +' + r.pts : ''); buzz(0, 0.3, 30); buzz(1, 0.3, 30); }
+  }
+  if (P.trick > 0) P.trick -= dt;
+  if (vr && P.air > 0.25 && !P.pose && grips[0].visible && grips[0].position.y > camera.position.y + 0.05 && grips[1].position.y > camera.position.y + 0.05) { P.pose = true; addScore(100, 'Hands up! +100'); } if (P.air <= 0) P.pose = false;
+  // avalanche: a wall of snow comes down the route behind you
+  if (WILD && !AV.on && skiing && clock > AV.next && nr.arc > 1950 && nr.arc < FIN_ARC - 1000 && nr.d < 150 && RC.st !== 2 && RC.st !== 3 && !NY.on) avStart(nr.arc - 250, true);
+  if (AV.on) {
+    AV.t += dt; AV.arc += (AV.arc < 3700 ? 18 : 14) * Math.min(1, AV.t / 3) * dt; var fadeA = Math.min(1, AV.t / 2) * clamp((31 - AV.t) / 3, 0, 1);
+    for (i = 0; i < AV_N; i++) {
+      var a = AV.arc - (i % 6) * 12 - ((i * 7) % 5) * 3, p = routeAt(a), px = p[0], pz = p[1], q = routeAt(a + 3), tx = q[0] - px, tz = q[1] - pz, tl = Math.hypot(tx, tz) || 1, lat = (((i * 37) % 100) / 50 - 1) * (50 + (i % 5) * 28);
+      px -= tz / tl * lat; pz += tx / tl * lat; puffs.set(base + i, px, H(px, pz, 2) - Y0 + 5 + (i % 4) * 4.5 + Math.sin(clock * 3 + i) * 2.5, pz, 15 + (i % 5) * 5, 0.9 * fadeA);
+    }
+    if (AV.inv && !AV.hit && nr.arc < AV.arc - 5 && nr.arc > AV.arc - 110 && nr.d < 230 && P.mode !== 'fly' && !P.lost) { AV.hit = true; P.down = 3.4; P.buried = 3.4; P.v = 0; P.u = 0; say('Buried by the avalanche!\nDigging you out...', 3.2); addScore(-100); thump(1); buzz(0, 1, 500); buzz(1, 1, 500); }
+    if (AV.inv && !AV.hit && Math.random() < dt * 3) { buzz(0, 0.35, 60); buzz(1, 0.35, 60); }
+    if (AV.t > 31 || AV.arc > FIN_ARC - 450) { AV.on = false; for (i = 0; i < AV_N; i++) puffs.set(base + i, 0, -1e5, 0, 0, 0); if (AV.inv && !AV.hit && !P.lost) addScore(300, 'You outran the avalanche! +300'); }
+  }
+  if (rumbleG) rumbleG.gain.setTargetAtTime(AV.on && AV.inv ? clamp(1 - (nr.arc - AV.arc) / 450, 0.12, 1) * 0.5 : 0, AC.currentTime, 0.15);
+  if (P.buried > 0) { P.buried -= dt; fadeMesh.visible = true; fadeMesh.material.opacity = clamp(Math.min(P.buried, 3.4 - P.buried) * 3, 0, 0.92); if (P.buried <= 0 && !P.lost) fadeMesh.visible = false; }
+  // a yeti that hunts you
+  if (WILD && !NY.on && started && clock > NY.next && !P.yeti && !P.lost && P.mode !== 'fly' && !AV.on && RC.st < 2 && nr.arc > 150 && nr.arc < FIN_ARC - 500 && nr.d < 200) {
+    var sp0 = routeAt(Math.max(0, nr.arc - 75)); NY.on = true; NY.x = sp0[0] + 6; NY.z = sp0[1]; NY.t = 0; NY.stun = 0; NY.next = clock + 150 + Math.random() * 100; NY.mesh.visible = true; say('A yeti is after you!\nSnowballs stun it', 3.5); roar();
+  }
+  if (NY.on) {
+    NY.t += dt; if (NY.stun > 0) NY.stun -= dt; var ex = P.x - NY.x, ez = P.z - NY.z, ed = Math.hypot(ex, ez) || 1, ysp = NY.stun > 0 ? 0 : clamp(P.v * 0.95 + 1.5 + (ed > 60 ? 6 : 0), 7.5, 27);
+    NY.x += ex / ed * ysp * dt; NY.z += ez / ed * ysp * dt; NY.ph += ysp * dt; var yy = H(NY.x, NY.z, 0) - Y0;
+    NY.mesh.position.set(NY.x, yy, NY.z); NY.mesh.rotation.set(NY.stun > 0 ? 0.5 : -0.25, Math.atan2(-ex, -ez), 0); NY.mesh.material.uniforms.uAnim.value.set(NY.ph / 1.0 * Math.PI * 0.5, NY.stun > 0 ? 0 : 1, 0.1, 0); NY.mesh.material.uniforms.uLook.value.set(0, 0.1, NY.stun > 0 ? 0 : 2.6, clock * 2);
+    for (k = balls.length - 1; k >= 0; k--) { var bl = balls[k]; if (bl.own && NY.stun <= 0 && Math.abs(bl.x - NY.x) < 1.3 && Math.abs(bl.z - NY.z) < 1.3 && bl.y > yy && bl.y < yy + 3.2) { NY.stun = 3.5; splat(bl.x, bl.y, bl.z); balls.splice(k, 1); addScore(150, 'Yeti stunned! +150'); } }
+    if (ed < 2.1 && NY.stun <= 0 && canKnock() && P.mode !== 'fly') { knock(ex / ed, ez / ed); say('The yeti got you!', 2.5); roar(); addScore(-50); NY.t = 99; }
+    if (NY.t > 40 || P.lost || P.mode === 'fly' && NY.t > 6) { NY.on = false; NY.mesh.visible = false; if (NY.t < 99 && !P.lost && P.mode !== 'fly') addScore(200, 'The yeti gave up! +200'); }
+  }
+  // the wing
+  wing.visible = P.mode === 'fly'; if (wing.visible) { wing.position.set(P.x, P.ry, P.z); wing.rotation.set(-0.08, P.head, clamp(-P.turn * 0.45, -0.5, 0.5)); }
+}
+press('flybtn', function () { toggleFly(); $('menu').style.display = 'none'; });
+$('wildbtn').addEventListener('click', function () { WILD = !WILD; this.textContent = WILD ? 'WILD: ON' : 'WILD: OFF'; try { localStorage.setItem('mr_wild', WILD ? '1' : '0'); } catch (e) {} if (started) say(WILD ? 'Avalanches and the yeti are on' : 'No avalanches, no hunting yeti', 2.5); if (!WILD) { AV.on = false; NY.on = false; NY.mesh.visible = false; for (var i = 0; i < AV_N; i++) puffs.set(SPRAY_N + PLUME_N + FLAKE_N + BALL_N + i, 0, -1e5, 0, 0, 0); } });
+$('myname').addEventListener('change', myName); $('myname').addEventListener('input', myName);
+
 // ================= simulation =================
 var clock = 0;
 function readInput(dt) {
@@ -1646,7 +1755,7 @@ function polesStep(dt) {      // the poles do things: push off, swing to go, dig
     if (on && !st.on && st.ok) { buzz(i, 0.45, 25); sprayEmit(_tip.x, gy + 0.08, _tip.z, (Math.random() - 0.5), 0.8, (Math.random() - 0.5)); }
     if (tsp > 1.6 && pokeT <= 0) {        // poke a climber or a friend and over they go
       for (k = 0; k < climbers.length; k++) { var cl = climbers[k]; if (cl.m.visible && cl.down <= 0 && Math.abs(cl.x - _tip.x) < 0.45 && Math.abs(cl.z - _tip.z) < 0.45 && _tip.y > cl.m.position.y + 0.2 && _tip.y < cl.m.position.y + 1.9) { cl.down = 4.2; cl.sl = 0; speak(cl.x, cl.m.position.y + 2.05, cl.z, OUCH[k % OUCH.length]); buzz(i, 0.9, 80); pokeT = 0.8; break; } }
-      if (pokeT <= 0) for (k in MP.buds) { var f = MP.buds[k]; if (!f.dn && Math.abs(f.x - _tip.x) < 0.5 && Math.abs(f.z - _tip.z) < 0.5 && _tip.y > f.g.position.y + 0.2 && _tip.y < f.g.position.y + 2) { mpSendAll({ t: 'e', id: MP.id, k: 'poke', to: f.id, n: MP.n }); buzz(i, 0.9, 80); say('You poked Player ' + f.n + '!', 1.5); pokeT = 1.5; break; } }
+      if (pokeT <= 0) for (k in MP.buds) { var f = MP.buds[k]; if (!f.dn && Math.abs(f.x - _tip.x) < 0.5 && Math.abs(f.z - _tip.z) < 0.5 && _tip.y > f.g.position.y + 0.2 && _tip.y < f.g.position.y + 2) { mpSendAll({ t: 'e', id: MP.id, k: 'poke', to: f.id, n: MP.n }); buzz(i, 0.9, 80); say('You poked ' + who(f) + '!', 1.5); pokeT = 1.5; break; } }
     }
     st.on = on; st.x = lx; st.z = lz; st.tx = rtx; st.ty = rty; st.tz = rtz; st.ok = true;
   }
@@ -1670,25 +1779,26 @@ function update(dt, now) {
   var vy = vr ? viewYaw() : P.yaw;
   if (P.down > 0) { P.down -= dt; if (P.down <= 0) P.safe = 2.5; } else if (P.safe > 0) P.safe -= dt;
   if (P.stun > 0) P.stun -= dt;
-  if (started && !P.lost && !(P.down > 0) && !(RC.st === 2 || RC.st === 3)) { if (P.mode === 'ski') stepSki(dt, vy); else stepWalk(dt, vy); } else if (RC.st === 2 || RC.st === 3) { P.v = 0; if (!vr) P.yaw += inp.turn * 1.9 * dt; }
+  if (started && !P.lost && !(P.down > 0) && !(RC.st === 2 || RC.st === 3)) { if (P.mode === 'fly') stepFly(dt, vy); else if (P.mode === 'ski') stepSki(dt, vy); else stepWalk(dt, vy); } else if (RC.st === 2 || RC.st === 3) { P.v = 0; if (!vr) P.yaw += inp.turn * 1.9 * dt; }
   else if (!started) P.yaw += dt * 0.03;
   var e = Math.min(P.x - WX0, P.z - WZ0, WX0 + WS - P.x, WZ0 + WS - P.z);
   P.y = H(P.x, P.z, 0) - Y0;
   // leaving the ground: at speed, when the slope drops away faster than you can fall, you fly
   var gs = H(P.x, P.z, 2) - Y0, gv = clamp((gs - P.gy0) / dt, -60, 60); P.gy0 = gs;
   if (P.boost > 0) P.boost -= dt; if (P.boostCd > 0) P.boostCd -= dt;
-  if ((P.jmp || (P.mode === 'ski' && P.v > 6)) && !P.lost) {
+  if (P.mode === 'fly') { P.yb = gs; P.vy = 0; P.air = 0; P.jmp = false; P.ry = P.fy; }
+  else if ((P.jmp || (P.mode === 'ski' && P.v > 6)) && !P.lost) {
     P.vy -= G * dt; P.yb += P.vy * dt;
     if (P.yb <= gs) { if (P.air > 0.3) land(P.air); P.yb = gs; P.vy = gv; P.air = 0; P.jmp = false; } else if (P.yb - gs > 0.1) P.air += dt;
   } else { P.yb = gs; P.vy = gv; P.air = 0; P.jmp = false; }
-  var k = 1 - Math.exp(-dt * 16), yt = P.air > 0 ? Math.max(P.y, P.yb) : P.y; P.ry += (yt - P.ry) * (P.air > 0 ? 1 : k); if (P.ry < P.y - 0.06) P.ry = P.y - 0.06; if (!P.air && P.ry > P.y + 0.3) P.ry = P.y + 0.3;
-  var alt = P.y + Y0;
+  if (P.mode !== 'fly') { var k = 1 - Math.exp(-dt * 16), yt = P.air > 0 ? Math.max(P.y, P.yb) : P.y; P.ry += (yt - P.ry) * (P.air > 0 ? 1 : k); if (P.ry < P.y - 0.06) P.ry = P.y - 0.06; if (!P.air && P.ry > P.y + 0.3) P.ry = P.y + 0.3; }
+  var alt = (P.mode === 'fly' ? P.ry : P.y) + Y0;
   // the end of the run, or lost in the clouds
   if (started && !P.lost && (alt < CLOUD + 45 || e < 700)) { P.lost = 0.001; P.v = 0; say('Into the clouds...', 3); }
   if (P.lost) { P.lost += dt; fadeMesh.visible = true; fadeMesh.material.opacity = clamp(P.lost < 2.2 ? P.lost / 1.2 : 3.6 - P.lost, 0, 1); if (P.lost > 2.2 && P.lost - dt <= 2.2) { var l = P.lost; toSummit(); P.lost = l; } if (P.lost > 3.6) { P.lost = 0; fadeMesh.visible = false; } }
   if (started && !P.done && (Math.hypot(P.x - RT[2 * RN - 2], P.z - RT[2 * RN - 1]) < 85 || (_near.arc > FIN_ARC && nearestOnRoute(P.x, P.z).d < 30 && _near.arc > FIN_ARC))) {
     P.done = true; var tt = P.timing ? clock - P.t0 : 0, mm = Math.floor(tt / 60), ss = Math.floor(tt % 60);
-    if (RC.st === 4) raceFinish(); else say('Base Camp!\n' + fmt(8849 - alt) + ' m down' + (P.timing ? ' in ' + mm + ':' + (ss < 10 ? '0' : '') + ss : '') + '\nTop speed ' + Math.round(P.top * 3.6) + ' km/h', 12); P.timing = false; cheer();
+    if (RC.st === 4) raceFinish(); else say('Base Camp!\n' + (P.score ? fmt(P.score) + ' points   ' : '') + fmt(8849 - alt) + ' m down' + (P.timing ? ' in ' + mm + ':' + (ss < 10 ? '0' : '') + ss : '') + '\nTop speed ' + Math.round(P.top * 3.6) + ' km/h', 12); P.timing = false; cheer();
   }
   // camera
   var g = grad(P.x, P.z);
@@ -1711,25 +1821,28 @@ function update(dt, now) {
     rig.rotation.set(0, 0, 0); rig.position.set(P.x, P.ry, P.z);
     camera.position.set(0, 1.66 + (ski ? -0.12 : Math.sin(P.bob * 2.6) * 0.035), 0);
     var tum = P.down > 0 ? clamp(1 - (P.down - 0.5) / 1.2, 0, 1) : 0; tum = tum * tum * (3 - 2 * tum);
-    camera.rotation.set(clamp(P.pitch + P.autoPitch, -1.4, 1.3) - Math.sin(tum * Math.PI) * 0.5, P.yaw, P.roll + tum * Math.PI * 2, 'YXZ'); if (P.down > 0) camera.position.y -= 0.9 * Math.sin(Math.PI * tum);
+    var fl = P.trick > 0 ? 1 - P.trick / 0.75 : 0; fl = fl * fl * (3 - 2 * fl);
+    camera.rotation.set(clamp(P.pitch + P.autoPitch, -1.4, 1.3) - Math.sin(tum * Math.PI) * 0.5 + (P.trick > 0 ? fl * Math.PI * 2 : 0), P.yaw, P.roll + tum * Math.PI * 2 + (P.mode === 'fly' ? clamp(-P.turn * 0.25, -0.3, 0.3) : 0), 'YXZ'); if (P.down > 0) camera.position.y -= 0.9 * Math.sin(Math.PI * tum);
+    if (AV.on && AV.inv) { var shk = clamp(1 - (myArc - AV.arc) / 220, 0, 1) * 0.07; camera.position.x += (Math.random() - 0.5) * shk; camera.position.y += (Math.random() - 0.5) * shk; }
     var fov = (camera.aspect < 1 ? 82 : 70) + (ski ? clamp(P.v / 30, 0, 1) * 9 : 0); if (Math.abs(fov - camera.fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
   }
   // skis under the feet, lying on the slope
   var me3 = view3 && !vr; myLegs.visible = false; myFig.visible = me3;      // no legs in first person: just your skis
   if (me3) {
-    var fl3 = P.down > 0 ? Math.sin(Math.PI * clamp(1 - P.down / 1.7, 0, 1)) : 0, sk3 = P.mode === 'ski';
+    var fl3 = P.down > 0 ? Math.sin(Math.PI * clamp(1 - P.down / 1.7, 0, 1)) : 0, sk3 = P.mode !== 'walk';
     myFig.position.set(P.x, P.ry + (sk3 ? 0.05 : 0) + 0.2 * fl3, P.z); myFig.rotation.set(1.5 * fl3, sk3 ? P.head : P.yaw, sk3 ? clamp(-P.turn * P.v * 0.02, -0.4, 0.4) : 0);
     myFig.material.uniforms.uAnim.value.set(P.bob / 0.62 * Math.PI * 0.5, sk3 ? 0 : Math.min(P.v / 2.5, 1), sk3 ? 0 : 0.1, sk3 ? 0.5 + 0.35 * Math.max(clamp(inp.my, 0, 1), P.squat) : 0);
+    if (P.trick > 0) { var f3 = 1 - P.trick / 0.75; myFig.rotation.x = f3 * Math.PI * 2; myFig.position.y += Math.sin(f3 * Math.PI) * 0.6; }
     myFig.material.uniforms.uLook.value.set(clamp(angDiff(P.yaw, sk3 ? P.head : P.yaw), -1, 1), 0, 0, clock * 1.5); if (P.yeti && sk3) { myFig.rotation.x = -1.2; myFig.position.y += 0.5; myFig.material.uniforms.uAnim.value.w = 0; }
   }
-  skiGroup.visible = P.mode === 'ski' && !(P.down > 0 && me3) && !P.yeti;
+  skiGroup.visible = P.mode !== 'walk' && !(P.down > 0 && me3) && !P.yeti;
   if (skiGroup.visible) {
     var hx2 = -Math.sin(P.head), hz2 = -Math.cos(P.head), fa = g[0] * hx2 + g[1] * hz2, sd = g[0] * -hz2 + g[1] * hx2;
-    skiGroup.position.set(P.x, P.ry + 0.02, P.z); skiGroup.rotation.set(Math.atan(fa), P.head, Math.atan(sd) * 0.9, 'YXZ');
+    skiGroup.position.set(P.x, P.ry + 0.02, P.z); if (P.mode === 'fly') skiGroup.rotation.set(0.12, P.head, clamp(-P.turn * 0.3, -0.3, 0.3), 'YXZ'); else skiGroup.rotation.set(Math.atan(fa), P.head, Math.atan(sd) * 0.9, 'YXZ');
   }
   lodUpdate(P.x, P.z, false);
   myArc = nearestOnRoute(P.x, P.z).arc; myWave = false; if (vr) for (var gi = 0; gi < 2; gi++) if (grips[gi].visible && grips[gi].position.y > camera.position.y + 0.08) myWave = true;
-  skyUpdate(dt); shadowStep(dt); updateClimbers(clock, dt); mpTick(dt); raceStep(dt); heliStep(dt); ballsStep(dt); windStep(dt);
+  skyUpdate(dt); shadowStep(dt); updateClimbers(clock, dt); mpTick(dt); raceStep(dt); heliStep(dt); ballsStep(dt); wildStep(dt); windStep(dt);
   for (var ti = 0; ti < tinted.length; ti++) tinted[ti].color.setRGB(Math.min(1, U.uTint.value.x * 1.03), Math.min(1, U.uTint.value.y * 1.02), U.uTint.value.z);
   U.uFog.value = 1 / ((2500 + 67500 * sstep(CLOUD + 60, CLOUD + 900, alt)) * (1 - 0.93 * SKY.w));
   camera.getWorldPosition(_v); camera.getWorldDirection(_v2); _v2.y -= 0.16; _v2.normalize(); U.uLampP.value.set(_v.x, _v.y + 0.08, _v.z, U.uLampP.value.w); U.uLampD.value.copy(_v2);
@@ -1740,11 +1853,11 @@ function update(dt, now) {
   if (msgT > 0) { msgT -= dt; if (msgT <= 0) { $('msg').style.opacity = 0; msgText = ''; } }
   fpsN++; fpsT += dt; if (fpsT >= 1) { fpsV = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; if (showFps) $('fps').textContent = fpsV + ' fps'; }
   hudT -= dt; if (hudT <= 0) {
-    hudT = 0.15; var a = fmt(alt) + ' m', b = P.mode === 'ski' ? Math.round(P.v * 3.6) + ' km/h' : '';
+    hudT = 0.15; var a = fmt(alt) + ' m', b = P.mode !== 'walk' ? Math.round(P.v * 3.6) + ' km/h' : '', scT = P.score > 0 ? fmt(P.score) + ' pts' : ''; if ($('score').textContent !== scT) $('score').textContent = scT; if (vr && scT) b += '   ' + scT;
     $('alt').textContent = a; $('spd').textContent = b;
     if (vr) drawVrHud(a, (b + (MP.code && NET.on ? '   Room ' + MP.code + (MP.count ? ' (' + (MP.count + 1) + ')' : '') : '') + (showFps ? '  ' + fpsV + ' fps' : '')).trim(), msgText || RC.text || '');
     var mi = MP.code ? (NET.on ? 'Room ' + MP.code : 'Room ' + MP.code + ' (connecting)') + (MP.count ? '  \u00b7  ' + MP.count + (MP.count === 1 ? ' friend' : ' friends') : '') : ''; if ($('mpinfo').textContent !== mi) $('mpinfo').textContent = mi;
-    $('throwbtn').style.display = started && !vr ? 'block' : 'none'; var bb = $('boostbtn'); bb.style.display = started && !vr && P.mode === 'ski' ? 'block' : 'none'; bb.style.opacity = P.boostCd > 0 ? 0.45 : 1; var bt = P.boostCd > 0 ? String(Math.ceil(P.boostCd)) : 'ROCKET'; if (bb.textContent !== bt) bb.textContent = bt;
+    $('throwbtn').style.display = started && !vr ? 'block' : 'none'; var bb = $('boostbtn'); bb.style.display = started && !vr && P.mode !== 'walk' ? 'block' : 'none'; bb.style.opacity = P.boostCd > 0 ? 0.45 : 1; var bt = P.boostCd > 0 ? String(Math.ceil(P.boostCd)) : 'ROCKET'; if (bb.textContent !== bt) bb.textContent = bt;
   }
 }
 var last = 0, ready = false;
@@ -1764,7 +1877,7 @@ $('go').addEventListener('click', begin);
 function init() {
   var t0 = performance.now();
   U.tGlobal.value = bakeGlobal(); U.tRipple.value = bakeRipple(); U.tCloud.value = bakeCloud(); shadowInit();
-  buildStatic(); buildLODs(); buildSky(); buildFar(); buildRoute(); buildLabels(); buildProps(); buildBaseCamp(); buildFlags(); buildSkis(); buildWind(); buildCameraBits(); buildHands();
+  buildStatic(); buildLODs(); buildSky(); buildFar(); buildRoute(); buildLabels(); buildProps(); buildBaseCamp(); buildFlags(); buildSkis(); buildWind(); buildWild(); buildCameraBits(); buildHands();
   try { if (localStorage.getItem('mr_view') === '1' || QS.get('view') === '3') { view3 = true; $('viewbtn').textContent = 'VIEW: BEHIND'; } } catch (e) {}
   var sm0 = 0; try { sm0 = parseInt(localStorage.getItem('mr_sky') || '0', 10) || 0; } catch (e) {} if (QS.get('sky')) sm0 = parseInt(QS.get('sky'), 10) || 0;
   setSky(clamp(sm0, 0, 3)); if (QS.get('th')) { SKY.th = parseFloat(QS.get('th')); skyUpdate(0); shadowSet(); }
@@ -1774,7 +1887,7 @@ function init() {
   var rm = QS.get('room') || QS.get('join'); if (rm) mpRoom(rm);
   if (QS.get('arc')) teleport(parseFloat(QS.get('arc')), QS.get('ski') === '1');
   ready = true; $('sub').textContent = 'You are standing on top of Everest. Walk the ridge, then ski all the way down.'; $('go').style.display = 'inline-block';
-  window.MR = { NET: NET, vm: vm, RC: RC, raceOpen: raceOpen, raceConfirm: raceConfirm, setYeti: setYeti, throwNow: throwNow, balls: balls, heli: heli, climbers: climbers, knock: knock, SKY: SKY, setSky: setSky, sh: sh, MP: MP, step: function (dt) { update(dt, 0); }, near: nearestOnRoute, say: say, U: U, inp: inp, P: P, H: H, teleport: teleport, toSummit: toSummit, toggleSkis: toggleSkis, begin: begin, keys: keys, renderer: renderer, camera: camera, routeAt: routeAt, LODS: LODS, initMs: Math.round(performance.now() - t0), info: function () { return renderer.info.render; } };
+  window.MR = { AV: AV, NY: NY, rings: rings, toggleFly: toggleFly, avStart: avStart, jump: jump, NET: NET, vm: vm, RC: RC, raceOpen: raceOpen, raceConfirm: raceConfirm, setYeti: setYeti, throwNow: throwNow, balls: balls, heli: heli, climbers: climbers, knock: knock, SKY: SKY, setSky: setSky, sh: sh, MP: MP, step: function (dt) { update(dt, 0); }, near: nearestOnRoute, say: say, U: U, inp: inp, P: P, H: H, teleport: teleport, toSummit: toSummit, toggleSkis: toggleSkis, begin: begin, keys: keys, renderer: renderer, camera: camera, routeAt: routeAt, LODS: LODS, initMs: Math.round(performance.now() - t0), info: function () { return renderer.info.render; } };
   hint();
 }
 renderer.setAnimationLoop(tick);
