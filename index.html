@@ -2143,8 +2143,8 @@ Game.prototype.updateMoon = function (dt) {
     vbox(mai, 0.006, 0.12, 0.006, 0xf4f4f0, 0.015, 0.12, -0.03).rotation.z = -0.25; vbox(mai, 0.004, 0.09, 0.004, 0x8a5a2b, -0.02, 0.13, -0.035); var um = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.025, 8), new THREE.MeshLambertMaterial({ color: 0xff4fa3 })); um.position.set(-0.02, 0.18, -0.035); mai.add(um); vbox(mai, 0.03, 0.03, 0.008, 0x5dfc8a, 0.035, 0.1, -0.03); })(); mai.visible = false; gunRoot.add(mai);
   var muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff2a0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); muzzle.visible = false; gunRoot.add(muzzle);
   var wrist = new THREE.Mesh(new THREE.PlaneGeometry(0.27, 0.18), new THREE.MeshBasicMaterial({ map: ptex, transparent: true, fog: false })); wrist.position.set(0, 0.06, 0.16); wrist.rotation.x = -1.15;
-  var tcan = document.createElement('canvas'); tcan.width = 512; tcan.height = 96; var tctx = tcan.getContext('2d'), ttex = new THREE.CanvasTexture(tcan), tShown = '';
-  var vtoast = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.17), new THREE.MeshBasicMaterial({ map: ttex, transparent: true, depthTest: false, depthWrite: false, fog: false })); vtoast.position.set(0, -0.26, -1.15); vtoast.renderOrder = 65; vtoast.visible = false; camera.add(vtoast);
+  var tcan = document.createElement('canvas'); tcan.width = 512; tcan.height = 160; var tctx = tcan.getContext('2d'), ttex = new THREE.CanvasTexture(tcan), tShown = '';
+  var vtoast = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.281), new THREE.MeshBasicMaterial({ map: ttex, transparent: true, depthTest: false, depthWrite: false, fog: false })); vtoast.position.set(0, -0.26, -1.15); vtoast.renderOrder = 65; vtoast.visible = false; camera.add(vtoast);
   var retTex = (function () { var c = document.createElement('canvas'); c.width = c.height = 64; var x = c.getContext('2d'); x.strokeStyle = '#fff'; x.lineWidth = 5; x.beginPath(); x.arc(32, 32, 20, 0, 6.2832); x.stroke(); x.fillStyle = '#fff'; x.fillRect(29, 2, 6, 14); x.fillRect(29, 48, 6, 14); x.fillRect(2, 29, 14, 6); x.fillRect(48, 29, 14, 6); x.beginPath(); x.arc(32, 32, 3.5, 0, 6.2832); x.fill(); return new THREE.CanvasTexture(c); })();
   var reticle = new THREE.Sprite(new THREE.SpriteMaterial({ map: retTex, depthTest: false, depthWrite: false, fog: false, transparent: true })); reticle.renderOrder = 58; reticle.visible = false; scene.add(reticle);
   var laser = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new V(), new V()]), new THREE.LineBasicMaterial({ color: 0xff3040, transparent: true, opacity: 0.55 })); laser.frustumCulled = false; laser.visible = false; scene.add(laser);
@@ -2241,7 +2241,7 @@ Game.prototype.updateMoon = function (dt) {
     tpRing.visible = tpLine.visible = canTp && tpAim; smx += (wantX - smx) * Math.min(1, dt * 7); smz += (wantZ - smz) * Math.min(1, dt * 7); G.input.mx = smx; G.input.mz = smz;   // ease in and out instead of lurching
     if (Rg) { var rx = ax(Rg)[0]; if (Math.abs(rx) > 0.65 && snapReady) { vrYaw -= (rx > 0 ? 1 : -1) * Math.PI / 6; snapReady = false; } else if (Math.abs(rx) < 0.3) snapReady = true; }   // 30 degree snap turn
     if (yB) { vignOn = !vignOn; toast('Comfort vignette ' + (vignOn ? 'on' : 'off'), 1.4); }
-    if (xB) { tpMode = !tpMode; toast(tpMode ? 'Teleport: push stick, point, release' : 'Smooth walking', 2); }
+    tpMode = false;       // teleport movement is switched off for now
     if (!started) { G.input.mx = 0; G.input.mz = 0; if (trigR) startGame(); else if (aB || bB) { diffPick = diffPick === 'easy' ? 'medium' : (diffPick === 'medium' ? 'hard' : 'easy'); } return; }
     if (curDialog) { G.input.mx = 0; G.input.mz = 0; if (trigR || trigL) { if (hoverOpt >= 0) pickDialog(hoverOpt); else if (trigR) pickDialog(0); else pickDialog(1); } return; }
     if (G.state === 'hotwire') { primeT -= dt; if (trigR || (heldR && primeT <= 0)) { G.prime(); primeT = 0.11; } return; }
@@ -2321,7 +2321,9 @@ Game.prototype.updateMoon = function (dt) {
     // the driver's seat
     cockpit.visible = !!G.drive && !G.drive.moonV; if (!G.drive) cockWas = false; if (G.drive) { camera.getWorldPosition(headP); var want2 = Math.atan2(G.drive.hx, G.drive.hz), cd = want2 - cockpit.rotation.y; while (cd > Math.PI) cd -= 6.2832; while (cd < -Math.PI) cd += 6.2832; cockpit.rotation.y += cd; if (cockWas) vrYaw += cd; else { eul.setFromQuaternion(camera.quaternion, 'YXZ'); vrYaw = cockpit.rotation.y + Math.PI - eul.y; } cockWas = true; var cs2 = Math.sin(cockpit.rotation.y), cc2 = Math.cos(cockpit.rotation.y); cockpit.position.set(p.x - (-0.36 * cc2), headP.y - 1.3, p.z - (0.36 * cs2));   /* you sit on the left, behind the wheel */ cockWheel.rotation.z += (-cd * 30 - cockWheel.rotation.z) * Math.min(1, dt * 6); cockHood.material.color.setHex([0xff4fa3, 0x35e8ff, 0xffe14f, 0xf4f4f0, 0x7b4fff, 0xff8a2b][G.drive.look % 6]); }
     // short messages float in view for a moment
-    vtoast.visible = vrToastT > 0 && started && !curDialog; if (vtoast.visible && tShown !== vrToast) { tShown = vrToast; tctx.clearRect(0, 0, 512, 96); tctx.fillStyle = 'rgba(18,10,36,0.8)'; tctx.fillRect(0, 0, 512, 96); tctx.fillStyle = '#fff'; tctx.font = 'bold ' + (vrToast.length > 26 ? 26 : 36) + 'px sans-serif'; tctx.textAlign = 'center'; tctx.textBaseline = 'middle'; tctx.fillText(vrToast, 256, 50); ttex.needsUpdate = true; }
+    vtoast.visible = vrToastT > 0 && started && !curDialog; if (vtoast.visible && tShown !== vrToast) { tShown = vrToast; var fs = 36, lines, wds = vrToast.split(' '), li, cur;       // wrap to as many as three lines, and shrink the type until it fits
+      do { tctx.font = 'bold ' + fs + 'px sans-serif'; lines = []; cur = ''; for (li = 0; li < wds.length; li++) { var tr = cur ? cur + ' ' + wds[li] : wds[li]; if (cur && tctx.measureText(tr).width > 480) { lines.push(cur); cur = wds[li]; } else cur = tr; } lines.push(cur); fs -= 3; } while ((lines.length > 3 || lines.some(function (l) { return tctx.measureText(l).width > 490; })) && fs > 14);
+      var lh = (fs + 3) * 1.22, bh2 = lines.length * lh + 26, by0 = (160 - bh2) / 2; tctx.clearRect(0, 0, 512, 160); tctx.fillStyle = 'rgba(18,10,36,0.82)'; tctx.fillRect(0, by0, 512, bh2); tctx.fillStyle = '#fff'; tctx.textAlign = 'center'; tctx.textBaseline = 'middle'; for (li = 0; li < lines.length; li++) tctx.fillText(lines[li], 256, by0 + 13 + lh * (li + 0.5)); ttex.needsUpdate = true; }
     // info panel floats low in front of you and follows when you turn away from it
     camera.getWorldPosition(headP); camera.getWorldDirection(tmpV); var hy = Math.atan2(tmpV.x, tmpV.z), df = hy - panelYaw; while (df > Math.PI) df -= 6.2832; while (df < -Math.PI) df += 6.2832;
     var modal = !started || !!curDialog; panel.visible = modal; wrist.visible = !modal; if (Math.abs(df) > 0.25) panelYaw += df * Math.min(1, dt * 5);
@@ -2335,7 +2337,7 @@ Game.prototype.updateMoon = function (dt) {
     if (!started) {
       x.fillStyle = '#ff4fa3'; x.font = 'bold 84px sans-serif'; x.fillText('BREAD RUN', 40, 120); x.fillStyle = '#fff'; x.font = '28px sans-serif';
       y = wrap('Rob the block. Feed the family. Watch the money climb.', 40, 180, 690, 36); x.fillStyle = '#ffd23f'; x.font = 'bold 34px sans-serif'; x.fillText('RIGHT TRIGGER: start (' + diffPick + ')', 40, y + 40); x.fillStyle = '#b3b9c7'; x.font = '26px sans-serif'; x.fillText('A: change difficulty', 40, y + 86);
-      wrap('Left stick moves where you look. Right stick turns. Right trigger fires or threatens. Left trigger dashes. Grip takes things in shops. A takes a car. B swaps weapon. X switches to teleport. Y toggles the comfort vignette. Click a stick to hide the money HUD. Full stats and map are on your left wrist; hold the left grip to blow the map up.', 40, y + 130, 690, 30); ptex.needsUpdate = true; return;
+      wrap('Left stick moves where you look. Right stick turns. Right trigger fires or threatens. Left trigger dashes. Grip takes things in shops. A takes a car. B swaps weapon. Y toggles the comfort vignette. Click a stick to hide the money HUD. Full stats and map are on your left wrist; hold the left grip to blow the map up.', 40, y + 130, 690, 30); ptex.needsUpdate = true; return;
     }
     if (curDialog) {
       x.fillStyle = '#ffd23f'; x.font = 'bold 52px sans-serif'; y = wrap(curDialog.title, 36, 76, 700, 56); x.fillStyle = '#fff'; x.font = '25px sans-serif'; y = wrap(curDialog.text, 36, y + 6, 700, 32); x.fillStyle = '#b3b9c7'; y = wrap(curDialog.sub, 36, y + 6, 700, 32);
@@ -2352,7 +2354,7 @@ Game.prototype.updateMoon = function (dt) {
     if (G.wanted) { x.fillStyle = '#ff4d4d'; x.font = 'bold 28px sans-serif'; x.fillText('WANTED ' + '\u2605'.repeat(G.wanted), 28, y + 36); }
     x.drawImage(mapC, 474, 18, 276, 276);
     x.fillStyle = '#ffd23f'; x.font = 'bold 28px sans-serif'; y = wrap(G.inn && !G.inn.alarm && !G.inn.threat ? 'Touch the money to take it. Right trigger threatens the clerk. Leave by the door' : $('goal').textContent, 28, 344, 712, 34);
-    { x.fillStyle = '#8f9bb3'; x.font = '19px sans-serif'; x.fillText((tpMode ? 'TELEPORT' : 'SMOOTH') + ' (X)  A car  B weapon  Hold left GRIP: big map', 28, 492); }
+    { x.fillStyle = '#8f9bb3'; x.font = '19px sans-serif'; x.fillText('A car / ladder / ride   B weapon   Right GRIP jump   Hold left GRIP: big map', 28, 492); }
     ptex.needsUpdate = true;
   }
   build(7, 'medium'); resize(); renderer.setAnimationLoop(tick);
