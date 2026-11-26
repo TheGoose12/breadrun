@@ -1068,7 +1068,7 @@ function buildCameraBits() {
 // the menu you open inside the headset with B or Y
 var vm = { open: false, idx: 0, mode: 0, code: [0, 0, 0, 0], pos: 0, ready: true, key: '', mesh: null, ctx: null, tex: null }, VABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 function vmItems() {
-  var inRoom = MP.peer && MP.code && (MP.host ? MP.peer.open : MP.live);
+  var inRoom = MP.code && NET.on;
   return [[inRoom ? 'Room ' + MP.code + '  (' + (MP.count + 1) + ' here)  Change' : 'Play with friends', 'join'],
     [RC.st >= 2 && RC.st <= 4 ? 'Leave the race' : RC.st === 1 ? 'Join the race' : 'Start a race', 'race'], [P.yeti ? 'Stop being the yeti' : 'Be the yeti', 'yeti'], ['Back to the trail', 'trail'], ['Back to the summit', 'top'], [SKYNAME[SKY.mode].replace('SKY: ', 'Sky: '), 'sky'], ['Close', 'close']];
 }
@@ -1089,7 +1089,7 @@ function vmDraw() {
 }
 function vmToggle(on) { vm.open = on; vm.mode = 0; vm.key = ''; vm.mesh.visible = on && vr; if (on) { vm.idx = 0; vmDraw(); audioClick(); } }
 function vmPick() {
-  if (vm.mode === 1) { MP.was = true; mpRoom(vm.code.map(function (k) { return VABC.charAt(k); }).join(''), 0); audioClick(); return; }
+  if (vm.mode === 1) { mpRoom(vm.code.map(function (k) { return VABC.charAt(k); }).join('')); audioClick(); return; }
   var a = vmItems()[vm.idx][1]; audioClick();
   if (a === 'join') { vm.mode = 1; vm.pos = 0; var cc = MP.code || $('mpcode').value || randCode(); for (var i = 0; i < 4; i++) vm.code[i] = Math.max(0, VABC.indexOf(cc.charAt(i))); }
   else if (a === 'race') { vmToggle(false); raceOpen(); }
@@ -1255,7 +1255,7 @@ function pollXR(dt) {
   }
   if (hold) { holdTop += dt; if (holdTop > 1 && !vm.open) { holdTop = -3; toSummit(); say('Back on top', 2); } }
   else { if (holdTop > 0.02 && holdTop < 0.5) { if (vm.open) { if (vm.mode === 1) { vm.mode = 0; } else vmToggle(false); } else if (RC.st === 1 || (RC.st === 2 && !RC.ready)) raceConfirm(); else vmToggle(true); } if (holdTop > 0 || holdTop < 0) holdTop = holdTop > 0 ? 0 : Math.min(0, holdTop + dt * 3); }
-  if (vm.open) { vmStick(Math.abs(xin.lx) > Math.abs(xin.rx) ? xin.lx : xin.rx, Math.abs(xin.ly) > Math.abs(xin.ry) ? xin.ly : xin.ry); vmDraw(); xin.lx = xin.ly = xin.rx = xin.ry = 0; snapReady = false; if (vm.mode === 1 && MP.peer && MP.code === vm.code.map(function (k) { return VABC.charAt(k); }).join('') && (MP.host ? MP.peer.open : MP.live)) { vm.done = (vm.done || 0) + dt; if (vm.done > 1.5) { vm.done = 0; vmToggle(false); } } else vm.done = 0; return; }
+  if (vm.open) { vmStick(Math.abs(xin.lx) > Math.abs(xin.rx) ? xin.lx : xin.rx, Math.abs(xin.ly) > Math.abs(xin.ry) ? xin.ly : xin.ry); vmDraw(); xin.lx = xin.ly = xin.rx = xin.ry = 0; snapReady = false; if (vm.mode === 1 && NET.on && MP.code === vm.code.map(function (k) { return VABC.charAt(k); }).join('')) { vm.done = (vm.done || 0) + dt; if (vm.done > 1.5) { vm.done = 0; vmToggle(false); } } else vm.done = 0; return; }
   if (Math.abs(xin.rx) > 0.65 && snapReady) { vrYaw -= (xin.rx > 0 ? 1 : -1) * Math.PI / 6; snapReady = false; } else if (Math.abs(xin.rx) < 0.3) snapReady = true;
 }
 
@@ -1361,66 +1361,83 @@ $('skybtn').addEventListener('click', function () { setSky((SKY.mode + 1) % 4); 
 
 // ================= playing together =================
 // Everyone has the same mountain, so players only tell each other where they are. One player hosts with a 4 letter code.
-var MP = { peer: null, conns: [], host: false, code: '', id: Math.random().toString(36).slice(2, 8), n: 1, next: 2, buds: {}, sendT: 0, count: 0, rx: 0, live: false, tries: 0, joinT: 0, retry: 0, want: '', was: false, stat: '' };
+var MP = { code: '', id: Math.random().toString(36).slice(2, 8), n: 0, buds: {}, sendT: 0, count: 0, openT: 0, stat: '' };
 function mpStat(t, bad) { MP.stat = t; $('mpstat').textContent = t; $('mpstat').style.color = bad ? '#ffb4b4' : '#c4ffd2'; }
-function mpLoad(cb) { if (window.Peer) return cb(); mpStat('Connecting...'); var sc = document.createElement('script'); sc.src = window.__peerSrc || 'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js'; sc.onload = cb; sc.onerror = function () { mpStat('Could not connect. Check the internet.', true); }; document.head.appendChild(sc); }
 function budRemove(k) { var b = MP.buds[k]; if (!b) return; scene.remove(b.g); scene.remove(b.tag); b.tag.material.map.dispose(); b.tag.material.dispose(); b.fig.material.dispose(); b.track.dispose(); delete MP.buds[k]; MP.count--; }
-function mpReset() { MP.live = false; MP.joinT = 0; if (MP.peer) { try { MP.peer.destroy(); } catch (e) {} } MP.peer = null; MP.conns = []; for (var k in MP.buds) budRemove(k); MP.n = 1; MP.next = 2; }
+// Everyone in a room talks through a public message relay (MQTT over a web socket). There is no host: type the same code, you are together.
+var RELAYS = window.__relays || ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'], NET = { socks: [], on: false, q: 1, seen: {}, pickT: 0 };
+var _te = window.TextEncoder ? new TextEncoder() : null, _td = window.TextDecoder ? new TextDecoder() : null;
+function mqStr(str) { var b = _te.encode(str), o = new Uint8Array(b.length + 2); o[0] = b.length >> 8; o[1] = b.length & 255; o.set(b, 2); return o; }
+function mqPacket(type, parts) {
+  var len = 0, i, k = 0; for (i = 0; i < parts.length; i++) len += parts[i].length;
+  var head = [type], l = len; do { var d = l % 128; l = Math.floor(l / 128); if (l > 0) d |= 128; head.push(d); } while (l > 0);
+  var o = new Uint8Array(head.length + len); o.set(head, 0); k = head.length; for (i = 0; i < parts.length; i++) { o.set(parts[i], k); k += parts[i].length; } return o;
+}
+function netClose() { NET.socks.forEach(function (S) { S.dead = true; try { S.ws.close(); } catch (e) {} }); NET.socks = []; NET.on = false; }
+function netLink(code, url, idx) {
+  var topic = 'mtnrun1/' + code, S = { ws: null, up: false, dead: false, buf: new Uint8Array(0), idx: idx }, ws;
+  try { ws = S.ws = new WebSocket(url, 'mqtt'); } catch (e) { return; }
+  ws.binaryType = 'arraybuffer'; NET.socks.push(S);
+  ws.onopen = function () { ws.send(mqPacket(0x10, [mqStr('MQTT'), new Uint8Array([4, 2, 0, 30]), mqStr('mr' + MP.id + idx + Math.random().toString(36).slice(2, 6))])); };
+  ws.onmessage = function (ev) {
+    var inb = new Uint8Array(ev.data), buf = new Uint8Array(S.buf.length + inb.length); buf.set(S.buf, 0); buf.set(inb, S.buf.length);
+    for (;;) {
+      if (buf.length < 2) break; var mul = 1, len = 0, p = 1, d;
+      do { if (p >= buf.length) { len = -1; break; } d = buf[p++]; len += (d & 127) * mul; mul *= 128; } while (d & 128);
+      if (len < 0 || buf.length < p + len) break;
+      var type = buf[0] >> 4, body = buf.subarray(p, p + len);
+      if (type === 2) { if (body[1] === 0) ws.send(mqPacket(0x82, [new Uint8Array([0, 1]), mqStr(topic), new Uint8Array([0])])); }
+      else if (type === 9) { S.up = true; netUp(); }
+      else if (type === 3) { var tl = (body[0] << 8) | body[1]; try { mpData(JSON.parse(_td.decode(body.subarray(2 + tl)))); } catch (e) {} }
+      buf = buf.subarray(p + len);
+    }
+    S.buf = buf.slice();
+  };
+  ws.onclose = ws.onerror = function () { if (S.dead) return; S.dead = true; S.up = false; var i = NET.socks.indexOf(S); if (i >= 0) NET.socks.splice(i, 1); netUp(); if (MP.code === code) setTimeout(function () { if (MP.code === code && !S.again) { S.again = true; netLink(code, url, idx); } }, 3000); };
+  S.topic = topic;
+}
+function netUp() {
+  var was = NET.on; NET.on = NET.socks.some(function (S) { return S.up; });
+  if (NET.on && !was) { NET.pickT = performance.now() + 1300; mpStat('You are in room ' + MP.code + '. Friends type ' + MP.code + ' too.'); $('mpbtn').textContent = 'ROOM ' + MP.code; if (!started) begin(); say('Room ' + MP.code + '\nFriends type the same 4 letters', 4); }
+  else if (!NET.on && was) mpStat('Reconnecting to room ' + MP.code + '...', true);
+}
+setInterval(function () {
+  NET.socks.forEach(function (S) { if (S.up) try { S.ws.send(new Uint8Array([0xC0, 0])); } catch (e) {} });
+  if (MP.code && !NET.on && MP.openT && performance.now() - MP.openT > 9000) { MP.openT = performance.now(); if (NET.socks.length === 0) RELAYS.forEach(function (u, i) { if (i < 2) netLink(MP.code, u, i); }); mpStat('Still trying to reach room ' + MP.code + '. Check the internet.', true); if (RELAYS[2] && !NET.third) { NET.third = true; netLink(MP.code, RELAYS[2], 2); } }
+}, 15000 / 3);
+function mpSendAll(msg) {
+  if (!NET.on) return; msg.q = NET.q++; var pk = null;
+  NET.socks.forEach(function (S) { if (S.up) { if (!pk) pk = mqPacket(0x30, [mqStr(S.topic), _te.encode(JSON.stringify(msg))]); try { S.ws.send(pk); } catch (e) {} } });
+}
+function mpReset() { netClose(); for (var k in MP.buds) budRemove(k); MP.n = 0; MP.code = ''; NET.seen = {}; NET.third = false; }
 function randCode() { var c = ''; for (var i = 0; i < 4; i++) c += 'ABCDEFGHJKLMNPQRSTUVWXYZ'.charAt(Math.floor(Math.random() * 24)); return c; }
-// A room is just a code. The first one in holds the room open, everyone after joins it. If the holder leaves, someone else takes over.
-function mpRoom(code, tries) {
+function mpRoom(code) {
   code = (code || '').toUpperCase().replace(/[^A-Z]/g, ''); if (code.length !== 4) { mpStat('The code is 4 letters', true); return; }
+  if (!_te || !window.WebSocket) { mpStat('This browser cannot play together.', true); return; }
   $('mpcode').value = code; try { localStorage.setItem('mr_room', code); } catch (e) {}
-  mpLoad(function () {
-    mpReset(); MP.host = true; MP.code = code; MP.tries = tries || 0; MP.want = code; mpStat('Opening room ' + code + '...');
-    var pr = MP.peer = new Peer('mountainrun-' + code, window.__peerOpts);
-    pr.on('open', function () { if (MP.peer !== pr) return; mpStat('You are in room ' + code + '. Friends type ' + code + ' too.'); $('mpbtn').textContent = 'ROOM ' + code; if (!started) begin(); say('Room ' + code + '\nFriends type the same code', 4); });
-    pr.on('connection', mpConn); pr.on('disconnected', function () { try { pr.reconnect(); } catch (e) {} });
-    pr.on('error', function (e) { if (MP.peer !== pr) return; if (e.type === 'unavailable-id') mpEnter(code); else mpStat('Problem: ' + e.type + '. Check the internet.', true); });
-  });
+  mpReset(); MP.code = code; MP.openT = performance.now(); mpStat('Opening room ' + code + '...');
+  netLink(code, RELAYS[0], 0); if (RELAYS[1]) netLink(code, RELAYS[1], 1);      // two relays at once, so one being down does not split the room
 }
-function mpEnter(code) {        // somebody already holds this room: go in
-  mpReset(); MP.host = false; MP.code = code; MP.joinT = performance.now(); mpStat('Found room ' + code + '. Going in...');
-  var pr = MP.peer = new Peer(undefined, window.__peerOpts);
-  pr.on('open', function () { if (MP.peer === pr) mpConn(pr.connect('mountainrun-' + code, { reliable: true })); });
-  pr.on('error', function (e) { if (MP.peer !== pr) return; if (e.type === 'peer-unavailable') { if (MP.tries < 4) mpRoom(code, MP.tries + 1); else mpStat('Could not open room ' + code + '. Try again.', true); } else mpStat('Problem: ' + e.type + '. Check the internet.', true); });
+function mpJoin(code) { mpRoom(code); }
+function mpPickN() {       // take the lowest player number nobody else has
+  var used = {}, k, n = 1; for (k in MP.buds) used[MP.buds[k].n] = true; while (used[n]) n++;
+  MP.n = n; if (!P.yeti) myFig.geometry = figGeo(MP.n + 1, true); setLegs(); $('mp').style.display = 'none';
 }
-setInterval(function () {       // never sit on "going in" for ever
-  if (MP.peer && !MP.host && !MP.live && MP.joinT && performance.now() - MP.joinT > 12000) {
-    if (MP.tries < 3) { mpStat('Still trying room ' + MP.code + '. Is the other game open, with the headset on?', true); mpRoom(MP.code, MP.tries + 1); }
-    else { MP.joinT = 0; mpStat('Could not reach room ' + MP.code + '. Keep the other game open and awake, then tap PLAY TOGETHER again.', true); }
-  }
-  if (MP.retry && performance.now() > MP.retry) { MP.retry = 0; if (MP.want) mpRoom(MP.want, 0); }
-}, 1000);
-function mpJoin(code) { mpRoom(code, 0); }
-function mpConn(c) {
-  c.on('open', function () {
-    if (MP.host && MP.conns.length >= 7) { try { c.close(); } catch (e) {} return; }
-    MP.conns.push(c);
-    if (MP.host) { c.send({ t: 'hello', n: MP.next++ }); say('A friend joined!', 3); audioClick(); mpStat('Room ' + MP.code + ': ' + MP.conns.length + (MP.conns.length === 1 ? ' friend is here.' : ' friends are here.')); } else { mpStat('You are in room ' + MP.code + ' with your friends.'); MP.rx = performance.now(); MP.live = true; MP.joinT = 0; }
-  });
-  c.on('data', function (d) { try { mpData(d, c); } catch (e) {} });
-  c.on('close', function () {
-    var i = MP.conns.indexOf(c); if (i >= 0) MP.conns.splice(i, 1); for (var k in MP.buds) if (MP.buds[k].via === c) budRemove(k);
-    if (!started || (!MP.host && !MP.live)) return; var wasLive = MP.live; MP.live = false; if (MP.host) { say('A friend left', 3); mpStat('Room ' + MP.code + ': ' + MP.conns.length + ' here.'); } else if (wasLive) { say('Reconnecting...', 3); mpStat('Reconnecting to room ' + MP.code + '...', true); MP.retry = performance.now() + 300 + Math.random() * 2500; }
-  });
-}
-function num(v, a, b) { return typeof v === 'number' && isFinite(v) ? clamp(v, a, b) : 0; }
-function mpSendAll(msg, except) { for (var i = 0; i < MP.conns.length; i++) if (MP.conns[i] !== except && MP.conns[i].open) MP.conns[i].send(msg); }
-function mpData(d, c) {
-  if (!d || typeof d !== 'object') return;
-  if (d.t === 'hello' && !MP.host) { MP.n = clamp(d.n | 0, 2, 99); if (!P.yeti) myFig.geometry = figGeo(MP.n + 1, true); setLegs(); $('mp').style.display = 'none'; $('mpbtn').textContent = 'ROOM ' + MP.code; if (!started) begin(); if (!MP.was) toSummit(); MP.was = true; say('You are in room ' + MP.code + '\nwith your friends', 4); return; }
-  if (typeof d.id !== 'string' || d.id.length > 12 || d.id === MP.id) return;
-  if (MP.host && (d.t === 's' || d.t === 'r' || d.t === 'b' || d.t === 'e')) mpSendAll(d, c);       // the host passes everything on to the others
+function mpData(d) {
+  if (!d || typeof d !== 'object' || typeof d.id !== 'string' || d.id.length > 12 || d.id === MP.id) return;
+  var q = d.q | 0, sk = d.id + (d.t === 's' ? '' : ':' + q);       // the same message can arrive by two relays: use it once
+  if (d.t === 's') { if (NET.seen[sk] !== undefined && q <= NET.seen[sk] && NET.seen[sk] - q < 5000) return; NET.seen[sk] = q; } else { if (NET.seen[sk]) return; NET.seen[sk] = 1; }
   if (d.t === 's') {
-    var b = MP.buds[d.id]; if (!b) { if (MP.count >= 8) return; b = budMake(d.id, clamp(d.n | 0, 1, 99)); }
+    var isNew = !MP.buds[d.id], b = MP.buds[d.id]; if (!b) { if (MP.count >= 8) return; b = budMake(d.id, clamp(d.n | 0, 1, 99)); if (started) { say('A friend is here!', 2.5); audioClick(); } }
+    var dn = clamp(d.n | 0, 1, 99); if (dn !== b.n) { b.n = dn; budTag(b); if (!b.yeti) b.fig.geometry = figGeo(b.n + 1, true); }
+    if (MP.n && dn === MP.n && d.id < MP.id) { b.n = dn; mpPickN(); }                                             // two of us picked the same number: the other one keeps it
     var x = num(d.x, WX0, WX0 + WS), z = num(d.z, WZ0, WZ0 + WS);
     if (b.tx === null || Math.hypot(x - b.tx, z - b.tz) > 60) { b.x = x; b.z = z; b.track.last = null; }
-    b.tx = x; b.tz = z; b.th = num(d.h, -1e4, 1e4); b.v = num(d.v, 0, 60); b.ski = d.m === 1; b.dn = d.k === 1; b.at = performance.now(); b.via = c; MP.rx = b.at;
+    b.tx = x; b.tz = z; b.th = num(d.h, -1e4, 1e4); b.v = num(d.v, 0, 60); b.ski = d.m === 1; b.dn = d.k === 1; b.at = performance.now();
     b.lky = num(d.ly, -1.3, 1.3); b.lkp = num(d.lp, -0.6, 0.6); b.wv = d.w === 1; b.arc = num(d.a, 0, 20000);
     if ((d.y === 1) !== b.yeti) { b.yeti = d.y === 1; b.fig.geometry = b.yeti ? yetiFig(true) : figGeo(b.n + 1, true); b.fig.scale.setScalar(b.yeti ? 1.5 : 1); if (b.yeti) { say('Player ' + b.n + ' is the yeti. Run!', 3.5); roar(); } }
-    if (!MP.host && b.n === 1 && typeof d.td === 'number') { var th = num(d.td, 0, 6.2832), sm = clamp(d.sm | 0, 0, 3); if (sm !== SKY.mode || Math.abs(angDiff(th, SKY.th)) > 0.06) setSky(sm, th); SKY.wc = num(d.wc, 0, 1e7); }
-    if (d.f === 1 && !b.done) { b.done = true; if (RC.st < 3) say('Player ' + b.n + ' reached Base Camp!', 4); } else if (d.f !== 1) b.done = false;
+    if (typeof d.td === 'number' && MP.n && dn < MP.n && dn === mpLowest()) { var th = num(d.td, 0, 6.2832), sm = clamp(d.sm | 0, 0, 3); if (sm !== SKY.mode || Math.abs(angDiff(th, SKY.th)) > 0.06) setSky(sm, th); SKY.wc = num(d.wc, 0, 1e7); }
+    if (d.f === 1 && !b.done) { b.done = true; if (RC.st < 3 && !isNew) say('Player ' + b.n + ' reached Base Camp!', 4); } else if (d.f !== 1) b.done = false;
   } else if (d.t === 'r') raceData(d);
   else if (d.t === 'b' && Array.isArray(d.p) && Array.isArray(d.v)) {
     var o = MP.buds[d.id], px = num(d.p[0], WX0, WX0 + WS), py = num(d.p[1], -3000, 3000), pz = num(d.p[2], WZ0, WZ0 + WS);
@@ -1433,27 +1450,33 @@ function mpData(d, c) {
     else if (d.k === 'caught' && P.yeti) { P.catches++; say('You caught Player ' + nn + '!\nCatches: ' + P.catches, 3); roar(); }
   }
 }
+function mpLowest() { var m = MP.n || 99, k; for (k in MP.buds) if (MP.buds[k].n < m) m = MP.buds[k].n; return m; }
+function budTag(b) {
+  var x = b.tag.material.map.image.getContext('2d'); x.clearRect(0, 0, 256, 64); x.textAlign = 'center'; x.shadowColor = 'rgba(6,26,96,0.9)'; x.shadowBlur = 8; x.fillStyle = '#ffe680'; x.font = 'italic 40px Georgia, serif'; x.fillText('Player ' + b.n, 128, 44); x.fillText('Player ' + b.n, 128, 44); b.tag.material.map.needsUpdate = true;
+}
+function num(v, a, b) { return typeof v === 'number' && isFinite(v) ? clamp(v, a, b) : 0; }
 function budMake(id, n) {
   var g = new THREE.Group(), fig = new THREE.Mesh(figGeo(n + 1, true), figMat()), sk = new THREE.Mesh(skiGeo, propMat);
   g.add(fig); g.add(sk); sk.visible = false; scene.add(g);
-  var cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; var x = cv.getContext('2d'); x.textAlign = 'center'; x.shadowColor = 'rgba(6,26,96,0.9)'; x.shadowBlur = 8; x.fillStyle = '#ffe680'; x.font = 'italic 40px Georgia, serif'; x.fillText('Player ' + n, 128, 44); x.fillText('Player ' + n, 128, 44);
+  var cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
   var tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
   var tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false })); tag.center.set(0.5, 0); tag.renderOrder = 75; scene.add(tag);
   MP.count++;
-  return (MP.buds[id] = { n: n, g: g, fig: fig, sk: sk, tag: tag, track: new Track(260, 0.42, 0.56, 0.86, 0.6), x: 0, z: 0, tx: null, tz: 0, h: 0, th: 0, id: id, v: 0, walk: 0, cr: 0, fall: 0, lky: 0, lkp: 0, lys: 0, lps: 0, wv: false, yeti: false, arc: 0, dn: false, ski: false, at: performance.now(), via: null, done: false });
+  var nb = (MP.buds[id] = { n: n, g: g, fig: fig, sk: sk, tag: tag, track: new Track(260, 0.42, 0.56, 0.86, 0.6), x: 0, z: 0, tx: null, tz: 0, h: 0, th: 0, id: id, v: 0, walk: 0, cr: 0, fall: 0, lky: 0, lkp: 0, lys: 0, lps: 0, wv: false, yeti: false, arc: 0, dn: false, ski: false, at: performance.now(), done: false }); budTag(nb); return nb;
 }
 function mpTick(dt) {
-  if (!MP.peer) return; var k, b;
-  if (!MP.host && MP.live && performance.now() - MP.rx > 9000) { MP.live = false; say('Reconnecting...', 3); mpStat('Reconnecting to room ' + MP.code + '...', true); MP.retry = performance.now() + 300 + Math.random() * 2500; }
+  if (!MP.code) return; var k, b;
+  if (NET.on && !MP.n && performance.now() > NET.pickT) mpPickN();
+  if (NET.on && MP.count !== MP.shown) { MP.shown = MP.count; mpStat(MP.count ? 'Room ' + MP.code + ': ' + MP.count + (MP.count === 1 ? ' friend is here.' : ' friends are here.') : 'You are in room ' + MP.code + '. Friends type ' + MP.code + ' too.'); }
   MP.sendT -= dt;
-  if (MP.sendT <= 0 && started && MP.conns.length && (MP.host || MP.live)) {
+  if (MP.sendT <= 0 && started && NET.on && MP.n) {
     MP.sendT = 0.1; var msg = { t: 's', id: MP.id, n: MP.n, x: Math.round(P.x * 100) / 100, z: Math.round(P.z * 100) / 100, h: Math.round((P.mode === 'ski' ? P.head : (vr ? viewYaw() : P.yaw)) * 100) / 100, v: Math.round(P.v * 10) / 10, m: P.mode === 'ski' ? 1 : 0, f: P.done ? 1 : 0, k: P.down > 0 ? 1 : 0, y: P.yeti ? 1 : 0, a: Math.round(myArc), w: myWave ? 1 : 0,
       ly: Math.round(clamp(vr ? angDiff(viewYaw(), P.mode === 'ski' ? P.head : viewYaw()) : (P.mode === 'ski' ? angDiff(P.yaw, P.head) : 0), -1.3, 1.3) * 100) / 100, lp: Math.round(clamp(vr ? Math.asin(clamp(camera.getWorldDirection(_v2).y, -1, 1)) : P.pitch, -0.6, 0.6) * 100) / 100 };
-    if (MP.host) { msg.td = Math.round(SKY.th * 1000) / 1000; msg.sm = SKY.mode; msg.wc = Math.round(SKY.wc); }
+    if (mpLowest() === MP.n) { msg.td = Math.round(SKY.th * 1000) / 1000; msg.sm = SKY.mode; msg.wc = Math.round(SKY.wc); }       // the lowest player number keeps the sky for everyone
     mpSendAll(msg);
   }
   for (k in MP.buds) {
-    b = MP.buds[k]; if (performance.now() - b.at > 8000) { budRemove(k); continue; }
+    b = MP.buds[k]; if (performance.now() - b.at > 8000) { budRemove(k); if (started) say('A friend left', 2); continue; }
     if (b.tx === null) continue;
     var al = Math.min(1, dt * 8); b.x += (b.tx - b.x) * al; b.z += (b.tz - b.z) * al; b.h += angDiff(b.th, b.h) * al;
     var y = H(b.x, b.z, 0) - Y0, hx = -Math.sin(b.h), hz = -Math.cos(b.h), g = grad(b.x, b.z);
@@ -1467,11 +1490,11 @@ function mpTick(dt) {
     b.tag.scale.set(w, w * 0.25, 1); b.tag.position.set(b.x, y + 2.0 + dc * 0.01, b.z);
   }
 }
-function mpPanel(on) { $('mp').style.display = on ? 'block' : 'none'; if (on && !MP.peer) mpStat(''); }
+function mpPanel(on) { $('mp').style.display = on ? 'block' : 'none'; if (on && !MP.code) mpStat(''); }
 $('mpbtn').addEventListener('click', function () { mpPanel($('mp').style.display !== 'block'); }); $('mpbtn2').addEventListener('click', function () { mpPanel(true); });
 $('mpclose').addEventListener('click', function () { mpPanel(false); });
-$('mphost').addEventListener('click', function () { initAudio(); MP.was = false; mpRoom(randCode(), 0); });
-$('mpjoin').addEventListener('click', function () { initAudio(); MP.was = false; mpRoom($('mpcode').value, 0); });
+$('mphost').addEventListener('click', function () { initAudio(); mpRoom(randCode()); });
+$('mpjoin').addEventListener('click', function () { initAudio(); mpRoom($('mpcode').value); });
 
 // ================= the race: always optional =================
 // Someone opens a race and waits at the START gate. Everyone else is asked if they want in. When all who joined tap GO, a countdown lets them loose.
@@ -1484,7 +1507,7 @@ function toStart() {
 }
 function raceOpen() {
   if (RC.st === 1) return raceJoin(); if (RC.st >= 2 && RC.st <= 4) return raceLeave();
-  RC.owner = MP.id; RC.mem = {}; RC.mem[MP.id] = { n: MP.n, ready: false }; RC.st = 2; RC.ready = false; RC.res = []; toStart(); rcSend({ k: 'open' }); say(MP.conns.length ? 'Race!\nWaiting for the others to join' : 'Race!\nTap GO when you are ready', 3);
+  RC.owner = MP.id; RC.mem = {}; RC.mem[MP.id] = { n: MP.n, ready: false }; RC.st = 2; RC.ready = false; RC.res = []; toStart(); rcSend({ k: 'open' }); say(MP.count ? 'Race!\nWaiting for the others to join' : 'Race!\nTap GO when you are ready', 3);
 }
 function raceJoin() { if (RC.st !== 1) return; RC.st = 2; RC.ready = false; RC.res = []; RC.mem[MP.id] = { n: MP.n, ready: false }; RC.inv = performance.now(); toStart(); rcSend({ k: 'join' }); }
 function raceReady() { if (RC.st !== 2 || RC.ready) return; RC.ready = true; RC.mem[MP.id].ready = true; rcSend({ k: 'ready' }); rcCheck(); }
@@ -1711,8 +1734,8 @@ function update(dt, now) {
   hudT -= dt; if (hudT <= 0) {
     hudT = 0.15; var a = fmt(alt) + ' m', b = P.mode === 'ski' ? Math.round(P.v * 3.6) + ' km/h' : '';
     $('alt').textContent = a; $('spd').textContent = b;
-    if (vr) drawVrHud(a, (b + (MP.peer && MP.code && (MP.host ? MP.peer.open : MP.live) ? '   Room ' + MP.code + (MP.count ? ' (' + (MP.count + 1) + ')' : '') : '') + (showFps ? '  ' + fpsV + ' fps' : '')).trim(), msgText || RC.text || '');
-    var mi = MP.peer && MP.code && (MP.host ? MP.peer.open : MP.live) ? 'Room ' + MP.code + (MP.count ? '  \u00b7  ' + MP.count + (MP.count === 1 ? ' friend' : ' friends') : '') : ''; if ($('mpinfo').textContent !== mi) $('mpinfo').textContent = mi;
+    if (vr) drawVrHud(a, (b + (MP.code && NET.on ? '   Room ' + MP.code + (MP.count ? ' (' + (MP.count + 1) + ')' : '') : '') + (showFps ? '  ' + fpsV + ' fps' : '')).trim(), msgText || RC.text || '');
+    var mi = MP.code ? (NET.on ? 'Room ' + MP.code : 'Room ' + MP.code + ' (connecting)') + (MP.count ? '  \u00b7  ' + MP.count + (MP.count === 1 ? ' friend' : ' friends') : '') : ''; if ($('mpinfo').textContent !== mi) $('mpinfo').textContent = mi;
     $('throwbtn').style.display = started && !vr ? 'block' : 'none'; var bb = $('boostbtn'); bb.style.display = started && !vr && P.mode === 'ski' ? 'block' : 'none'; bb.style.opacity = P.boostCd > 0 ? 0.45 : 1; var bt = P.boostCd > 0 ? String(Math.ceil(P.boostCd)) : 'ROCKET'; if (bb.textContent !== bt) bb.textContent = bt;
   }
 }
@@ -1740,10 +1763,10 @@ function init() {
   toSummit();
   if (QS.get('yeti') === '1') setYeti(true);
   try { $('mpcode').value = localStorage.getItem('mr_room') || ''; } catch (e) {}
-  var rm = QS.get('room') || QS.get('join'); if (rm) mpRoom(rm, 0);
+  var rm = QS.get('room') || QS.get('join'); if (rm) mpRoom(rm);
   if (QS.get('arc')) teleport(parseFloat(QS.get('arc')), QS.get('ski') === '1');
   ready = true; $('sub').textContent = 'You are standing on top of Everest. Walk the ridge, then ski all the way down.'; $('go').style.display = 'inline-block';
-  window.MR = { vm: vm, RC: RC, raceOpen: raceOpen, raceConfirm: raceConfirm, setYeti: setYeti, throwNow: throwNow, balls: balls, heli: heli, climbers: climbers, knock: knock, SKY: SKY, setSky: setSky, sh: sh, MP: MP, step: function (dt) { update(dt, 0); }, near: nearestOnRoute, say: say, U: U, inp: inp, P: P, H: H, teleport: teleport, toSummit: toSummit, toggleSkis: toggleSkis, begin: begin, keys: keys, renderer: renderer, camera: camera, routeAt: routeAt, LODS: LODS, initMs: Math.round(performance.now() - t0), info: function () { return renderer.info.render; } };
+  window.MR = { NET: NET, vm: vm, RC: RC, raceOpen: raceOpen, raceConfirm: raceConfirm, setYeti: setYeti, throwNow: throwNow, balls: balls, heli: heli, climbers: climbers, knock: knock, SKY: SKY, setSky: setSky, sh: sh, MP: MP, step: function (dt) { update(dt, 0); }, near: nearestOnRoute, say: say, U: U, inp: inp, P: P, H: H, teleport: teleport, toSummit: toSummit, toggleSkis: toggleSkis, begin: begin, keys: keys, renderer: renderer, camera: camera, routeAt: routeAt, LODS: LODS, initMs: Math.round(performance.now() - t0), info: function () { return renderer.info.render; } };
   hint();
 }
 renderer.setAnimationLoop(tick);
