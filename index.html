@@ -1635,7 +1635,7 @@ Game.prototype.updateMoon = function (dt) {
       g.scale.x = -1; g.position.set(APT.x, 0.12, APT.z); world.add(g); R.apt = g;
       R.aptRoof = new THREE.Mesh(new THREE.BoxGeometry(62.6, 0.3, 16.6), new THREE.MeshLambertMaterial({ color: 0xdfe6f5 })); R.aptRoof.position.set(APT.x - 31, H + 0.2, APT.z + 8); world.add(R.aptRoof);
     })();
-    var apt = new THREE.Sprite(new THREE.SpriteMaterial({ map: pixelTex(256, 40, function (x) { x.fillStyle = '#14041f'; x.fillRect(0, 0, 256, 40); x.fillStyle = '#35e8ff'; x.font = 'bold 26px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('A I R P O R T', 128, 21); }) })); apt.scale.set(13, 2.03, 1); apt.position.set(APT.x + 0.4, 6.2, APT.z + 8); world.add(apt);
+    var apt = new THREE.Mesh(new THREE.PlaneGeometry(13, 2.03), new THREE.MeshBasicMaterial({ map: pixelTex(256, 40, function (x) { x.fillStyle = '#14041f'; x.fillRect(0, 0, 256, 40); x.fillStyle = '#35e8ff'; x.font = 'bold 26px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('A I R P O R T', 128, 21); }) })); apt.rotation.y = Math.PI / 2; apt.position.set(APT.x + 0.35, 6.2, APT.z + 8); world.add(apt);
     R.dragon = buildDragon(); world.add(R.dragon); R.dfire = [];
     R.dtag = new THREE.Sprite(new THREE.SpriteMaterial({ map: pixelTex(128, 24, function (x) { x.fillStyle = '#14041f'; x.fillRect(0, 0, 128, 24); x.fillStyle = '#5dfc8a'; x.font = 'bold 14px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('RIDE THE DRAGON', 64, 13); }), depthTest: false })); R.dtag.scale.set(4.4, 0.82, 1); R.dtag.position.set(DRG.x, 6.4, DRG.z); R.dtag.renderOrder = 12; world.add(R.dtag);
     R.tall = new THREE.Group(); (function () { var M = new THREE.MeshBasicMaterial({ color: 0x06060a, fog: false }), E = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }); function tb(par, w2, h, d, x, y, z, mat) { var geo = new THREE.BoxGeometry(w2, h, d); geo.translate(0, -h / 2, 0); var m = new THREE.Mesh(geo, mat || M); m.position.set(x, y, z); par.add(m); return m; }
@@ -2008,7 +2008,7 @@ Game.prototype.updateMoon = function (dt) {
     // camera: zoomed-out third person, pulls back in a chase, pushes in at a shop door
     if (vr) { R.player.visible = false; R.player.traverse(function (o) { o.visible = o === R.player ? false : o.visible; }); }
     R.beacons.visible = false; if (vr) { vrCamera(dt, G.state === 'launch'); } else {
-    var hgt = portrait ? 21 : 15.5, backz = portrait ? 8.5 : 7.5, zoom = G.state === 'inside' ? 0.6 : (G.drive ? 1.35 : (G.wanted || G.heistAlarm ? 1.22 : 1));
+    var hgt = portrait ? 21 : 15.5, backz = portrait ? 8.5 : 7.5, zoom = G.state === 'inside' ? 0.6 : G.state === 'airport' ? 0.46 : (G.drive ? 1.35 : (G.wanted || G.heistAlarm ? 1.22 : 1));
     if (G.state === 'launch') { want.set(L.rocket.x - 14, 14 + R.rocket.position.y * 0.5, L.rocket.z + 26); camLook.lerp(tmpV.set(L.rocket.x, R.rocket.position.y + 5, L.rocket.z), 1 - Math.exp(-3 * dt)); }
     else { want.set(p.x, hgt * zoom + ((p.fly || 0) + (p.bh > 2 ? p.bh : 0)) * 0.8, p.z + backz * zoom + (p.fly ? 6 : 0)); camLook.lerp(tmpV.set(p.x, 0.6 + ((p.fly || 0) + (p.bh > 2 ? p.bh : 0)) * 0.5, p.z - 0.5), 1 - Math.exp(-9 * dt)); }
     camPos.lerp(want, 1 - Math.exp(-5 * dt)); camera.position.copy(camPos); if (shake > 0) { shake -= dt; camera.position.x += (Math.random() - 0.5) * shake * 2.2; camera.position.z += (Math.random() - 0.5) * shake * 2.2; } camera.lookAt(camLook); }
