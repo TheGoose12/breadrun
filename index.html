@@ -320,13 +320,14 @@ Game.prototype.steer = function (e, df, speed, dt) {       // walk downhill on a
   this.move(e, gx / g * speed, gz / g * speed, dt);
 };
 Game.prototype.roadSpot = function () { var w = this.w, x, z; do { x = Math.floor(this.rnd() * 9) * PITCH + 1 + Math.floor(this.rnd() * 2); z = Math.floor(this.rnd() * 9) * PITCH + 1 + Math.floor(this.rnd() * 2); } while (!w.walk(x, z)); return { x: x, z: z }; };
+Game.prototype.copsBack = function () { while (this.copGone > 0) { this.cops.push(this.newCop(false)); this.copGone--; } };      // fresh officers report for duty
 Game.prototype.newCop = function (temp, x, z) {
   var s = (x === undefined) ? this.roadSpot() : { x: x, z: z };
   return { kind: 'cop', hp: 2, x: s.x + 0.5, z: s.z + 0.5, dx: 0, dz: 1, moving: false, chase: !!temp, temp: !!temp, df: new Int16Array(SIZE * SIZE), goal: null, life: 0 };
 };
 Game.prototype.startChase = function (stars) {
   if (this.state === 'dragon' || this.state === 'pilot') return;
-  if (this.danceT > 0) { if (this.danceT > 114) return; this.danceT = 0; this.ev('danceoff'); }       // the squad dances until you commit a new crime (after the first few seconds); then they are police again
+  if (this.danceT > 0) { if (this.danceT > 114) return; this.danceT = 0; this.ev('danceoff'); this.copsBack(); }       // the squad dances until you commit a new crime (after the first few seconds); then they are police again
   var p = this.p, w = this.w, N = SIZE, i; this.wanted = Math.max(this.wanted, stars); this.heat = 0; this.evadeT = 0; this.hideT = 0; this.wantedT = 0;
   w.bfs(this.pdf, Math.floor(p.x), Math.min(SIZE - 1, Math.floor(p.z))); this.pdfT = 0.25;
   for (i = 0; i < this.cops.length; i++) { var c = this.cops[i]; if (Math.abs(c.x - p.x) + Math.abs(c.z - p.z) < 34) c.chase = true; }
@@ -546,7 +547,7 @@ Game.prototype.update = function (dt) {
     return;
   }
   if (st === 'busted' || st === 'offer' || st === 'heistfail' || st === 'win' || st === 'over' || st === 'wasted') return;
-  this.time += dt; if (this.danceT > 0) { this.danceT -= dt; if (this.danceT <= 0) this.ev('danceoff'); }
+  this.time += dt; if (this.danceT > 0) { this.danceT -= dt; if (this.danceT <= 0) { this.ev('danceoff'); this.copsBack(); } }
   for (i = 0; i < w.stores.length; i++) if (w.stores[i].cool > 0) w.stores[i].cool -= dt;
   if (st === 'ufo') {        // beamed up: carried across town, nothing to do but look around
     var u = this.ufo; u.t += dt; var k = Math.max(0, Math.min(1, (u.t - 2.6) / 8.6)); k = k * k * k * (k * (k * 6 - 15) + 10);
@@ -685,6 +686,10 @@ Game.prototype.crime = function (stars) { if (this.mode === 'robber') this.start
 Game.prototype.kill = function (e) {
   var k = e.kind, i;
   if (k === 'cop' && this.mode !== 'cop') {       // shoot one officer and the whole force becomes a dance squad in the street
+    if (this.danceT > 0 && this.danceT < 119) {      // shoot a dancer and they burst into confetti; clear them all and the party is over
+      i = this.cops.indexOf(e); if (i >= 0) this.cops.splice(i, 1); this.copGone = (this.copGone || 0) + 1; this.ev('popcop', { x: e.x, z: e.z });
+      var left = 0; for (i = 0; i < this.cops.length; i++) if (!this.cops[i].beach && !this.cops[i].aboard) left++; if (!left) { this.danceT = 0; this.ev('danceoff'); this.copsBack(); } return;
+    }
     e.hp = 2; var first = !(this.danceT > 0); this.danceT = 120; this.clearWanted(); this.bodies = 0;
     if (first) { var row = 0; for (i = 0; i < this.cops.length; i++) { var c = this.cops[i]; if (c.beach || c.aboard) continue; if (c !== e && Math.abs(c.x - e.x) + Math.abs(c.z - e.z) < 45) { var fx = e.x + ((row % 4) - 1.5) * 1.5, fz = e.z + (Math.floor(row / 4) + 1) * 1.6; if (!this.hit(fx, fz)) { c.x = fx; c.z = fz; } row++; } c.dx = 0; c.dz = 1; c.chase = false; } this.ev('dance', { x: e.x, z: e.z }); }
     return;
@@ -1824,6 +1829,7 @@ Game.prototype.updateMoon = function (dt) {
     else if (t === 'dominated') { toast(ev.name + ' DOMINATED YOU!  -' + fmt(ev.lost), 3.2, '#ff4d4d'); debris(ev.x, 1.2, ev.z, 90, [0x2fbf63, 0x5dfc8a, 0xcfe8c4], 13, 1.5); shake = Math.max(shake, 0.7); tone(200, 0.6, 0.35, 'sawtooth', 60); tone(90, 0.8, 0.3, 'square', 40, 0.15); }
     else if (t === 'dance') { toast('DANCE SQUAD!', 3, '#ff4fa3'); debris(ev.x, 2, ev.z, 120, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 10, 3); danceBeat = 0; }
     else if (t === 'danceoff') toast('BACK ON DUTY', 1.6, '#3f8cff');
+    else if (t === 'popcop') { debris(ev.x, 1.2, ev.z, 110, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 11, 0.8); tone(900, 0.1, 0.2, 'square', 1800); tone(1400, 0.2, 0.12, 'sine', 500, 0.05); toast('POP!', 0.8, '#ff4fa3'); }
     else if (t === 'breach') { ev.tiles.forEach(function (k) { if (R.fence[k]) squash(R.flat, R.fence[k], 0.5); }); debris(ev.x, 0.8, ev.z, 70, [0x8d94a0, 0x4a4468, 0xffb62e], 11, 2); toast('WALL DOWN! GO FOR THE ROCKET', 3, '#ffb62e'); shake = Math.max(shake, 0.6); }
     else if (t === 'tall') { toast('SOMETHING TALL IS COMING', 3.5, '#b9b6ff'); tone(40, 3, 0.35, 'sawtooth', 70); tone(660, 2.5, 0.04, 'sine', 620); }
     else if (t === 'tallgone') toast('IT IS GONE. FOR NOW.', 2.5, '#b9b6ff');
