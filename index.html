@@ -299,10 +299,10 @@ Game.prototype.move = function (e, vx, vz, dt) {
   var nx = e.x + vx * dt, nz = e.z + vz * dt;
   if (e === this.p && !this.drive && (e.z + 0.3 >= SIZE || nz + 0.3 >= SIZE)) {      // only you can step off the last street onto the sand
     if (nz + 0.3 < SIZE) { if (!this.hit(e.x, nz)) e.z = nz; } else if (e.z + 0.3 >= SIZE || !this.hit(e.x, SIZE - 0.31)) e.z = Math.min(SIZE + BEACH, nz);
+    var bx0 = e.x, bz0 = e.z;
     if (e.z + 0.3 >= SIZE) e.x = Math.max(0.5, Math.min(SIZE - 0.5, nx)); else if (!this.hit(nx, e.z)) e.x = nx;
-    return;
-  }
-  if (!this.hit(nx, e.z)) e.x = nx; if (!this.hit(e.x, nz)) e.z = nz;
+    if (this.nblocks) { var bh = e.bh || 0; if (this.colTop(e.x, e.z) * BSZ - bh > BSZ + 0.05) { if (this.colTop(e.x, bz0) * BSZ - bh <= BSZ + 0.05) e.z = bz0; else if (this.colTop(bx0, e.z) * BSZ - bh <= BSZ + 0.05) e.x = bx0; else { e.x = bx0; e.z = bz0; } } }
+  } else { if (!this.hit(nx, e.z)) e.x = nx; if (!this.hit(e.x, nz)) e.z = nz; }
   var sp = Math.sqrt(vx * vx + vz * vz); if (sp > 0.2) { e.dx = vx / sp; e.dz = vz / sp; } e.moving = sp > 0.2;
 };
 Game.prototype.steer = function (e, df, speed, dt) {       // walk downhill on a distance field
@@ -321,6 +321,7 @@ Game.prototype.newCop = function (temp, x, z) {
   return { kind: 'cop', hp: 2, x: s.x + 0.5, z: s.z + 0.5, dx: 0, dz: 1, moving: false, chase: !!temp, temp: !!temp, df: new Int16Array(SIZE * SIZE), goal: null, life: 0 };
 };
 Game.prototype.startChase = function (stars) {
+  if (this.danceT > 0) return;       // nobody chases anybody while the squad is dancing
   var p = this.p, w = this.w, N = SIZE, i; this.wanted = Math.max(this.wanted, stars); this.heat = 0; this.evadeT = 0; this.hideT = 0; this.wantedT = 0;
   w.bfs(this.pdf, Math.floor(p.x), Math.min(SIZE - 1, Math.floor(p.z))); this.pdfT = 0.25;
   for (i = 0; i < this.cops.length; i++) { var c = this.cops[i]; if (Math.abs(c.x - p.x) + Math.abs(c.z - p.z) < 34) c.chase = true; }
@@ -341,7 +342,7 @@ Game.prototype.updateCops = function (dt) {
   if (this.wanted) { this.pdfT -= dt; if (this.pdfT <= 0) { w.bfs(this.pdf, Math.floor(p.x), Math.min(SIZE - 1, Math.floor(p.z))); this.pdfT = 0.25; } }
   var nearest = 1e9;
   for (i = this.cops.length - 1; i >= 0; i--) {
-    c = this.cops[i]; if (c.beach) { c.moving = false; c.chase = false; continue; } var dx = p.x - c.x, dz = p.z - c.z, d = Math.sqrt(dx * dx + dz * dz);
+    c = this.cops[i]; if (this.danceT > 0) { c.moving = false; c.chase = false; continue; } if (c.beach) { c.moving = false; c.chase = false; continue; } var dx = p.x - c.x, dz = p.z - c.z, d = Math.sqrt(dx * dx + dz * dz);
     if (this.wanted && !c.chase && d < 11 && !p.hidden) c.chase = true;
     if (this.wanted && c.chase) {
       if (d < nearest) nearest = d;
@@ -527,7 +528,7 @@ Game.prototype.update = function (dt) {
     if (ck >= 1) { p.fly = 0; this.state = 'play'; this.mode = 'robber'; this.heistAlarm = false; this.hot = 0; this.won = true; this.clearWanted(); this.grace = 2; this.ev('landed'); } return;
   }
   if (st === 'busted' || st === 'offer' || st === 'heistfail' || st === 'win' || st === 'over' || st === 'wasted') return;
-  this.time += dt;
+  this.time += dt; if (this.danceT > 0) { this.danceT -= dt; if (this.danceT <= 0) this.ev('danceoff'); }
   for (i = 0; i < w.stores.length; i++) if (w.stores[i].cool > 0) w.stores[i].cool -= dt;
   if (st === 'ufo') {        // beamed up: carried across town, nothing to do but look around
     var u = this.ufo; u.t += dt; var k = Math.max(0, Math.min(1, (u.t - 2.6) / 8.6)); k = k * k * k * (k * (k * 6 - 15) + 10);
@@ -566,6 +567,7 @@ Game.prototype.update = function (dt) {
   p.hidden = !this.drive && !!w.hide[Math.floor(p.z) * SIZE + Math.floor(p.x)] && !p.moving;
   var wasCalm = this.calm; this.calm = !this.drive && p.z > SIZE + 1.5;
   if (this.fireCd > 0 && this.calm) this.fireCd -= dt;
+  if (this.calm && this.nblocks) { var ct = this.colTop(p.x, p.z) * BSZ; if (ct - (p.bh || 0) <= BSZ + 0.05) p.bh = ct; } else p.bh = 0;
   this.zacT = (this.zacT || 0) - dt; if (this.calm && this.zacT <= 0 && Math.abs(p.x - ZAC.x) < 2.8 && Math.abs(p.z - ZAC.z) < 2.8) { this.zacT = 7; this.zacN = (this.zacN || 0) + 1; this.ev('zac', { n: this.zacN }); }
   if (this.calm) { if (!wasCalm) { this.maiGiven = false; this.ev('beach'); } if (this.wanted) this.clearWanted(); this.hp = Math.min(100, this.hp + 8 * dt); this.hurtT = 0; this.needs.food = Math.min(100, this.needs.food + dt); this.needs.med = Math.min(100, this.needs.med + dt); this.needs.warm = Math.min(100, this.needs.warm + dt); } else if (wasCalm) { this.build = -1; this.ev('beachoff'); }
   this.combat(dt); if (this.state !== 'play') return;
@@ -648,7 +650,12 @@ Game.prototype.aim = function (range) {      // auto-aim: the nearest threat rou
 };
 Game.prototype.crime = function (stars) { if (this.mode === 'robber') this.startChase(Math.min(3, Math.max(stars, this.wanted))); };
 Game.prototype.kill = function (e) {
-  var k = e.kind, i; this.ev('boom', { x: e.x, z: e.z, kind: k, look: e.look || 0, otter: !!e.otter }); this.kills++;
+  var k = e.kind, i;
+  if (k === 'cop' && this.mode !== 'cop') {       // shoot one officer and the whole force becomes a dance squad in the street
+    e.hp = 2; var first = !(this.danceT > 0); this.danceT = 45; this.clearWanted(); this.bodies = 0;
+    if (first) { var row = 0; for (i = 0; i < this.cops.length; i++) { var c = this.cops[i]; if (c.beach || c.aboard) continue; if (c !== e && Math.abs(c.x - e.x) + Math.abs(c.z - e.z) < 45) { var fx = e.x + ((row % 4) - 1.5) * 1.5, fz = e.z + (Math.floor(row / 4) + 1) * 1.6; if (!this.hit(fx, fz)) { c.x = fx; c.z = fz; } row++; } c.dx = 0; c.dz = 1; c.chase = false; } this.ev('dance', { x: e.x, z: e.z }); }
+    return;
+  } this.ev('boom', { x: e.x, z: e.z, kind: k, look: e.look || 0, otter: !!e.otter }); this.kills++;
   if (e.boss) { e.dead = 600; this.cash += 1500; this.ev('gemmadown'); }      // the big ones stay gone for two days
   else if (k === 'zombie' || k === 'bear') { e.dead = k === 'bear' ? 600 : 12; this.cash += k === 'bear' ? 300 : 50; }
   else if (k === 'ped') { e.dead = 15; this.bodies = (this.bodies || 0) + 1; if (this.bodies >= 3) this.crime(Math.min(3, Math.floor(this.bodies) - 1)); else this.ev('toast', { m: this.bodies >= 2 ? 'One more and the cops come' : 'Somebody saw that' }); }
@@ -795,6 +802,7 @@ Game.prototype.nearRack = function () { return this.state === 'play' && !!this.c
 Game.prototype.blockOk = function (ix, iy, iz) { var wx = ix * BSZ, wz = iz * BSZ; return iy >= 0 && iy < 24 && wx >= 0.5 && wx <= SIZE - 1 && wz >= SIZE + 1 && wz <= SIZE + 14.5 && !(Math.abs(wx - BRACK.x) < 2.2 && Math.abs(wz - BRACK.z) < 1); };
 Game.prototype.placeBlock = function (ix, iy, iz, c) { var k = ix + ',' + iy + ',' + iz; if (!this.blockOk(ix, iy, iz) || this.blocks[k] !== undefined || this.nblocks >= BMAX) return false; this.blocks[k] = c; this.nblocks++; this.ev('block', { n: this.nblocks }); return true; };
 Game.prototype.removeBlock = function (ix, iy, iz) { var k = ix + ',' + iy + ',' + iz; if (this.blocks[k] === undefined) return false; delete this.blocks[k]; this.nblocks--; this.ev('unblock'); return true; };
+Game.prototype.colTop = function (x, z) { var ix = Math.floor(x / BSZ), iz = Math.floor(z / BSZ), n = 0; while (n < 24 && this.blocks[ix + ',' + n + ',' + iz] !== undefined) n++; return n; };
 Game.prototype.frontCell = function () { var p = this.p, ix = Math.floor((p.x + p.dx * 1.3) / BSZ), iz = Math.floor((p.z + p.dz * 1.3) / BSZ), iy = 0; while (this.blocks[ix + ',' + iy + ',' + iz] !== undefined && iy < 24) iy++; return this.blockOk(ix, iy, iz) ? [ix, iy, iz] : null; };   // flat screens build on the column in front of you
 // The Moon: a low-gravity playground you reach by rocket, and by teleporter ever after.
 Game.prototype.goMoon = function (first) {
@@ -957,12 +965,20 @@ Game.prototype.updateMoon = function (dt) {
     R.drops.instanceColor.needsUpdate = true;
   }
   function blast(x, z, r) { for (var i = 0; i < R.blasts.length; i++) if (R.blasts[i].life <= 0) { var b = R.blasts[i]; b.life = 1; b.r = r; b.position.set(x, 0.8, z); b.visible = true; return; } }
-  function syncBlocks(save) {
-    var n = 0, k, q; for (k in G.blocks) { if (n >= BMAX) break; q = k.split(','); dummy.position.set(q[0] * BSZ + BSZ / 2, 0.08 + q[1] * BSZ + BSZ / 2, q[2] * BSZ + BSZ / 2); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1); dummy.updateMatrix(); R.blk.setMatrixAt(n, dummy.matrix); R.blk.setColorAt(n, tc.setHex(BCOL[G.blocks[k]] || 0xffffff)); n++; }
-    R.blk.count = n; R.blk.instanceMatrix.needsUpdate = true; if (R.blk.instanceColor) R.blk.instanceColor.needsUpdate = true;
+  function syncBlocks(save) {       // yellow blocks are lamps: drawn unlit, with a halo that comes up at night
+    var n = 0, gn = 0, k, q, ga = R.glowG.attributes.position.array; for (k in G.blocks) { if (n + gn >= BMAX) break; q = k.split(','); dummy.position.set(q[0] * BSZ + BSZ / 2, 0.08 + q[1] * BSZ + BSZ / 2, q[2] * BSZ + BSZ / 2); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1); dummy.updateMatrix();
+      if (G.blocks[k] === 1) { R.blkGlow.setMatrixAt(gn, dummy.matrix); ga[gn * 3] = dummy.position.x; ga[gn * 3 + 1] = dummy.position.y; ga[gn * 3 + 2] = dummy.position.z; gn++; } else { R.blk.setMatrixAt(n, dummy.matrix); R.blk.setColorAt(n, tc.setHex(BCOL[G.blocks[k]] || 0xffffff)); n++; } }
+    R.blk.count = n; R.blk.instanceMatrix.needsUpdate = true; if (R.blk.instanceColor) R.blk.instanceColor.needsUpdate = true; R.blkGlow.count = gn; R.blkGlow.instanceMatrix.needsUpdate = true; R.glowG.setDrawRange(0, gn); R.glowG.attributes.position.needsUpdate = true;
     if (save) try { localStorage.setItem('breadrun-blocks', JSON.stringify(G.blocks)); } catch (e) {}
   }
-  var bT = { place: null, hit: null };
+  var danceBeat = 0, bT = { place: null, hit: null }, palEl = document.createElement('div'), palWas = -2;
+  palEl.style.cssText = 'position:fixed;left:50%;bottom:8px;transform:translateX(-50%);display:none;gap:6px;padding:6px 8px;background:rgba(20,4,31,0.8);border-radius:12px;z-index:5;pointer-events:none'; document.body.appendChild(palEl);
+  BCOL.forEach(function (c) { var d = document.createElement('div'); d.style.cssText = 'width:26px;height:26px;border-radius:6px;border:3px solid transparent;background:#' + ('00000' + c.toString(16)).slice(-6); palEl.appendChild(d); });
+  function palSync(on) {      // the block colours sit along the bottom of the screen while you build
+    var cur = on ? G.build : -1, key = cur + (vr ? 100 : 0); if (key === palWas) return; palWas = key; palEl.style.display = on && !vr ? 'flex' : 'none';
+    for (var q = 0; q < BCOL.length; q++) { palEl.children[q].style.borderColor = q === cur ? '#ffffff' : 'transparent'; palEl.children[q].style.transform = q === cur ? 'scale(1.3) translateY(-4px)' : 'none'; palEl.children[q].style.boxShadow = q === 1 ? '0 0 10px #ffd23f' : 'none'; }
+    if (typeof pal3 !== 'undefined') { pal3.visible = on && vr; if (on) { var x = palX; x.clearRect(0, 0, 512, 96); x.fillStyle = 'rgba(20,4,31,0.82)'; x.fillRect(0, 22, 512, 74); for (q = 0; q < BCOL.length; q++) { var bx = 20 + q * 60, act = q === cur, sz = act ? 54 : 40, by = act ? 6 : 40; if (q === 1) { x.fillStyle = 'rgba(255,210,63,0.35)'; x.fillRect(bx - 6 - (sz - 40) / 2, by - 6, sz + 12, sz + 12); } x.fillStyle = '#' + ('00000' + BCOL[q].toString(16)).slice(-6); x.fillRect(bx - (sz - 40) / 2, by, sz, sz); if (act) { x.strokeStyle = '#ffffff'; x.lineWidth = 5; x.strokeRect(bx - (sz - 40) / 2, by, sz, sz); } } x.fillStyle = '#b3b9c7'; x.font = 'bold 15px sans-serif'; x.textAlign = 'right'; x.fillText('B colour   A stop', 506, 18); palTex.needsUpdate = true; } }
+  }
   function chop(mesh, ranges, cut, jag, dim) {     // break everything above a ragged line off the top
     var pa = mesh.geometry.attributes.position, ca = mesh.geometry.attributes.color, P = pa.array, C = ca.array;
     ranges.forEach(function (r) { for (var i = r[0]; i < r[1]; i += 3) { var h = Math.sin(P[i] * 12.9898 + P[i + 2] * 78.233) * 43758.5; h -= Math.floor(h); var top = Math.max(0.2, cut - h * jag); if (P[i + 1] > top) { P[i + 1] = top; C[i] *= dim; C[i + 1] *= dim; C[i + 2] *= dim; } } }); pa.needsUpdate = true; ca.needsUpdate = true;
@@ -1269,6 +1285,8 @@ Game.prototype.updateMoon = function (dt) {
       R.aliens = []; for (k2 = 0; k2 < 6; k2++) { var al2 = makeChar({ shirt: PC[k2], pants: 0x2a2a3a, shoes: 0x2a2a3a, skin: 0x8cff6b }); al2.ax = MOON.x + Math.cos(k2 * 1.05 + 0.5) * (14 + (k2 % 2) * 8); al2.az = MOON.z + Math.sin(k2 * 1.05 + 0.5) * (14 + (k2 % 2) * 8); world.add(al2); R.aliens.push(al2); }
     })();
     R.blk = new THREE.InstancedMesh(new THREE.BoxGeometry(BSZ * 0.98, BSZ * 0.98, BSZ * 0.98), new THREE.MeshLambertMaterial({ color: 0xffffff }), BMAX); R.blk.setColorAt(0, tc.setHex(0xffffff)); R.blk.count = 0; R.blk.castShadow = true; R.blk.frustumCulled = false; world.add(R.blk);
+    R.blkGlow = new THREE.InstancedMesh(new THREE.BoxGeometry(BSZ * 0.98, BSZ * 0.98, BSZ * 0.98), new THREE.MeshBasicMaterial({ color: 0xffe14f, fog: false }), BMAX); R.blkGlow.count = 0; R.blkGlow.frustumCulled = false; world.add(R.blkGlow);
+    R.glowG = new THREE.BufferGeometry(); R.glowG.setAttribute('position', new THREE.BufferAttribute(new Float32Array(BMAX * 3), 3)); R.glowG.setDrawRange(0, 0); R.glowP = new THREE.Points(R.glowG, new THREE.PointsMaterial({ map: haloTex, color: 0xffd23f, size: 3.2, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); R.glowP.frustumCulled = false; world.add(R.glowP);
     R.ghost = new THREE.Mesh(new THREE.BoxGeometry(BSZ, BSZ, BSZ), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false })); R.ghost.visible = false; world.add(R.ghost);
     (function () { var tb = new THREE.Mesh(new THREE.BoxGeometry(4, 0.12, 0.9), new THREE.MeshLambertMaterial({ color: 0x8a5a2b })); tb.position.set(BRACK.x, 0.85, BRACK.z); world.add(tb); [[-1.8, -0.3], [1.8, -0.3], [-1.8, 0.3], [1.8, 0.3]].forEach(function (o) { var lg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.8, 0.12), new THREE.MeshLambertMaterial({ color: 0x5a3a1c })); lg.position.set(BRACK.x + o[0], 0.45, BRACK.z + o[1]); world.add(lg); });
       R.rack = BCOL.map(function (c, q) { var m = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.25 })); m.position.set(BRACK.x - 1.61 + q * 0.46, 1.1, BRACK.z); world.add(m); return m; });
@@ -1423,11 +1441,13 @@ Game.prototype.updateMoon = function (dt) {
     else if (t === 'crash') { debris(ev.x, 0.6, ev.z, 10, [0x8d94a0, 0xffe14f, 0x2a2a3a], 5); shake = Math.max(shake, 0.3); tone(110, 0.18, 0.3, 'sawtooth', 50); if (ev.left <= 5 || ev.left % 5 === 0) toast('CAR DAMAGE: ' + ev.left + ' HITS LEFT', 1.2, ev.left <= 5 ? '#ff4d4d' : '#ffd23f'); }
     else if (t === 'carboom') toast('THE CAR BLEW UP', 2, '#ff4d4d');
     else if (t === 'dominated') { toast(ev.name + ' DOMINATED YOU!  -' + fmt(ev.lost), 3.2, '#ff4d4d'); debris(ev.x, 1.2, ev.z, 90, [0x2fbf63, 0x5dfc8a, 0xcfe8c4], 13, 1.5); shake = Math.max(shake, 0.7); tone(200, 0.6, 0.35, 'sawtooth', 60); tone(90, 0.8, 0.3, 'square', 40, 0.15); }
+    else if (t === 'dance') { toast('DANCE SQUAD!', 3, '#ff4fa3'); debris(ev.x, 2, ev.z, 120, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 10, 3); danceBeat = 0; }
+    else if (t === 'danceoff') toast('BACK ON DUTY', 1.6, '#3f8cff');
     else if (t === 'thump') { debris(ev.x, 1, ev.z, 14, [0x8d94a0, 0xffe14f], 6); shake = Math.max(shake, 0.4); toast('THUMP! ' + ev.left + ' MORE', 1, '#ff8a2b'); tone(90, 0.25, 0.4, 'square', 50); }
     else if (t === 'sweep') { var sn = 0; R.pools.forEach(function (pm) { if (pm.visible && Math.abs(pm.position.x - ev.x) < 2.4 && Math.abs(pm.position.z - ev.z) < 2.4) { pm.visible = false; sn++; } }); for (var si = 0; si < DN; si++) if (dLife[si] > 0.02 && Math.abs(dPos[si * 3] - ev.x) < 2.4 && Math.abs(dPos[si * 3 + 2] - ev.z) < 2.4) { dLife[si] = 0.02; sn++; } if (sn) G.cash += sn * 3; debris(ev.x, 0.2, ev.z, 5, [0xd9c9a8, 0xb9b6ae], 3); tone(1800, 0.14, 0.06, 'sawtooth', 600); }
     else if (t === 'block') { syncBlocks(true); tone(520 + (ev.n % 7) * 40, 0.06, 0.12, 'square'); }
     else if (t === 'unblock') { syncBlocks(true); tone(240, 0.08, 0.12, 'square', 120); }
-    else if (t === 'bstart') toast(vr ? 'TRIGGER: PLACE.  B: REMOVE.  A: STOP.' : 'BUILD: FIRE PLACES, DASH REMOVES, WEAPON BUTTON CHANGES COLOUR', 6, '#ffd23f');
+    else if (t === 'bstart') toast(vr ? 'TRIGGER: PLACE.  LEFT TRIGGER: REMOVE.' : 'BUILD: FIRE PLACES, DASH REMOVES, WEAPON BUTTON CHANGES COLOUR', 6, '#ffd23f');
     else if (t === 'bstop') toast('DONE BUILDING', 1.4, '#ffd23f');
     else if (t === 'bcol') tone(700, 0.05, 0.1, 'square');
     else if (t === 'moon') { toast(ev.first ? 'THE MOON! JUMP, BOUNCE, GRAB THE STARS' : 'BACK ON THE MOON', 4, '#35e8ff'); jingle([392, 523, 659, 784, 1047], 0.13, 'sine'); }
@@ -1507,12 +1527,14 @@ Game.prototype.updateMoon = function (dt) {
     if (started) { var steps = 2; for (var s2 = 0; s2 < steps; s2++) G.update(sdt / steps); while (G.events.length) handle(G.events.shift()); }
     var p = G.p, w = G.w, i, L = w.launch;
     // characters
-    R.player.visible = !vr && (!p.inside || G.state === 'inside') && !G.drive && !G.mride && G.state !== 'pilot' && G.state !== 'launch' && G.state !== 'win'; animChar(R.player, p, dt, p.dashT > 0 ? 1.6 : 1); R.player.position.y += p.fly || 0; if (p.fly && G.state === 'ufo') R.player.rotation.y += dt * 3;
+    R.player.visible = !vr && (!p.inside || G.state === 'inside') && !G.drive && !G.mride && G.state !== 'pilot' && G.state !== 'launch' && G.state !== 'win'; animChar(R.player, p, dt, p.dashT > 0 ? 1.6 : 1); R.player.position.y += (p.fly || 0) + (p.bh || 0); if (p.fly && G.state === 'ufo') R.player.rotation.y += dt * 3;
     R.chute.visible = G.state === 'chute'; if (R.chute.visible) { R.chute.position.set(p.x, p.fly + (vr ? 3.6 : 3.0), p.z); R.chute.rotation.z = Math.sin(clock * 1.3) * 0.06; }
     var isCop = G.mode === 'cop'; if (R.lastMode !== G.mode) { R.lastMode = G.mode; var sc = isCop ? 0x24407a : 0xff4fa3, hc = isCop ? 0x16264d : 0xf4f4f0; R.player.body.material.color.setHex(sc); R.player.slL.material.color.setHex(sc); R.player.slR.material.color.setHex(sc); R.player.hat.material.color.setHex(hc); R.player.brim.material.color.setHex(hc); R.player.ghost.material.color.setHex(isCop ? 0x3f8cff : 0x39ff7a); }
     R.bag.visible = G.bag.n > 0; R.bag.scale.setScalar(0.7 + G.bag.n * 0.07); R.player.ghost.material.opacity = p.hidden ? 0.2 : 0.6;
     syncList(R.cops, G.cops.length, function () { var c = makeChar({ shirt: 0x24407a, pants: 0x1b2233, shoes: 0x111111, skin: [0xe8b88a, 0x8a5a3c, 0xc98f62][R.cops.length % 3], hat: 0x16264d, shades: true, badge: true }); c.light = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.2), new THREE.MeshBasicMaterial({ color: 0xff3030 })); c.light.position.y = 1.72; c.add(c.light); return c; });
-    for (i = 0; i < G.cops.length; i++) { var cp = G.cops[i], hot = cp.chase && G.wanted > 0; animChar(R.cops[i], cp, dt, hot ? 1.3 : 0.5); R.cops[i].light.visible = hot; R.cops[i].light.material.color.setHex(Math.floor(clock * 6 + i) % 2 ? 0xff3030 : 0x3f8cff); R.cops[i].ghost.visible = hot; R.cops[i].ghost.material.color.setHex(0xff3030); R.cops[i].visible = !cp.aboard; if (cp.lift) { R.cops[i].position.y += cp.lift; R.cops[i].rotation.y = clock * 0.45 + i; R.cops[i].armL.rotation.x = R.cops[i].armR.rotation.x = Math.PI; } }
+    for (i = 0; i < G.cops.length; i++) { var cp = G.cops[i], hot = cp.chase && G.wanted > 0; animChar(R.cops[i], cp, dt, hot ? 1.3 : 0.5); R.cops[i].light.visible = hot; R.cops[i].light.material.color.setHex(Math.floor(clock * 6 + i) % 2 ? 0xff3030 : 0x3f8cff); R.cops[i].ghost.visible = hot; R.cops[i].ghost.material.color.setHex(0xff3030); R.cops[i].visible = !cp.aboard;
+      if (G.danceT > 0 && !cp.beach && !cp.lift) { var dc = R.cops[i], bt4 = clock * 7.5 + i * 1.3, bop = Math.abs(Math.sin(bt4)); dc.position.y += bop * 0.35; dc.rotation.y = Math.sin(bt4 * 0.5) * 0.9 + (Math.floor(clock * 0.9 + i) % 4 === 0 ? clock * 9 : 0); dc.armL.rotation.x = Math.PI - 0.4 + Math.sin(bt4) * 0.7; dc.armR.rotation.x = Math.PI - 0.4 - Math.sin(bt4) * 0.7; dc.armL.rotation.z = -0.5 - bop * 0.4; dc.armR.rotation.z = 0.5 + bop * 0.4; dc.legL.rotation.x = Math.sin(bt4) * 0.5; dc.legR.rotation.x = -Math.sin(bt4) * 0.5; dc.light.visible = true; dc.light.material.color.setHex(NEON[(i + Math.floor(clock * 8)) % 5]); dc.ghost.visible = false;
+        if (Math.random() < dt * 9) debris(cp.x + (Math.random() - 0.5), 2.3, cp.z + (Math.random() - 0.5), 3, [0xff4fa3, 0xffd23f, 0x5dfc8a, 0x35e8ff, 0xffffff, 0xb06bff], 5); } else { R.cops[i].armL.rotation.z = 0; R.cops[i].armR.rotation.z = 0; } if (cp.lift) { R.cops[i].position.y += cp.lift; R.cops[i].rotation.y = clock * 0.45 + i; R.cops[i].armL.rotation.x = R.cops[i].armR.rotation.x = Math.PI; } }
     R.robber.visible = !!G.robber && G.robber.phase === 'flee'; if (G.robber) animChar(R.robber, G.robber, dt, 1.2);
     R.robMark.visible = R.robber.visible; if (R.robMark.visible) { var rbk = G.robber, rpu = 0.5 + 0.5 * Math.sin(clock * 8); R.robMark.position.set(rbk.x, 0, rbk.z); R.robRing.scale.setScalar(1 + rpu * 0.5); R.robRing.material.opacity = 0.95 - rpu * 0.5; R.robGem.position.y = 3.1 + rpu * 0.35; R.robGem.rotation.y = clock * 3; }
     syncList(R.guards, G.guards.length, function () { return makeChar({ shirt: 0x5a5f6b, pants: 0x2b2e38, shoes: 0x111111, hat: 0xffb62e, shades: true }); });
@@ -1557,6 +1579,8 @@ Game.prototype.updateMoon = function (dt) {
     for (i = 0; i < R.stands.length; i++) { R.stands[i].visible = !G.stands[i].sold; R.stands[i].item.rotation.y = clock * 1.5; R.stands[i].item.position.y = 1.5 + Math.sin(clock * 3 + i) * 0.12; }
     var building = G.build >= 0 && G.calm && G.state === 'play'; if (building && !vr) { var fcl = G.frontCell(); bT.place = fcl; bT.hit = null; } if (!building) bT.place = bT.hit = null;
     R.ghost.visible = building && !!bT.place; if (R.ghost.visible) { R.ghost.position.set(bT.place[0] * BSZ + BSZ / 2, 0.08 + bT.place[1] * BSZ + BSZ / 2, bT.place[2] * BSZ + BSZ / 2); R.ghost.material.color.setHex(BCOL[G.build]); R.ghost.material.opacity = 0.35 + 0.2 * Math.sin(clock * 8); }
+    if (G.danceT > 0) { danceBeat -= dt; if (danceBeat <= 0) { danceBeat = 1.92; var DN2 = [392, 0, 494, 392, 587, 0, 494, 587, 659, 0, 587, 494, 440, 494, 392, 0]; DN2.forEach(function (f, q) { if (f) tone(f, 0.11, 0.09, 'square', null, q * 0.12); if (q % 4 === 0) tone(70, 0.12, 0.3, 'sine', 40, q * 0.12); if (q % 4 === 2) tone(1800, 0.04, 0.05, 'sawtooth', 900, q * 0.12); }); } }
+    R.glowP.material.opacity = 0.15 + 0.8 * nightF; R.glowP.material.size = 2.4 + 2.2 * nightF; palSync(building);
     for (i = 0; i < R.rack.length; i++) { R.rack[i].rotation.y = clock + i; R.rack[i].scale.setScalar(G.build === i ? 1.35 : 1); }
     env(dt, p); R.epad.visible = !!G.moonOpen; R.epad.rotation.y = clock;
     if (G.moon) {
@@ -1719,6 +1743,7 @@ Game.prototype.updateMoon = function (dt) {
     var ss = null; bd = 1e9; for (i = 0; i < w.stores.length; i++) { var st = w.stores[i]; if (st.cool > 0 || st.dead) continue; var d3 = Math.abs(st.door.x - p.x) + Math.abs(st.door.z - p.z); if (d3 < bd) { bd = d3; ss = st; } } put('shop', ss ? ss.door.x : 0, ss ? ss.door.z : 0, !!ss && G.mode !== 'cop');
     put('rocket', w.launch.rocket.x, w.launch.rocket.z, G.mode === 'heist'); put('beach', p.x, SIZE + 8, !G.calm && p.z > SIZE - 45);
   }
+  var palC = document.createElement('canvas'); palC.width = 512; palC.height = 96; var palX = palC.getContext('2d'), palTex = new THREE.CanvasTexture(palC), pal3 = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.116), new THREE.MeshBasicMaterial({ map: palTex, transparent: true, depthTest: false, depthWrite: false, fog: false })); pal3.position.set(0, -0.4, -1.05); pal3.renderOrder = 64; pal3.visible = false; camera.add(pal3);
   function calmB() { return G.build >= 0 && !!G.calm && G.state === 'play'; }
   var bhand = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.11), new THREE.MeshLambertMaterial({ color: 0xffffff })); bhand.position.set(0, 0.07, -0.05); bhand.visible = false; gunRoot.add(bhand);
   var eul = new THREE.Euler(), cockWas = false, mapHold = false, carHint = false, hackBtn = new THREE.Group(), hackCap, hackOn = false, hackDown = false, pod = new THREE.Group();
@@ -1791,13 +1816,13 @@ Game.prototype.updateMoon = function (dt) {
     if (G.state === 'pilot') { if (trigR) G.fire(); if (aB) G.toggleCar(); G.input.alt = Rg && Rg.axes.length > 3 ? -Rg.axes[3] : 0; return; } G.input.alt = 0;
     if (G.state !== 'play') return;
     if (G.calm && (gripR || gripL)) { for (var rh = 0; rh < 2; rh++) { if (!(rh === vrRi ? gripR : gripL)) continue; hands[rh].getWorldPosition(tmpV); for (var rq = 0; rq < R.rack.length; rq++) if (tmpV.distanceTo(R.rack[rq].position) < 0.45) { var was2 = G.build; G.build = rq; if (was2 < 0) G.ev('bstart'); else G.ev('bcol', { c: rq }); buzz(rh === vrRi ? padR : padL, 0.6, 50); } } }
-    if (calmB()) { if (trigR && bT.place) { if (G.placeBlock(bT.place[0], bT.place[1], bT.place[2], G.build)) buzz(padR, 0.5, 30); } if (bB) { if (bT.hit) G.removeBlock(bT.hit[0], bT.hit[1], bT.hit[2]); else G.nextWeapon(); } if (aB) G.toggleCar(); return; }
+    if (calmB()) { if (trigR && bT.place) { if (G.placeBlock(bT.place[0], bT.place[1], bT.place[2], G.build)) buzz(padR, 0.5, 30); } if (bB) G.nextWeapon(); if (trigL && bT.hit) { if (G.removeBlock(bT.hit[0], bT.hit[1], bT.hit[2])) buzz(padL, 0.5, 30); } if (aB) G.toggleCar(); return; }
     if (heldR) { if (G.aimV) { G.p.dx = G.aimV.dx; G.p.dz = G.aimV.dz; } G.fire(); }
     if (trigL) { if (!G.mug()) G.dash(); } if (aB) G.toggleCar(); if (bB) G.nextWeapon();
   }
   function vrCamera(dt, lifting) {
     var p = G.p, L = G.w.launch, tx = p.x, tz = p.z, ty = G.state === 'inside' ? 0.04 : (G.drive ? -0.5 : (G.w.isRoad(Math.floor(p.x), Math.floor(p.z)) ? 0 : 0.15));
-    if (p.fly) ty = p.fly - 0.6; if (G.moon) ty = (p.fly || 0) + (G.mride ? (G.mride.kind === 'tank' ? 1.5 : 0.55) : 0); if (G.state === 'pilot') { tx = p.x + Math.sin(vrYaw) * 17; tz = p.z + Math.cos(vrYaw) * 17; ty = G.ualt - 5; } if (lifting) ty = p.fly + 2.2; pod.visible = lifting;
+    if (p.fly) ty = p.fly - 0.6; if (p.bh) ty += p.bh; if (G.moon) ty = (p.fly || 0) + (G.mride ? (G.mride.kind === 'tank' ? 1.5 : 0.55) : 0); if (G.state === 'pilot') { tx = p.x + Math.sin(vrYaw) * 17; tz = p.z + Math.cos(vrYaw) * 17; ty = G.ualt - 5; } if (lifting) ty = p.fly + 2.2; pod.visible = lifting;
     if (lifting) { rig.position.y = ty + (Math.random() - 0.5) * 0.03; altT -= dt; if (altT <= 0) { altT = 0.2; altX.fillStyle = '#14041f'; altX.fillRect(0, 0, 256, 64); altX.fillStyle = '#5dfc8a'; altX.font = 'bold 30px monospace'; altX.textAlign = 'center'; altX.textBaseline = 'middle'; altX.fillText(G.launchT < 1.2 ? 'IGNITION' : 'ALT ' + Math.round(p.fly * 40) + ' M', 128, 34); altTex.needsUpdate = true; buzz(padL, 0.7, 180); buzz(padR, 0.7, 180); } }
     wayfind(); wrist.scale.setScalar(mapHold ? 2.8 : 1); wrist.position.y = mapHold ? 0.2 : 0.06;
     var nzv = G.nearZach(), ncv = nzv || (G.state === 'play' && !G.drive && !!G.nearCar()); if (G.moon) ncv = false; var nrv = G.nearRack() && G.build < 0; if (nrv) ncv = true; if (ncv && !carHint) toast(nrv ? 'GRIP A BLOCK ON THE RACK, OR PRESS A, TO BUILD' : nzv ? 'PRESS A TO FLY THE UFO' : 'PRESS A TO TAKE THE CAR', 2.5, '#ffd23f'); carHint = ncv;
