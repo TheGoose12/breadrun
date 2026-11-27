@@ -42,6 +42,7 @@
   #racebar { display: none; position: fixed; left: 50%; transform: translateX(-50%); top: calc(112px + env(safe-area-inset-top)); z-index: 12; max-width: 92vw; padding: 8px 14px; border-radius: 16px; background: rgba(10, 30, 110, 0.88); border: 2px solid #ffd23f; text-align: center; font-size: 16px; }
   #racebar button { margin: 8px 4px 0; background: #ffd23f; color: #241a00; }
   #racebar #rcno { background: rgba(255, 255, 255, 0.9); color: #0c2468; }
+  #viewbtn2 { position: fixed; right: calc(18px + env(safe-area-inset-right)); top: calc(66px + env(safe-area-inset-top)); padding: 8px 14px; font-size: 12px; z-index: 14; touch-action: manipulation; display: none; }
   #throwbtn, #boostbtn, #skibtn, #menubtn, #racebar button { touch-action: manipulation; z-index: 14; }
   #throwbtn { position: fixed; right: calc(18px + env(safe-area-inset-right)); bottom: calc(56px + env(safe-area-inset-bottom)); width: 78px; height: 78px; border-radius: 50%; padding: 0; font-size: 12px; background: rgba(255, 255, 255, 0.92); display: none; }
   #boostbtn { position: fixed; right: calc(18px + env(safe-area-inset-right)); bottom: calc(146px + env(safe-area-inset-bottom)); width: 78px; height: 78px; border-radius: 50%; padding: 0; font-size: 12px; background: #ffd23f; color: #241a00; display: none; }
@@ -58,9 +59,9 @@
 <div id="stage"></div>
 <div id="read" class="serif"><div id="alt"></div><div id="spd"></div><div id="score"></div><div id="combo"></div><div id="mpinfo"></div></div>
 <div id="btns"><button id="skibtn">SKIS ON</button><button id="menubtn">MENU</button></div>
-<div id="menu"><button id="racebtn">RACE</button><button id="mpbtn">TOGETHER</button><button id="flybtn">PARAGLIDER</button><button id="yetibtn">BE THE YETI</button><button id="wildbtn">WILD: ON</button><button id="trailbtn">BACK TO THE TRAIL</button><button id="topbtn">SUMMIT</button><button id="viewbtn">VIEW: EYES</button><button id="skybtn">SKY: AUTO</button><button id="vrbtn">ENTER VR</button><button id="hubbtn">ALL GAMES</button></div>
+<div id="menu"><button id="racebtn">RACE</button><button id="mpbtn">TOGETHER</button><button id="flybtn">PARAGLIDER</button><button id="yetibtn">BE THE YETI</button><button id="wildbtn">WILD: ON</button><button id="trbtn">TRAIL: OFF</button><button id="trailbtn">BACK TO THE TRAIL</button><button id="topbtn">SUMMIT</button><button id="viewbtn">VIEW: EYES</button><button id="skybtn">SKY: AUTO</button><button id="vrbtn">ENTER VR</button><button id="hubbtn">ALL GAMES</button></div>
 <div id="racebar"><div id="rctext"></div><button id="rcyes">JOIN</button><button id="rcno">NO THANKS</button></div>
-<button id="throwbtn">SNOW BALL</button><button id="boostbtn">ROCKET</button>
+<button id="viewbtn2">VIEW</button><button id="throwbtn">SNOW BALL</button><button id="boostbtn">ROCKET</button>
 <div id="speedfx"></div><div id="msg" class="serif"></div>
 <div id="hint"></div>
 <div id="joy"><div id="knob"></div></div>
@@ -437,7 +438,7 @@ var PROP_VS = [       // people are one mesh each; legs, arms, head and straps m
   '  p.y += abs(sin(uAnim.x)) * 0.025 * uAnim.y - 0.42 * (1.0 - cos(th)) - 0.42 * (1.0 - cos(th - kb)) + (uLook.z > 2.0 ? (uLook.z - 2.0) * abs(sin(uTime * 6.0 + position.x)) * 0.07 : 0.0);',
   '  vC = color; vN = normalize(mat3(modelMatrix) * n); vec4 w = modelMatrix * vec4(p, 1.0);',
   '  if (b > 7.5 && b < 9.5) { float fl = fract(b); w.xyz += vec3(uWA.x, 0.35, uWA.y) * (fl * (0.06 + 0.16 * uGust)) + vec3(-uWA.y, 0.0, uWA.x) * (fl * sin(uTime * 13.0 + w.x * 5.0 + w.z * 3.0) * 0.05 * (0.4 + uGust)); }',
-  '  vWE = vec4(w.xyz, b > 9.5 ? 1.0 : 0.0); gl_Position = projectionMatrix * viewMatrix * w;',
+  '  vWE = vec4(w.xyz, b > 10.5 ? 2.0 : b > 9.5 ? 1.0 : 0.0); gl_Position = projectionMatrix * viewMatrix * w;',
   '}'
 ].join('\n');
 var PROP_FS = GL_TONE + [
@@ -446,7 +447,7 @@ var PROP_FS = GL_TONE + [
   '  vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;',
   '  vec3 c = vC * (uLightC * (0.92 * max(dot(N, uSun), 0.0)) + uAmbC * (0.75 + 0.35 * N.y) + uLightC * 0.04);',
   '  if (uLampP.w > 0.0) { vec3 lv = vWE.xyz - uLampP.xyz; float ld = length(lv); lv /= ld; c += vC * vec3(1.0, 0.94, 0.82) * (uLampP.w * smoothstep(0.80, 0.97, dot(lv, uLampD)) * (max(dot(N, -lv), 0.0) * 0.7 + 0.3) * 4.6 / (4.0 + ld * 0.5 + ld * ld * 0.01)); }',
-  '  c += vC * (vWE.w * uSky.y * (1.1 + 0.25 * N.y));',          // tents glow from inside at night
+  '  c += vC * (min(vWE.w, 1.0) * uSky.y * (1.1 + 0.25 * N.y)) + vC * (max(vWE.w - 1.0, 0.0) * 0.6);',          // tents glow from inside at night
   '  gl_FragColor = vec4(tone(c), 1.0);',
   '}'
 ].join('\n');
@@ -1096,14 +1097,14 @@ var vm = { open: false, idx: 0, mode: 0, code: [0, 0, 0, 0], pos: 0, ready: true
 function vmItems() {
   var inRoom = MP.code && NET.on;
   return [[inRoom ? 'Room ' + MP.code + '  (' + (MP.count + 1) + ' here)  Change' : 'Play with friends', 'join'],
-    [RC.st >= 2 && RC.st <= 4 ? 'Leave the race' : RC.st === 1 ? 'Join the race' : 'Start a race', 'race'], [P.mode === 'fly' ? 'Put the paraglider away' : 'Paraglider', 'fly'], [P.yeti ? 'Stop being the yeti' : 'Be the yeti', 'yeti'], [WILD ? 'Wild: on (avalanches, yeti)' : 'Wild: off', 'wild'], ['Back to the trail', 'trail'], ['Back to the summit', 'top'], [SKYNAME[SKY.mode].replace('SKY: ', 'Sky: '), 'sky'], ['All games (leave Mountain Run)', 'hub'], ['Close', 'close']];
+    [RC.st >= 2 && RC.st <= 4 ? 'Leave the race' : RC.st === 1 ? 'Join the race' : 'Start a race', 'race'], [P.mode === 'fly' ? 'Put the paraglider away' : 'Paraglider', 'fly'], [P.yeti ? 'Stop being the yeti' : 'Be the yeti', 'yeti'], [WILD ? 'Wild: on (avalanches, yeti)' : 'Wild: off', 'wild'], ['Trail: ' + TRNAME[TRAIL].slice(7).toLowerCase(), 'smoke'], ['Back to the trail', 'trail'], ['Back to the summit', 'top'], [SKYNAME[SKY.mode].replace('SKY: ', 'Sky: '), 'sky'], ['All games (leave Mountain Run)', 'hub'], ['Close', 'close']];
 }
 function vmDraw() {
   var it = vmItems(), key = vm.mode + '|' + vm.idx + '|' + vm.pos + '|' + vm.code.join('') + '|' + (MP.stat || '') + '|' + it.map(function (q) { return q[0]; }).join('~'); if (key === vm.key) return; vm.key = key;
   var c = vm.ctx, i; c.clearRect(0, 0, 640, 560); c.fillStyle = 'rgba(8,26,96,0.9)'; c.fillRect(0, 0, 640, 560); c.strokeStyle = '#ffd23f'; c.lineWidth = 6; c.strokeRect(3, 3, 634, 554); c.textAlign = 'center';
   if (vm.mode === 0) {
     c.fillStyle = '#fff'; c.font = 'italic 44px Georgia, serif'; c.fillText('Mountain Run', 320, 56);
-    for (i = 0; i < it.length; i++) { if (i === vm.idx) { c.fillStyle = '#ffd23f'; c.fillRect(30, 70 + i * 42, 580, 38); } c.fillStyle = i === vm.idx ? '#241a00' : '#fff'; c.font = '600 25px system-ui, sans-serif'; c.fillText(it[i][0], 320, 97 + i * 42); }
+    for (i = 0; i < it.length; i++) { if (i === vm.idx) { c.fillStyle = '#ffd23f'; c.fillRect(30, 68 + i * 39, 580, 35); } c.fillStyle = i === vm.idx ? '#241a00' : '#fff'; c.font = '600 25px system-ui, sans-serif'; c.fillText(it[i][0], 320, 94 + i * 39); }
     c.fillStyle = '#cfe0ff'; c.font = '22px system-ui, sans-serif'; c.fillText('Stick: up and down    A or X: choose    B or Y: close', 320, 540);
   } else {
     c.fillStyle = '#fff'; c.font = 'italic 36px Georgia, serif'; c.fillText('Everyone uses the same 4 letters', 320, 70);
@@ -1126,6 +1127,7 @@ function vmPick() {
   else if (a === 'hub') { vmToggle(false); toHub(); }
   else if (a === 'fly') { vmToggle(false); toggleFly(); }
   else if (a === 'wild') $('wildbtn').click();
+  else if (a === 'smoke') $('trbtn').click();
   else vmToggle(false);
 }
 function vmStick(x, y) {       // one step per push of the stick
@@ -1391,6 +1393,7 @@ function setSky(mode, th) {
   SKY.mode = mode; if (mode > 0) SKY.th = SKYTH[mode]; else if (th !== undefined) SKY.th = th;
   $('skybtn').textContent = SKYNAME[mode]; skyUpdate(0); shadowSet(); try { localStorage.setItem('mr_sky', String(mode)); } catch (e) {}
 }
+$('viewbtn2').addEventListener('click', function () { $('viewbtn').click(); this.blur(); });
 $('viewbtn').addEventListener('click', function () { view3 = !view3; cam3ok = false; this.textContent = view3 ? 'VIEW: BEHIND' : 'VIEW: EYES'; try { localStorage.setItem('mr_view', view3 ? '1' : '0'); } catch (e) {} });
 $('skybtn').addEventListener('click', function () { setSky((SKY.mode + 1) % 4); if (started) say(['Day turns to night on its own', 'Always day', 'Always sunset', 'Always night'][SKY.mode], 2.5); });
 
@@ -1468,7 +1471,7 @@ function mpData(d) {
     if (MP.n && dn === MP.n && d.id < MP.id) { b.n = dn; mpPickN(); }                                             // two of us picked the same number: the other one keeps it
     var x = num(d.x, WX0, WX0 + WS), z = num(d.z, WZ0, WZ0 + WS);
     if (b.tx === null || Math.hypot(x - b.tx, z - b.tz) > 60) { b.x = x; b.z = z; b.track.last = null; }
-    b.tx = x; b.tz = z; b.th = num(d.h, -1e4, 1e4); b.v = num(d.v, 0, 60); b.ski = d.m === 1 || d.m === 2; b.fly = d.m === 2; b.fyT = num(d.fy, -3000, 3000); b.airH = num(d.a, 0, 500); b.dn = d.k === 1; b.at = performance.now();
+    b.tx = x; b.tz = z; b.th = num(d.h, -1e4, 1e4); b.v = num(d.v, 0, 60); b.ski = d.m === 1 || d.m === 2; b.fly = d.m === 2; b.fyT = num(d.fy, -3000, 3000); b.airH = num(d.a, 0, 500); b.tr = Math.round(num(d.tr, 0, 3)); b.dn = d.k === 1; b.at = performance.now();
     var nm = typeof d.nm === 'string' ? d.nm.replace(/[^A-Za-z0-9 ]/g, '').slice(0, 10) : '', sc = num(d.sc, 0, 1e6); if (nm !== b.name || sc !== b.sc) { b.name = nm; b.sc = sc; budTag(b); }
     b.lky = num(d.ly, -1.3, 1.3); b.lkp = num(d.lp, -0.6, 0.6); b.wv = d.w === 1; b.arc = num(d.a, 0, 20000);
     if ((d.y === 1) !== b.yeti) { b.yeti = d.y === 1; b.fig.geometry = b.yeti ? yetiFig(true) : figGeo(b.n + 1, true); b.fig.scale.setScalar(b.yeti ? 1.5 : 1); if (b.yeti) { say(who(b) + ' is the yeti. Run!', 3.5); roar(); } }
@@ -1507,7 +1510,7 @@ function mpTick(dt) {
   if (NET.on && MP.count !== MP.shown) { MP.shown = MP.count; mpStat(MP.count ? 'Room ' + MP.code + ': ' + MP.count + (MP.count === 1 ? ' friend is here.' : ' friends are here.') : 'You are in room ' + MP.code + '. Friends type ' + MP.code + ' too.'); }
   MP.sendT -= dt;
   if (MP.sendT <= 0 && started && NET.on && MP.n) {
-    MP.sendT = 0.1; var msg = { t: 's', id: MP.id, n: MP.n, x: Math.round(P.x * 100) / 100, z: Math.round(P.z * 100) / 100, h: Math.round((P.mode === 'ski' ? P.head : (vr ? viewYaw() : P.yaw)) * 100) / 100, v: Math.round(P.v * 10) / 10, m: P.mode === 'ski' ? 1 : P.mode === 'fly' ? 2 : 0, f: P.done ? 1 : 0, k: P.down > 0 ? 1 : 0, y: P.yeti ? 1 : 0, nm: MP.name || undefined, a: P.ry - P.y > 0.4 && P.mode !== 'fly' ? Math.round((P.ry - P.y) * 10) / 10 : undefined, sc: Math.round(P.score / 10) * 10 || undefined, fy: P.mode === 'fly' ? Math.round(P.ry * 10) / 10 : undefined, a: Math.round(myArc), w: myWave ? 1 : 0,
+    MP.sendT = 0.1; var msg = { t: 's', id: MP.id, n: MP.n, x: Math.round(P.x * 100) / 100, z: Math.round(P.z * 100) / 100, h: Math.round((P.mode === 'ski' ? P.head : (vr ? viewYaw() : P.yaw)) * 100) / 100, v: Math.round(P.v * 10) / 10, m: P.mode === 'ski' ? 1 : P.mode === 'fly' ? 2 : 0, f: P.done ? 1 : 0, k: P.down > 0 ? 1 : 0, y: P.yeti ? 1 : 0, nm: MP.name || undefined, tr: TRAIL || undefined, a: P.ry - P.y > 0.4 && P.mode !== 'fly' ? Math.round((P.ry - P.y) * 10) / 10 : undefined, sc: Math.round(P.score / 10) * 10 || undefined, fy: P.mode === 'fly' ? Math.round(P.ry * 10) / 10 : undefined, a: Math.round(myArc), w: myWave ? 1 : 0,
       ly: Math.round(clamp(vr ? angDiff(viewYaw(), P.mode === 'ski' ? P.head : viewYaw()) : (P.mode === 'ski' ? angDiff(P.yaw, P.head) : 0), -1.3, 1.3) * 100) / 100, lp: Math.round(clamp(vr ? Math.asin(clamp(camera.getWorldDirection(_v2).y, -1, 1)) : P.pitch, -0.6, 0.6) * 100) / 100 };
     if (mpLowest() === MP.n) { msg.td = Math.round(SKY.th * 1000) / 1000; msg.sm = SKY.mode; msg.wc = Math.round(SKY.wc); }       // the lowest player number keeps the sky for everyone
     mpSendAll(msg);
@@ -1525,6 +1528,7 @@ function mpTick(dt) {
     else if (db < 0.85 && !b.dn && !P.yeti && !b.yeti && !b.fly && !(b.airH > 1.0) && started && (P.v > 2.5 || b.v > 2.5) && canKnock()) { if (P.mode === 'ski' && P.v > 8 && P.v > b.v + 3) { if (!(b.bt > clock)) { b.bt = clock + 1.5; bump('You bowled over ' + who(b) + '!', 0); } } else knock((P.x - b.x) / (db || 1), (P.z - b.z) / (db || 1)); }
     if (b.ski && !b.fly && b.v > 8 && P.mode === 'ski' && db < 16 && db > 1.5) { var rel = (P.x - b.x) * hx + (P.z - b.z) * hz, lat = Math.abs((P.x - b.x) * hz - (P.z - b.z) * hx); if (rel < -1.5 && lat < 2.6) { if (!(P.draft > 0) && !(P.draftS > clock)) { P.draftS = clock + 6; say('Slipstream!', 1.2); } P.draft = 0.3; } }       // friends can crash into each other
     if (b.ski && b.v > 0.5 && !b.dn) b.track.step(b.x, b.z, hx, hz); else b.track.last = null;
+    if (b.tr && b.ski && b.v > 3 && !b.dn && Math.random() < dt * 26) trailEmit(b.tr - 1, b.x - hx * 0.9, b.g.position.y + 0.45, b.z - hz * 0.9);
     if (U.uLampP.value.w > 0.02) if (!b.yeti) lampAt(b.x, y + 1.7 - b.cr * 0.4, b.z, hx, hz);
     var dc = Math.hypot(b.x - P.x, b.z - P.z, y - P.ry), w = clamp(dc * 0.13, 1.3, 2500);
     b.tag.scale.set(w, w * 0.25, 1); b.tag.position.set(b.x, y + 2.0 + dc * 0.01, b.z);
@@ -1606,6 +1610,13 @@ $('menubtn').addEventListener('click', function () { $('menu').style.display = $
 $('menu').addEventListener('click', function (e) { if (e.target.tagName === 'BUTTON') $('menu').style.display = 'none'; });
 
 // ================= the wild stuff: rings, tricks, avalanches, a hunting yeti, a paraglider =================
+var PADS = [2150, 3200, 4600, 5400, 6900, 7800, 8800], PADP = [], TRAIL = 0, TRN = 90, TR = null, trTint = { value: new V3(1, 0, 0) }, trP = [new Float32Array(TRN * 4), new Float32Array(TRN * 4), new Float32Array(TRN * 4)], trI = [0, 0, 0], TRNAME = ['TRAIL: OFF', 'TRAIL: SMOKE', 'TRAIL: RAINBOW', 'TRAIL: FIRE'];
+function trailEmit(k, x, y, z) { var i = trI[k]; trI[k] = (i + 1) % TRN; var p = trP[k]; p[4 * i] = x + (Math.random() - 0.5) * 0.3; p[4 * i + 1] = y; p[4 * i + 2] = z + (Math.random() - 0.5) * 0.3; p[4 * i + 3] = k === 2 ? 0.7 : 1.9; }
+function trailStep(dt) {
+  var k, i, hh = (clock * 0.35) % 1 * 6, cx = 1 - Math.abs(hh % 2 - 1); trTint.value.set(hh < 1 ? 1 : hh < 2 ? cx : hh < 4 ? 0 : hh < 5 ? cx : 1, hh < 1 ? cx : hh < 3 ? 1 : hh < 4 ? cx : 0, hh < 2 ? 0 : hh < 3 ? cx : hh < 5 ? 1 : cx);
+  if (TRAIL && P.mode !== 'walk' && P.v > 3 && !(P.down > 0) && started) { P.trE = (P.trE || 0) + dt * 42; while (P.trE > 1) { P.trE -= 1; trailEmit(TRAIL - 1, P.x + Math.sin(P.head) * 0.9, P.ry + 0.45, P.z + Math.cos(P.head) * 0.9); } }
+  for (k = 0; k < 3; k++) { var p = trP[k], any = false; for (i = 0; i < TRN; i++) { var l = p[4 * i + 3]; if (l > 0) { l -= dt; p[4 * i + 3] = l; p[4 * i + 1] += dt * (k === 2 ? 1.2 : 0.5); any = true; if (l <= 0) TR[k].set(i, 0, -1e5, 0, 0, 0); else if (k === 2) TR[k].set(i, p[4 * i], p[4 * i + 1], p[4 * i + 2], 0.12 + l * 0.6, Math.min(1, l * 2.5)); else TR[k].set(i, p[4 * i], p[4 * i + 1], p[4 * i + 2], 0.22 + (1.9 - l) * 0.42, Math.min(0.55, l * 0.45)); } } if (any || TR[k].dirty) { TR[k].flush(); TR[k].dirty = any; } }
+}
 var WILD = true, rings = [], ringGeo = null, AV = { on: false, arc: 0, t: 0, next: 75, hit: false, inv: false }, NY = { on: false, x: 0, z: 0, t: 0, next: 170, stun: 0, ph: 0, mesh: null }, wing = null, wingGeo = null, rumbleG = null;
 function ding() { if (!AC) return; try { var o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine'; o.frequency.value = 1320; o.frequency.setValueAtTime(1760, AC.currentTime + 0.07); g.gain.value = 0.09; g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.25); o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime + 0.26); } catch (e) {} }
 function addScore(n, text) {
@@ -1614,10 +1625,23 @@ function addScore(n, text) {
 }
 function pop(t) { if (vr) return; var e = document.createElement('div'); e.className = 'pop'; e.textContent = t; document.body.appendChild(e); setTimeout(function () { if (e.parentNode) e.parentNode.removeChild(e); }, 950); }
 function buildWild() {
-  var b = new Builder(); b.bone = 10; b.add(new THREE.TorusGeometry(1.15, 0.14, 8, 22), [1.0, 0.76, 0.08]); ringGeo = b.geo();
-  function ring(x, z, up, pts) { var m = new THREE.Mesh(ringGeo, propMat); m.position.set(x, H(x, z, 0) - Y0 + up, z); m.visible = false; scene.add(m); rings.push({ m: m, x: x, z: z, y: m.position.y, got: false, pts: pts }); }
+  var b = new Builder(); b.bone = 11; b.add(new THREE.TorusGeometry(1.15, 0.14, 8, 22), [1.0, 0.76, 0.08]); ringGeo = b.geo();
+  function ring(x, z, up, pts, geo, sc, rad, kind) { var m = new THREE.Mesh(geo || ringGeo, propMat); m.position.set(x, H(x, z, 0) - Y0 + up, z); if (sc) m.scale.setScalar(sc); m.visible = false; scene.add(m); rings.push({ m: m, x: x, z: z, y: m.position.y, got: false, pts: pts, r2: rad ? rad * rad : 4.4, kind: kind || 0 }); }
+  // coin trails: little coins lead off the trail to a big one
+  var cb = new Builder(); cb.bone = 11; cb.add(new THREE.CylinderGeometry(0.42, 0.42, 0.09, 14), [1.0, 0.8, 0.1], new THREE.Matrix4().makeRotationX(Math.PI / 2)); var coinGeo = cb.geo(), ci = 0;
+  for (var ca = 2000; ca < ROUTE_LEN - 700; ca += 620) { var sd = (ci++ % 2) ? 1 : -1; for (var j = 0; j <= 9; j++) { var aa = ca + j * 9, cp = routeAt(aa).slice(), cq = routeAt(aa + 3), ctx = cq[0] - cp[0], ctz = cq[1] - cp[1], ctl = Math.hypot(ctx, ctz) || 1, cl = sd * (4 + j * 3.6); if (j < 9) ring(cp[0] - ctz / ctl * cl, cp[1] + ctx / ctl * cl, 1.1, 5, coinGeo, 1, 1.6, 1); else ring(cp[0] - ctz / ctl * cl, cp[1] + ctx / ctl * cl, 2.0, 100, coinGeo, 3.4, 2.7, 2); } }
+  // snowmen to smash
+  var sb = new Builder(), sw = [0.86, 0.9, 1.0]; sb.ball(0, 0.5, 0, 0.6, 0.55, 0.6, sw); sb.ball(0, 1.25, 0, 0.44, 0.4, 0.44, sw); sb.ball(0, 1.85, 0, 0.3, 0.28, 0.3, sw); sb.box(0.08, 0.08, 0.34, 0, 1.85, -0.42, [1.0, 0.45, 0.05]); sb.box(0.07, 0.07, 0.05, -0.11, 1.95, -0.27, [0.05, 0.05, 0.05]); sb.box(0.07, 0.07, 0.05, 0.11, 1.95, -0.27, [0.05, 0.05, 0.05]);
+  sb.box(0.7, 0.1, 0.7, 0, 1.57, 0, [0.85, 0.1, 0.1]); sb.box(1.9, 0.05, 0.05, 0, 1.3, 0, [0.3, 0.2, 0.1], 0, 0, 0.25); sb.box(0.36, 0.3, 0.36, 0, 2.2, 0, [0.08, 0.08, 0.1]); sb.box(0.56, 0.05, 0.56, 0, 2.07, 0, [0.08, 0.08, 0.1]); var manGeo = sb.geo();
+  for (var ma = 420; ma < ROUTE_LEN - 400; ma += 370) { var mp = routeAt(ma).slice(), mq = routeAt(ma + 3), mtx = mq[0] - mp[0], mtz = mq[1] - mp[1], mtl = Math.hypot(mtx, mtz) || 1, ml = Math.sin(ma * 0.7) * 8; ring(mp[0] - mtz / mtl * ml, mp[1] + mtx / mtl * ml, 0, 30, manGeo, 1, 1.15, 3); rings[rings.length - 1].m.rotation.y = Math.atan2(mtx, mtz); }
+  // boost pads
+  var pb = new Builder(); pb.bone = 11; PADS.forEach(function (a) { var p = routeAt(a).slice(), q = routeAt(a + 3), tx = q[0] - p[0], tz = q[1] - p[1], tl = Math.hypot(tx, tz) || 1, yw = Math.atan2(tx, tz); tx /= tl; tz /= tl; PADP.push([p[0], p[1]]);
+    for (var c = 0; c < 3; c++) [-1, 1].forEach(function (sg) { var x = p[0] + tx * (c * 1.7 - 1.7) - tz * sg * 0.75 - tx * 0.5, z = p[1] + tz * (c * 1.7 - 1.7) + tx * sg * 0.75 - tz * 0.5; pb.box(0.5, 0.1, 2.1, x, H(x, z, 0) - Y0 + 0.22, z, [0.1, 0.9, 1.0], 0, yw - sg * 0.75, 0); }); });
+  var pm = new THREE.Mesh(pb.geo(), propMat); pm.frustumCulled = false; scene.add(pm);
+  TR = [new Batch(TRN, { value: new V3(0.95, 0.15, 0.45) }, false, 65), new Batch(TRN, trTint, false, 65), new Batch(TRN, { value: new V3(1.0, 0.42, 0.04) }, false, 65)];
+  try { TRAIL = +(localStorage.getItem('mr_trail') || 0) % 4 || 0; } catch (e) {} $('trbtn').textContent = TRNAME[TRAIL];
   for (var a = 80; a < ROUTE_LEN - 190; a += 105) { var p = routeAt(a).slice(), q = routeAt(a + 3), tx = q[0] - p[0], tz = q[1] - p[1], tl = Math.hypot(tx, tz) || 1, lat = Math.sin(a * 0.013) * 7; ring(p[0] - tz / tl * lat, p[1] + tx / tl * lat, 1.4, 10); }
-  var kb = new Builder(); KICKS.forEach(function (K) { [-6.2, 6.2].forEach(function (w) { var x = K[0] + K[2] * 17 - K[3] * w, z = K[1] + K[3] * 17 + K[2] * w, y = H(x, z, 0) - Y0; kb.box(0.14, 4.4, 0.14, x, y + 2.2, z, [0.15, 0.15, 0.17]); kb.bone = 10; kb.box(0.9, 0.6, 0.9, x, y + 4.5, z, [1.0, 0.42, 0.05], 0, 0.78, 0); kb.bone = 0; }); });
+  var kb = new Builder(); KICKS.forEach(function (K) { [-6.2, 6.2].forEach(function (w) { var x = K[0] + K[2] * 17 - K[3] * w, z = K[1] + K[3] * 17 + K[2] * w, y = H(x, z, 0) - Y0; kb.box(0.14, 4.4, 0.14, x, y + 2.2, z, [0.15, 0.15, 0.17]); kb.bone = 11; kb.box(0.9, 0.6, 0.9, x, y + 4.5, z, [1.0, 0.42, 0.05], 0, 0.78, 0); kb.bone = 0; }); });
   var km = new THREE.Mesh(kb.geo(), propMat); km.frustumCulled = false; scene.add(km);
   KICKS.forEach(function (K) { ring(K[0] + K[2] * 31, K[1] + K[3] * 31, 5.5, 50); ring(K[0] + K[2] * 46, K[1] + K[3] * 46, 4.5, 50); });
   NY.mesh = new THREE.Mesh(yetiFig(true), figMat()); NY.mesh.scale.setScalar(1.6); NY.mesh.rotation.order = 'YXZ'; NY.mesh.visible = false; scene.add(NY.mesh);
@@ -1659,9 +1683,15 @@ function wildStep(dt) {
   // gold rings
   for (i = 0; i < rings.length; i++) {
     var r = rings[i], dx = r.x - P.x, dz = r.z - P.z, near = !r.got && Math.abs(dx) < 420 && Math.abs(dz) < 420; r.m.visible = near; if (!near) continue;
-    r.m.rotation.y = clock * 1.6 + i; if (dx * dx + dz * dz < 4.4 && Math.abs(r.y - bodyY) < 2.4 && started) { r.got = true; r.m.visible = false; addScore(r.pts, r.pts > 10 ? 'Air ring! +' + r.pts : ''); buzz(0, 0.3, 30); buzz(1, 0.3, 30); }
+    if (r.kind !== 3) r.m.rotation.y = clock * (r.kind ? 3.2 : 1.6) + i; if (dx * dx + dz * dz < r.r2 && Math.abs(r.y - bodyY) < (r.kind === 2 ? 4 : 2.4) && started) {
+      r.got = true; r.m.visible = false; buzz(0, 0.3, 30); buzz(1, 0.3, 30);
+      if (r.kind === 3) { addScore(30, 'Smash! +30'); thump(0.7); P.shake = 0.25; for (var si = 0; si < 34; si++) sprayEmit(r.x + (Math.random() - 0.5), r.y + Math.random() * 2, r.z + (Math.random() - 0.5), (Math.random() - 0.5) * 9 - Math.sin(P.head) * P.v * 0.4, 1 + Math.random() * 5, (Math.random() - 0.5) * 9 - Math.cos(P.head) * P.v * 0.4); }
+      else addScore(r.pts, r.kind === 2 ? 'BIG COIN! +100' : r.pts > 10 ? 'Air ring! +' + r.pts : '');
+    }
   }
-  if (P.trick > 0) P.trick -= dt;
+  if (P.trick > 0) P.trick -= dt; P.offD = nr.d;
+  if (skiing && !(P.padT > clock)) for (i = 0; i < PADP.length; i++) if (Math.abs(PADP[i][0] - P.x) < 2.6 && Math.abs(PADP[i][1] - P.z) < 2.6 && hgt() < 1) { P.padT = clock + 2; P.v = Math.min(P.v + 13, 74); P.boost = Math.max(P.boost, 0.9); addScore(10, 'Boost pad! +10'); rocketSnd(); buzz(0, 1, 150); buzz(1, 1, 150); }
+  trailStep(dt);
   if (vr && P.air > 0.25 && !P.pose && grips[0].visible && grips[0].position.y > camera.position.y + 0.05 && grips[1].position.y > camera.position.y + 0.05) { P.pose = true; addScore(100, 'Hands up! +100'); } if (P.air <= 0) P.pose = false;
   // avalanche: a wall of snow comes down the route behind you
   if (WILD && !AV.on && skiing && clock > AV.next && nr.arc > 1950 && nr.arc < FIN_ARC - 1000 && nr.d < 150 && RC.st !== 2 && RC.st !== 3 && !NY.on) avStart(nr.arc - 250, true);
@@ -1695,6 +1725,7 @@ function wildStep(dt) {
 }
 press('flybtn', function () { toggleFly(); $('menu').style.display = 'none'; });
 $('wildbtn').addEventListener('click', function () { WILD = !WILD; this.textContent = WILD ? 'WILD: ON' : 'WILD: OFF'; try { localStorage.setItem('mr_wild', WILD ? '1' : '0'); } catch (e) {} if (started) say(WILD ? 'Avalanches and the yeti are on' : 'No avalanches, no hunting yeti', 2.5); if (!WILD) { AV.on = false; NY.on = false; NY.mesh.visible = false; for (var i = 0; i < AV_N; i++) puffs.set(SPRAY_N + PLUME_N + FLAKE_N + BALL_N + i, 0, -1e5, 0, 0, 0); } });
+$('trbtn').addEventListener('click', function () { TRAIL = (TRAIL + 1) % 4; this.textContent = TRNAME[TRAIL]; try { localStorage.setItem('mr_trail', TRAIL); } catch (e) {} if (started) say(TRNAME[TRAIL].replace('TRAIL: ', 'Trail: ').toLowerCase().replace('t', 'T'), 1.5); });
 $('myname').addEventListener('change', myName); $('myname').addEventListener('input', myName);
 
 // ================= simulation =================
@@ -1726,10 +1757,12 @@ function stepSki(dt, vy) {
   var sa = g[0] * dx + g[1] * dz, sc = g[0] * rx + g[1] * rz, ca = 1 / Math.sqrt(1 + sa * sa);
   var at = -G * sa * ca, tuck = Math.max(clamp(inp.my, 0, 1), P.squat), br = inp.brake;
   P.rock += (rockAt(P.x, P.z) - P.rock) * Math.min(1, dt * 8);
+  var pw = P.pow = P.air > 0.12 ? 0 : clamp(((P.offD || 0) - 9) / 8, 0, 1) * clamp(1 - P.rock * 3, 0, 1);
+  if (pw > 0.5) { P.powM = (P.powM || 0) + P.v * dt; if (P.powM > 60) { P.powM -= 60; P.score += 5; } if (!(P.powS > clock) && P.v > 8) { P.powS = clock + 90; say('Powder!\nDeep snow off the trail scores points', 3); } if (P.v > 14 && Math.random() < dt * 5) sprayEmit(P.x + dx * 1.4 + rx * (Math.random() - 0.5), P.ry + 0.9, P.z + dz * 1.4 + rz * (Math.random() - 0.5), dx * P.v * 0.8, 1.5, dz * P.v * 0.8); }
   if (P.air > 0.12) { at = 0; br = 0; }
   var k1 = (0.0035 - 0.0008 * tuck) * (P.yeti ? 0.8 : 1), vc = 22 + 13 * tuck + (P.yeti ? 3 : 0), over = Math.max(P.v - vc, 0);
   if (P.stun > 0) br = Math.max(br, 0.8);
-  var resist = k1 * P.v * P.v + 0.06 * over * over + 0.02 * G * ca + Math.abs(rate) * P.v * 0.05 + br * (Math.max(at, 0) + 6.5) + P.rock * (3.5 + 0.35 * P.v);
+  var resist = k1 * P.v * P.v + 0.06 * over * over + 0.02 * G * ca + Math.abs(rate) * P.v * 0.05 + br * (Math.max(at, 0) + 6.5) + P.rock * (3.5 + 0.35 * P.v) + pw * 0.45;
   if (P.air > 0.12) resist = k1 * P.v * P.v;
   var push = tuck * 1.6 * Math.max(0, 1 - P.v / 7); if (P.draft > 0) { P.draft -= dt; push += 3.5; }
   if (P.boost > 0) { push += 15; over = Math.max(P.v - vc - 24, 0); for (var fi = 0; fi < 3 && lampI < 60; fi++) lamps.set(lampI++, P.x - dx * (0.9 + fi * 0.5) + rx * (Math.random() - 0.5) * 0.3, P.ry + 0.45 + Math.random() * 0.2, P.z - dz * (0.9 + fi * 0.5) + rz * (Math.random() - 0.5) * 0.3, 0.55 - fi * 0.12, 0.9); resist = k1 * P.v * P.v + 0.06 * over * over + 0.02 * G * ca + br * (Math.max(at, 0) + 6.5) + P.rock * (3.5 + 0.35 * P.v); if (Math.random() < 0.6) sprayEmit(P.x - dx * 0.8 + rx * (Math.random() - 0.5) * 0.5, P.ry + 0.1, P.z - dz * 0.8 + rz * (Math.random() - 0.5) * 0.5, -dx * 3 + (Math.random() - 0.5) * 2, 0.8 + Math.random() * 1.5, -dz * 3 + (Math.random() - 0.5) * 2); }
@@ -1742,8 +1775,8 @@ function stepSki(dt, vy) {
   // tracks and spray
   if (P.v > 0.4) {
     myTrack.step(P.x, P.z, dx, dz);
-    var em = (Math.abs(rate) * P.v * 0.9 + br * P.v * 3 + P.v * 0.3) * dt, sgn = rate > 0 ? -1 : 1;
-    while (em > 0 && Math.random() < em) { em -= 1; sprayEmit(P.x - dx * 0.6 + rx * (Math.random() - 0.5) * 0.5, P.ry + 0.05, P.z - dz * 0.6 + rz * (Math.random() - 0.5) * 0.5, rx * sgn * (1 + Math.random() * 2.5) + dx * hv * 0.35, 0.8 + Math.random() * (1.8 + P.v * 0.07), rz * sgn * (1 + Math.random() * 2.5) + dz * hv * 0.35); }
+    var em = (Math.abs(rate) * P.v * (0.9 + pw * 1.5) + br * P.v * 3 + P.v * (0.3 + pw * 0.9)) * dt, sgn = rate > 0 ? -1 : 1;
+    while (em > 0 && Math.random() < em) { em -= 1; sprayEmit(P.x - dx * 0.6 + rx * (Math.random() - 0.5) * 0.5, P.ry + 0.05, P.z - dz * 0.6 + rz * (Math.random() - 0.5) * 0.5, rx * sgn * (1 + Math.random() * 2.5) + dx * hv * 0.35, (0.8 + Math.random() * (1.8 + P.v * 0.07)) * (1 + pw * 0.8), rz * sgn * (1 + Math.random() * 2.5) + dz * hv * 0.35); }
   }
 }
 function land(air) {
@@ -1878,11 +1911,11 @@ function update(dt, now) {
   fpsN++; fpsT += dt; if (fpsT >= 1) { fpsV = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; if (showFps) $('fps').textContent = fpsV + ' fps'; }
   hudT -= dt; if (hudT <= 0) {
     var sfx = vr || P.mode === 'walk' ? 0 : clamp((P.v - 20) / 30, 0, 0.85), se = $('speedfx'); if (sfx > 0.01) { se.style.opacity = sfx.toFixed(2); se.style.transform = 'rotate(' + (Math.random() * 11).toFixed(1) + 'deg)'; } else if (se.style.opacity !== '0') se.style.opacity = '0';
-    hudT = 0.15; var cbT = P.combo > 1 && P.comboT > 0 ? 'COMBO x' + Math.min(P.combo, 5) : ''; if ($('combo').textContent !== cbT) $('combo').textContent = cbT; var a = fmt(alt) + ' m', b = P.mode !== 'walk' ? Math.round(P.v * 3.6) + ' km/h' : '', scT = P.score > 0 ? fmt(P.score) + ' pts' : ''; if ($('score').textContent !== scT) $('score').textContent = scT; if (vr && scT) b += '   ' + scT;
+    hudT = 0.15; var cbT = P.combo > 1 && P.comboT > 0 ? 'COMBO x' + Math.min(P.combo, 5) : P.pow > 0.5 && P.mode === 'ski' && P.v > 4 ? 'POWDER' : ''; if ($('combo').textContent !== cbT) $('combo').textContent = cbT; var a = fmt(alt) + ' m', b = P.mode !== 'walk' ? Math.round(P.v * 3.6) + ' km/h' : '', scT = P.score > 0 ? fmt(P.score) + ' pts' : ''; if ($('score').textContent !== scT) $('score').textContent = scT; if (vr && scT) b += '   ' + scT;
     $('alt').textContent = a; $('spd').textContent = b;
     if (vr) drawVrHud(a, (b + (MP.code && NET.on ? '   Room ' + MP.code + (MP.count ? ' (' + (MP.count + 1) + ')' : '') : '') + (showFps ? '  ' + fpsV + ' fps' : '')).trim(), msgText || RC.text || '');
     var mi = MP.code ? (NET.on ? 'Room ' + MP.code : 'Room ' + MP.code + ' (connecting)') + (MP.count ? '  \u00b7  ' + MP.count + (MP.count === 1 ? ' friend' : ' friends') : '') : ''; if ($('mpinfo').textContent !== mi) $('mpinfo').textContent = mi;
-    $('throwbtn').style.display = started && !vr ? 'block' : 'none'; var bb = $('boostbtn'); bb.style.display = started && !vr && P.mode !== 'walk' ? 'block' : 'none'; bb.style.opacity = P.boostCd > 0 ? 0.45 : 1; var bt = P.boostCd > 0 ? String(Math.ceil(P.boostCd)) : 'ROCKET'; if (bb.textContent !== bt) bb.textContent = bt;
+    $('throwbtn').style.display = started && !vr ? 'block' : 'none'; $('viewbtn2').style.display = started && !vr ? 'block' : 'none'; var bb = $('boostbtn'); bb.style.display = started && !vr && P.mode !== 'walk' ? 'block' : 'none'; bb.style.opacity = P.boostCd > 0 ? 0.45 : 1; var bt = P.boostCd > 0 ? String(Math.ceil(P.boostCd)) : 'ROCKET'; if (bb.textContent !== bt) bb.textContent = bt;
   }
 }
 var last = 0, ready = false;
