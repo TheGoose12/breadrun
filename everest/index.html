@@ -1629,7 +1629,7 @@ function buildWild() {
   function ring(x, z, up, pts, geo, sc, rad, kind) { var m = new THREE.Mesh(geo || ringGeo, propMat); m.position.set(x, H(x, z, 0) - Y0 + up, z); if (sc) m.scale.setScalar(sc); m.visible = false; scene.add(m); rings.push({ m: m, x: x, z: z, y: m.position.y, got: false, pts: pts, r2: rad ? rad * rad : 4.4, kind: kind || 0 }); }
   // coin trails: little coins lead off the trail to a big one
   var cb = new Builder(); cb.bone = 11; cb.add(new THREE.CylinderGeometry(0.42, 0.42, 0.09, 14), [1.0, 0.8, 0.1], new THREE.Matrix4().makeRotationX(Math.PI / 2)); var coinGeo = cb.geo(), ci = 0;
-  for (var ca = 2000; ca < ROUTE_LEN - 700; ca += 620) { var sd = (ci++ % 2) ? 1 : -1; for (var j = 0; j <= 9; j++) { var aa = ca + j * 9, cp = routeAt(aa).slice(), cq = routeAt(aa + 3), ctx = cq[0] - cp[0], ctz = cq[1] - cp[1], ctl = Math.hypot(ctx, ctz) || 1, cl = sd * (4 + j * 3.6); if (j < 9) ring(cp[0] - ctz / ctl * cl, cp[1] + ctx / ctl * cl, 1.1, 5, coinGeo, 1, 1.6, 1); else ring(cp[0] - ctz / ctl * cl, cp[1] + ctx / ctl * cl, 2.0, 100, coinGeo, 3.4, 2.7, 2); } }
+  for (var ca = 260; ca < ROUTE_LEN - 500; ca += 400) { var sd = (ci++ % 2) ? 1 : -1, wide = ca > 1950 ? 3.2 : 0.5; for (var j = 0; j <= 9; j++) { var aa = ca + j * 8, cp = routeAt(aa).slice(), cq = routeAt(aa + 3), ctx = cq[0] - cp[0], ctz = cq[1] - cp[1], ctl = Math.hypot(ctx, ctz) || 1, cl = sd * j * wide; if (j < 9) ring(cp[0] - ctz / ctl * cl, cp[1] + ctx / ctl * cl, 1.0, 5, coinGeo, 1.7, 1.9, 1); else ring(cp[0] - ctz / ctl * cl, cp[1] + ctx / ctl * cl, 2.2, 100, coinGeo, 4.2, 3.1, 2); } }
   // snowmen to smash
   var sb = new Builder(), sw = [0.86, 0.9, 1.0]; sb.ball(0, 0.5, 0, 0.6, 0.55, 0.6, sw); sb.ball(0, 1.25, 0, 0.44, 0.4, 0.44, sw); sb.ball(0, 1.85, 0, 0.3, 0.28, 0.3, sw); sb.box(0.08, 0.08, 0.34, 0, 1.85, -0.42, [1.0, 0.45, 0.05]); sb.box(0.07, 0.07, 0.05, -0.11, 1.95, -0.27, [0.05, 0.05, 0.05]); sb.box(0.07, 0.07, 0.05, 0.11, 1.95, -0.27, [0.05, 0.05, 0.05]);
   sb.box(0.7, 0.1, 0.7, 0, 1.57, 0, [0.85, 0.1, 0.1]); sb.box(1.9, 0.05, 0.05, 0, 1.3, 0, [0.3, 0.2, 0.1], 0, 0, 0.25); sb.box(0.36, 0.3, 0.36, 0, 2.2, 0, [0.08, 0.08, 0.1]); sb.box(0.56, 0.05, 0.56, 0, 2.07, 0, [0.08, 0.08, 0.1]); var manGeo = sb.geo();
@@ -1864,10 +1864,10 @@ function update(dt, now) {
     vigMesh.material.uniforms.uA.value += ((P.down > 0 ? 1 : P.mode === 'ski' ? clamp((P.v - 4) / 16, 0, 0.8) : 0) - vigMesh.material.uniforms.uA.value) * Math.min(1, dt * (P.down > 0 ? 12 : 3));
     if (P.down > 0) rig.position.y -= 0.75 * Math.sin(Math.PI * clamp(1 - P.down / 1.7, 0, 1));          // in VR a crash drops you into the snow; the view never spins
   } else if (view3) {         // watching yourself from behind
-    var hd3 = P.yaw, f3x = -Math.sin(hd3), f3z = -Math.cos(hd3), dist3 = 5.6 + (P.mode === 'ski' ? P.v * 0.09 : 0), up3 = 2.5 - P.pitch * 4;
+    var hd3 = P.yaw, f3x = -Math.sin(hd3), f3z = -Math.cos(hd3), dist3 = 2.5 + (P.mode !== 'walk' ? Math.min(P.v * 0.035, 1.6) : 0), up3 = 1.9 - P.pitch * 4;
     var wx3 = P.x - f3x * dist3, wz3 = P.z - f3z * dist3, wy3 = Math.max(P.ry + clamp(up3, 0.6, 7), H(wx3, wz3, 2) - Y0 + 0.9);
-    if (!cam3ok) { cam3.set(wx3, wy3, wz3); cam3ok = true; } else { var k3 = Math.min(1, dt * 7); cam3.x += (wx3 - cam3.x) * k3; cam3.y += (wy3 - cam3.y) * k3; cam3.z += (wz3 - cam3.z) * k3; }
-    rig.rotation.set(0, 0, 0); rig.position.set(0, 0, 0); camera.position.copy(cam3); camera.rotation.order = 'XYZ'; camera.lookAt(P.x + f3x * 4, P.ry + 1.3, P.z + f3z * 4);
+    if (!cam3ok) { cam3.set(wx3, wy3, wz3); cam3ok = true; } else { var k3 = Math.min(1, dt * 24); cam3.x += (wx3 - cam3.x) * k3; cam3.y += (wy3 - cam3.y) * k3; cam3.z += (wz3 - cam3.z) * k3; }
+    rig.rotation.set(0, 0, 0); rig.position.set(0, 0, 0); camera.position.copy(cam3); camera.rotation.order = 'XYZ'; camera.lookAt(P.x + f3x * 5, P.ry + 1.0, P.z + f3z * 5);
     if (Math.abs(camera.fov - (camera.aspect < 1 ? 82 : 70)) > 0.05) { camera.fov = camera.aspect < 1 ? 82 : 70; camera.updateProjectionMatrix(); }
   } else {
     var ski = P.mode === 'ski', fwd = g[0] * -Math.sin(P.yaw) + g[1] * -Math.cos(P.yaw);
@@ -1887,8 +1887,8 @@ function update(dt, now) {
   var me3 = view3 && !vr; myLegs.visible = false; myFig.visible = me3;      // no legs in first person: just your skis
   if (me3) {
     var fl3 = P.down > 0 ? Math.sin(Math.PI * clamp(1 - P.down / 1.7, 0, 1)) : 0, sk3 = P.mode !== 'walk';
-    myFig.position.set(P.x, P.ry + (sk3 ? 0.05 : 0) + 0.2 * fl3, P.z); myFig.rotation.set(1.5 * fl3, sk3 ? P.head : P.yaw, sk3 ? clamp(-P.turn * P.v * 0.02, -0.4, 0.4) : 0);
-    myFig.material.uniforms.uAnim.value.set(P.bob / 0.62 * Math.PI * 0.5, sk3 ? 0 : Math.min(P.v / 2.5, 1), sk3 ? 0 : 0.1, sk3 ? 0.5 + 0.35 * Math.max(clamp(inp.my, 0, 1), P.squat) : 0);
+    myFig.position.set(P.x, P.ry + (sk3 ? 0.05 : 0) + 0.2 * fl3, P.z); var fa3 = g[0] * -Math.sin(P.head) + g[1] * -Math.cos(P.head); myFig.rotation.set(1.5 * fl3 + (sk3 && P.mode !== 'fly' ? clamp(Math.atan(fa3) * 0.45, -0.35, 0.35) - (P.air > 0.15 ? 0.25 : 0) : 0), sk3 ? P.head : P.yaw, sk3 ? clamp(-P.turn * P.v * 0.03, -0.55, 0.55) : 0);
+    myFig.material.uniforms.uAnim.value.set(P.bob / 0.62 * Math.PI * 0.5, sk3 ? 0 : Math.min(P.v / 2.5, 1), sk3 ? 0.42 + 0.3 * clamp(inp.my, 0, 1) : 0.1, sk3 ? (P.mode === 'fly' ? 0.35 : 0.72 + 0.28 * Math.max(clamp(inp.my, 0, 1), P.squat)) : 0);
     if (P.trick > 0) { var f3 = 1 - P.trick / 0.75; myFig.rotation.x = f3 * Math.PI * 2; myFig.position.y += Math.sin(f3 * Math.PI) * 0.6; }
     myFig.material.uniforms.uLook.value.set(clamp(angDiff(P.yaw, sk3 ? P.head : P.yaw), -1, 1), 0, 0, clock * 1.5); if (P.yeti && sk3) { myFig.rotation.x = -1.2; myFig.position.y += 0.5; myFig.material.uniforms.uAnim.value.w = 0; }
   }
