@@ -42,6 +42,7 @@
   #racebar { display: none; position: fixed; left: 50%; transform: translateX(-50%); top: calc(112px + env(safe-area-inset-top)); z-index: 12; max-width: 92vw; padding: 8px 14px; border-radius: 16px; background: rgba(10, 30, 110, 0.88); border: 2px solid #ffd23f; text-align: center; font-size: 16px; }
   #racebar button { margin: 8px 4px 0; background: #ffd23f; color: #241a00; }
   #racebar #rcno { background: rgba(255, 255, 255, 0.9); color: #0c2468; }
+  #flybtn2 { position: fixed; right: calc(18px + env(safe-area-inset-right)); top: calc(106px + env(safe-area-inset-top)); padding: 8px 14px; font-size: 12px; z-index: 14; touch-action: manipulation; display: none; }
   #viewbtn2 { position: fixed; right: calc(18px + env(safe-area-inset-right)); top: calc(66px + env(safe-area-inset-top)); padding: 8px 14px; font-size: 12px; z-index: 14; touch-action: manipulation; display: none; }
   #throwbtn, #boostbtn, #skibtn, #menubtn, #racebar button { touch-action: manipulation; z-index: 14; }
   #throwbtn { position: fixed; right: calc(18px + env(safe-area-inset-right)); bottom: calc(56px + env(safe-area-inset-bottom)); width: 78px; height: 78px; border-radius: 50%; padding: 0; font-size: 12px; background: rgba(255, 255, 255, 0.92); display: none; }
@@ -61,7 +62,7 @@
 <div id="btns"><button id="skibtn">SKIS ON</button><button id="menubtn">MENU</button></div>
 <div id="menu"><button id="racebtn">RACE</button><button id="mpbtn">TOGETHER</button><button id="flybtn">PARAGLIDER</button><button id="yetibtn">BE THE YETI</button><button id="wildbtn">WILD: ON</button><button id="trbtn">TRAIL: OFF</button><button id="turbobtn">TURBO: OFF</button><button id="trailbtn">BACK TO THE TRAIL</button><button id="topbtn">SUMMIT</button><button id="viewbtn">VIEW: EYES</button><button id="skybtn">SKY: AUTO</button><button id="vrbtn">ENTER VR</button><button id="hubbtn">ALL GAMES</button></div>
 <div id="racebar"><div id="rctext"></div><button id="rcyes">JOIN</button><button id="rcno">NO THANKS</button></div>
-<button id="viewbtn2">VIEW</button><button id="throwbtn">SNOW BALL</button><button id="boostbtn">ROCKET</button>
+<button id="viewbtn2">VIEW</button><button id="flybtn2">GLIDER</button><button id="throwbtn">SNOW BALL</button><button id="boostbtn">ROCKET</button>
 <div id="speedfx"></div><div id="msg" class="serif"></div>
 <div id="hint"></div>
 <div id="joy"><div id="knob"></div></div>
@@ -1726,6 +1727,7 @@ function wildStep(dt) {
   // the wing
   wing.visible = P.mode === 'fly'; if (wing.visible) { wing.position.set(P.x, P.ry, P.z); wing.rotation.set(-0.08, P.head, clamp(-P.turn * 0.45, -0.5, 0.5)); }
 }
+press('flybtn2', function () { toggleFly(); });
 press('flybtn', function () { toggleFly(); $('menu').style.display = 'none'; });
 $('wildbtn').addEventListener('click', function () { WILD = !WILD; this.textContent = WILD ? 'WILD: ON' : 'WILD: OFF'; try { localStorage.setItem('mr_wild', WILD ? '1' : '0'); } catch (e) {} if (started) say(WILD ? 'Avalanches and the yeti are on' : 'No avalanches, no hunting yeti', 2.5); if (!WILD) { AV.on = false; NY.on = false; NY.mesh.visible = false; for (var i = 0; i < AV_N; i++) puffs.set(SPRAY_N + PLUME_N + FLAKE_N + BALL_N + i, 0, -1e5, 0, 0, 0); } });
 $('trbtn').addEventListener('click', function () { TRAIL = (TRAIL + 1) % 4; this.textContent = TRNAME[TRAIL]; try { localStorage.setItem('mr_trail', TRAIL); } catch (e) {} if (started) say(TRNAME[TRAIL].replace('TRAIL: ', 'Trail: ').toLowerCase().replace('t', 'T'), 1.5); });
@@ -1921,7 +1923,7 @@ function update(dt, now) {
     $('alt').textContent = a; $('spd').textContent = b;
     if (vr) drawVrHud(a, (b + (MP.code && NET.on ? '   Room ' + MP.code + (MP.count ? ' (' + (MP.count + 1) + ')' : '') : '') + (showFps ? '  ' + fpsV + ' fps' : '')).trim(), msgText || RC.text || '');
     var mi = MP.code ? (NET.on ? 'Room ' + MP.code : 'Room ' + MP.code + ' (connecting)') + (MP.count ? '  \u00b7  ' + MP.count + (MP.count === 1 ? ' friend' : ' friends') : '') : ''; if ($('mpinfo').textContent !== mi) $('mpinfo').textContent = mi;
-    $('throwbtn').style.display = started && !vr ? 'block' : 'none'; $('viewbtn2').style.display = started && !vr ? 'block' : 'none'; var bb = $('boostbtn'); bb.style.display = started && !vr && P.mode !== 'walk' ? 'block' : 'none'; bb.style.opacity = P.boostCd > 0 ? 0.45 : 1; var bt = P.boostCd > 0 ? String(Math.ceil(P.boostCd)) : 'ROCKET'; if (bb.textContent !== bt) bb.textContent = bt;
+    $('throwbtn').style.display = started && !vr ? 'block' : 'none'; $('viewbtn2').style.display = $('flybtn2').style.display = started && !vr ? 'block' : 'none'; var fbT = P.mode === 'fly' ? 'LAND' : 'GLIDER'; if ($('flybtn2').textContent !== fbT) $('flybtn2').textContent = fbT; var bb = $('boostbtn'); bb.style.display = started && !vr && P.mode !== 'walk' ? 'block' : 'none'; bb.style.opacity = P.boostCd > 0 ? 0.45 : 1; var bt = P.boostCd > 0 ? String(Math.ceil(P.boostCd)) : 'ROCKET'; if (bb.textContent !== bt) bb.textContent = bt;
   }
 }
 var last = 0, ready = false;
