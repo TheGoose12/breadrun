@@ -1762,7 +1762,9 @@ function stepSki(dt, vy) {
   if (P.air > 0.12) { at = 0; br = 0; }
   var k1 = (0.0035 - 0.0008 * tuck) * (P.yeti ? 0.8 : 1), vc = 22 + 13 * tuck + (P.yeti ? 3 : 0), over = Math.max(P.v - vc, 0);
   if (P.stun > 0) br = Math.max(br, 0.8);
-  var resist = k1 * P.v * P.v + 0.06 * over * over + 0.02 * G * ca + Math.abs(rate) * P.v * 0.05 + br * (Math.max(at, 0) + 6.5) + P.rock * (3.5 + 0.35 * P.v) + pw * 0.45;
+  var rs = clamp(1 - (-sa - 0.55) / 0.45, 0.12, 1);       // so steep that even rock can not hold you
+  if (P.rock > 0.4 && P.v > 8 && P.air < 0.1 && lampI < 60 && Math.random() < dt * 30) lamps.set(lampI++, P.x - dx * 0.5 + rx * (Math.random() - 0.5) * 0.4, P.ry + 0.08, P.z - dz * 0.5 + rz * (Math.random() - 0.5) * 0.4, 0.12, 0.9);
+  var resist = k1 * P.v * P.v + 0.06 * over * over + 0.02 * G * ca + Math.abs(rate) * P.v * 0.05 + br * (Math.max(at, 0) + 6.5) + P.rock * (3.5 + 0.35 * P.v) * rs + pw * 0.45;
   if (P.air > 0.12) resist = k1 * P.v * P.v;
   var push = tuck * 1.6 * Math.max(0, 1 - P.v / 7); if (P.draft > 0) { P.draft -= dt; push += 3.5; }
   if (P.boost > 0) { push += 15; over = Math.max(P.v - vc - 24, 0); for (var fi = 0; fi < 3 && lampI < 60; fi++) lamps.set(lampI++, P.x - dx * (0.9 + fi * 0.5) + rx * (Math.random() - 0.5) * 0.3, P.ry + 0.45 + Math.random() * 0.2, P.z - dz * (0.9 + fi * 0.5) + rz * (Math.random() - 0.5) * 0.3, 0.55 - fi * 0.12, 0.9); resist = k1 * P.v * P.v + 0.06 * over * over + 0.02 * G * ca + br * (Math.max(at, 0) + 6.5) + P.rock * (3.5 + 0.35 * P.v); if (Math.random() < 0.6) sprayEmit(P.x - dx * 0.8 + rx * (Math.random() - 0.5) * 0.5, P.ry + 0.1, P.z - dz * 0.8 + rz * (Math.random() - 0.5) * 0.5, -dx * 3 + (Math.random() - 0.5) * 2, 0.8 + Math.random() * 1.5, -dz * 3 + (Math.random() - 0.5) * 2); }
