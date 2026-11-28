@@ -59,7 +59,7 @@
 <div id="stage"></div>
 <div id="read" class="serif"><div id="alt"></div><div id="spd"></div><div id="score"></div><div id="combo"></div><div id="mpinfo"></div></div>
 <div id="btns"><button id="skibtn">SKIS ON</button><button id="menubtn">MENU</button></div>
-<div id="menu"><button id="racebtn">RACE</button><button id="mpbtn">TOGETHER</button><button id="flybtn">PARAGLIDER</button><button id="yetibtn">BE THE YETI</button><button id="wildbtn">WILD: ON</button><button id="trbtn">TRAIL: OFF</button><button id="trailbtn">BACK TO THE TRAIL</button><button id="topbtn">SUMMIT</button><button id="viewbtn">VIEW: EYES</button><button id="skybtn">SKY: AUTO</button><button id="vrbtn">ENTER VR</button><button id="hubbtn">ALL GAMES</button></div>
+<div id="menu"><button id="racebtn">RACE</button><button id="mpbtn">TOGETHER</button><button id="flybtn">PARAGLIDER</button><button id="yetibtn">BE THE YETI</button><button id="wildbtn">WILD: ON</button><button id="trbtn">TRAIL: OFF</button><button id="turbobtn">TURBO: OFF</button><button id="trailbtn">BACK TO THE TRAIL</button><button id="topbtn">SUMMIT</button><button id="viewbtn">VIEW: EYES</button><button id="skybtn">SKY: AUTO</button><button id="vrbtn">ENTER VR</button><button id="hubbtn">ALL GAMES</button></div>
 <div id="racebar"><div id="rctext"></div><button id="rcyes">JOIN</button><button id="rcno">NO THANKS</button></div>
 <button id="viewbtn2">VIEW</button><button id="throwbtn">SNOW BALL</button><button id="boostbtn">ROCKET</button>
 <div id="speedfx"></div><div id="msg" class="serif"></div>
@@ -1097,14 +1097,14 @@ var vm = { open: false, idx: 0, mode: 0, code: [0, 0, 0, 0], pos: 0, ready: true
 function vmItems() {
   var inRoom = MP.code && NET.on;
   return [[inRoom ? 'Room ' + MP.code + '  (' + (MP.count + 1) + ' here)  Change' : 'Play with friends', 'join'],
-    [RC.st >= 2 && RC.st <= 4 ? 'Leave the race' : RC.st === 1 ? 'Join the race' : 'Start a race', 'race'], [P.mode === 'fly' ? 'Put the paraglider away' : 'Paraglider', 'fly'], [P.yeti ? 'Stop being the yeti' : 'Be the yeti', 'yeti'], [WILD ? 'Wild: on (avalanches, yeti)' : 'Wild: off', 'wild'], ['Trail: ' + TRNAME[TRAIL].slice(7).toLowerCase(), 'smoke'], ['Back to the trail', 'trail'], ['Back to the summit', 'top'], [SKYNAME[SKY.mode].replace('SKY: ', 'Sky: '), 'sky'], ['All games (leave Mountain Run)', 'hub'], ['Close', 'close']];
+    [RC.st >= 2 && RC.st <= 4 ? 'Leave the race' : RC.st === 1 ? 'Join the race' : 'Start a race', 'race'], [P.mode === 'fly' ? 'Put the paraglider away' : 'Paraglider', 'fly'], [P.yeti ? 'Stop being the yeti' : 'Be the yeti', 'yeti'], [WILD ? 'Wild: on (avalanches, yeti)' : 'Wild: off', 'wild'], ['Trail: ' + TRNAME[TRAIL].slice(7).toLowerCase(), 'smoke'], [TURBO ? 'Turbo: on' : 'Turbo: off', 'turbo'], ['Back to the trail', 'trail'], ['Back to the summit', 'top'], [SKYNAME[SKY.mode].replace('SKY: ', 'Sky: '), 'sky'], ['All games (leave Mountain Run)', 'hub'], ['Close', 'close']];
 }
 function vmDraw() {
   var it = vmItems(), key = vm.mode + '|' + vm.idx + '|' + vm.pos + '|' + vm.code.join('') + '|' + (MP.stat || '') + '|' + it.map(function (q) { return q[0]; }).join('~'); if (key === vm.key) return; vm.key = key;
   var c = vm.ctx, i; c.clearRect(0, 0, 640, 560); c.fillStyle = 'rgba(8,26,96,0.9)'; c.fillRect(0, 0, 640, 560); c.strokeStyle = '#ffd23f'; c.lineWidth = 6; c.strokeRect(3, 3, 634, 554); c.textAlign = 'center';
   if (vm.mode === 0) {
     c.fillStyle = '#fff'; c.font = 'italic 44px Georgia, serif'; c.fillText('Mountain Run', 320, 56);
-    for (i = 0; i < it.length; i++) { if (i === vm.idx) { c.fillStyle = '#ffd23f'; c.fillRect(30, 68 + i * 39, 580, 35); } c.fillStyle = i === vm.idx ? '#241a00' : '#fff'; c.font = '600 25px system-ui, sans-serif'; c.fillText(it[i][0], 320, 94 + i * 39); }
+    for (i = 0; i < it.length; i++) { if (i === vm.idx) { c.fillStyle = '#ffd23f'; c.fillRect(30, 66 + i * 36, 580, 33); } c.fillStyle = i === vm.idx ? '#241a00' : '#fff'; c.font = '600 25px system-ui, sans-serif'; c.fillText(it[i][0], 320, 91 + i * 36); }
     c.fillStyle = '#cfe0ff'; c.font = '22px system-ui, sans-serif'; c.fillText('Stick: up and down    A or X: choose    B or Y: close', 320, 540);
   } else {
     c.fillStyle = '#fff'; c.font = 'italic 36px Georgia, serif'; c.fillText('Everyone uses the same 4 letters', 320, 70);
@@ -1128,6 +1128,7 @@ function vmPick() {
   else if (a === 'fly') { vmToggle(false); toggleFly(); }
   else if (a === 'wild') $('wildbtn').click();
   else if (a === 'smoke') $('trbtn').click();
+  else if (a === 'turbo') $('turbobtn').click();
   else vmToggle(false);
 }
 function vmStick(x, y) {       // one step per push of the stick
@@ -1159,7 +1160,7 @@ function setYeti(on) {
 function hint() {
   var h;
   if (vr) h = '';
-  else if (P.mode === 'fly') h = isTouch ? 'Left thumb: steer. Push up to dive, pull down to float. Land anywhere.' : 'A / D steer   W dive   S float   E rocket   land anywhere';
+  else if (P.mode === 'fly') h = isTouch ? 'Left thumb: steer. Push up to dive, pull down to climb. Land anywhere.' : 'A / D steer   W dive   S climb   E rocket   land anywhere';
   else if (isTouch) h = P.mode === 'ski' ? 'Left thumb: steer, up to tuck, down to brake. Tap to jump, tap again in the air to flip.' : 'Left thumb: walk. Drag right side to look. Tap the screen to jump.';
   else h = P.mode === 'ski' ? 'A / D steer   W tuck   S brake   E rocket   J jump, J again to flip   G glider' : 'W A S D walk   J jump   F snowball   Space: skis on   V view';
   $('hint').textContent = h; $('hint').style.opacity = 0.95; hintT = 9; $('skibtn').textContent = P.yeti ? (P.mode === 'ski' ? 'STAND UP' : 'BELLY SLIDE') : (P.mode === 'ski' ? 'SKIS OFF' : 'SKIS ON');
@@ -1617,6 +1618,7 @@ function trailStep(dt) {
   if (TRAIL && P.mode !== 'walk' && P.v > 3 && !(P.down > 0) && started) { P.trE = (P.trE || 0) + dt * 42; while (P.trE > 1) { P.trE -= 1; trailEmit(TRAIL - 1, P.x + Math.sin(P.head) * 0.9, P.ry + 0.45, P.z + Math.cos(P.head) * 0.9); } }
   for (k = 0; k < 3; k++) { var p = trP[k], any = false; for (i = 0; i < TRN; i++) { var l = p[4 * i + 3]; if (l > 0) { l -= dt; p[4 * i + 3] = l; p[4 * i + 1] += dt * (k === 2 ? 1.2 : 0.5); any = true; if (l <= 0) TR[k].set(i, 0, -1e5, 0, 0, 0); else if (k === 2) TR[k].set(i, p[4 * i], p[4 * i + 1], p[4 * i + 2], 0.12 + l * 0.6, Math.min(1, l * 2.5)); else TR[k].set(i, p[4 * i], p[4 * i + 1], p[4 * i + 2], 0.22 + (1.9 - l) * 0.42, Math.min(0.55, l * 0.45)); } } if (any || TR[k].dirty) { TR[k].flush(); TR[k].dirty = any; } }
 }
+var TURBO = false;
 var WILD = true, rings = [], ringGeo = null, AV = { on: false, arc: 0, t: 0, next: 75, hit: false, inv: false }, NY = { on: false, x: 0, z: 0, t: 0, next: 170, stun: 0, ph: 0, mesh: null }, wing = null, wingGeo = null, rumbleG = null;
 function ding() { if (!AC) return; try { var o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine'; o.frequency.value = 1320; o.frequency.setValueAtTime(1760, AC.currentTime + 0.07); g.gain.value = 0.09; g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.25); o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime + 0.26); } catch (e) {} }
 function addScore(n, text) {
@@ -1630,6 +1632,7 @@ function buildWild() {
   // coin trails: little coins lead off the trail to a big one
   var cb = new Builder(); cb.bone = 11; cb.add(new THREE.CylinderGeometry(0.42, 0.42, 0.09, 14), [1.0, 0.8, 0.1], new THREE.Matrix4().makeRotationX(Math.PI / 2)); var coinGeo = cb.geo(), ci = 0;
   for (var ca = 260; ca < ROUTE_LEN - 500; ca += 400) { var sd = (ci++ % 2) ? 1 : -1, wide = ca > 1950 ? 3.2 : 0.5; for (var j = 0; j <= 9; j++) { var aa = ca + j * 8, cp = routeAt(aa).slice(), cq = routeAt(aa + 3), ctx = cq[0] - cp[0], ctz = cq[1] - cp[1], ctl = Math.hypot(ctx, ctz) || 1, cl = sd * j * wide; if (j < 9) ring(cp[0] - ctz / ctl * cl, cp[1] + ctx / ctl * cl, 1.0, 5, coinGeo, 1.7, 1.9, 1); else ring(cp[0] - ctz / ctl * cl, cp[1] + ctx / ctl * cl, 2.2, 100, coinGeo, 4.2, 3.1, 2); } }
+  for (var la = 80; la < ROUTE_LEN - 190; la += 105) for (var lj = 1; lj <= 4; lj++) { var lb = la - lj * 13, lp = routeAt(lb).slice(), lq = routeAt(lb + 3), ltx = lq[0] - lp[0], ltz = lq[1] - lp[1], ltl = Math.hypot(ltx, ltz) || 1, ll = Math.sin(lb * 0.013) * 7; if (lb > 20) ring(lp[0] - ltz / ltl * ll, lp[1] + ltx / ltl * ll, 1.1, 5, coinGeo, 1.4, 1.8, 1); }       // little coins lead you into every ring
   // snowmen to smash
   var sb = new Builder(), sw = [0.86, 0.9, 1.0]; sb.ball(0, 0.5, 0, 0.6, 0.55, 0.6, sw); sb.ball(0, 1.25, 0, 0.44, 0.4, 0.44, sw); sb.ball(0, 1.85, 0, 0.3, 0.28, 0.3, sw); sb.box(0.08, 0.08, 0.34, 0, 1.85, -0.42, [1.0, 0.45, 0.05]); sb.box(0.07, 0.07, 0.05, -0.11, 1.95, -0.27, [0.05, 0.05, 0.05]); sb.box(0.07, 0.07, 0.05, 0.11, 1.95, -0.27, [0.05, 0.05, 0.05]);
   sb.box(0.7, 0.1, 0.7, 0, 1.57, 0, [0.85, 0.1, 0.1]); sb.box(1.9, 0.05, 0.05, 0, 1.3, 0, [0.3, 0.2, 0.1], 0, 0, 0.25); sb.box(0.36, 0.3, 0.36, 0, 2.2, 0, [0.08, 0.08, 0.1]); sb.box(0.56, 0.05, 0.56, 0, 2.07, 0, [0.08, 0.08, 0.1]); var manGeo = sb.geo();
@@ -1661,7 +1664,7 @@ function trick() {
 function toggleFly() {
   if (!started || P.lost || P.down > 0 || RC.st === 2 || RC.st === 3 || P.yeti) return;
   if (P.mode === 'fly') { P.mode = 'ski'; P.jmp = true; P.yb = P.fy; P.vy = -1; say('Wing away', 1.5); }
-  else { P.fy = P.ry + 3.5; P.mode = 'fly'; P.v = Math.max(P.v, 12); P.head = vr ? viewYaw() : P.yaw; P.air = 0; P.jmp = false; say(vr ? 'Paraglider!\nLook where you want to fly. Look down to dive.' : 'Paraglider!\nSteer left and right. Push up to dive, pull down to float.', 5); whoosh(); if (!P.timing && !P.done) { P.timing = true; P.t0 = clock; } }
+  else { P.fy = P.ry + 3.5; P.mode = 'fly'; P.v = Math.max(P.v, 12); P.head = vr ? viewYaw() : P.yaw; P.air = 0; P.jmp = false; say(vr ? 'Paraglider!\nLook where you want to fly. Look down to dive.' : 'Paraglider!\nSteer left and right. Push up to dive, pull down to climb.', 5); whoosh(); if (!P.timing && !P.done) { P.timing = true; P.t0 = clock; } }
   hint();
 }
 function stepFly(dt, vy) {
@@ -1669,7 +1672,7 @@ function stepFly(dt, vy) {
   var rate = clamp(angDiff(vy, P.head) * 2.5, -1.1, 1.1); P.head += rate * dt; P.turn = rate;
   var look = vr ? -camera.getWorldDirection(_v2).y * 1.6 - 0.15 : 0, dive = clamp(Math.max(inp.my, look), 0, 1), flare = Math.max(clamp(-inp.my, 0, 1), xin.trig);
   var dx = -Math.sin(P.head), dz = -Math.cos(P.head), g = grad(P.x, P.z), lift = clamp(-(g[0] * WDX + g[1] * WDZ), 0, 1.2) * clamp(1 - (P.fy - P.y) / 160, 0, 1) * 1.3;       // the wind rises up west-facing slopes
-  var sp = 13 + 14 * dive - 5 * flare + (P.boost > 0 ? 22 : 0), sink = 1.6 + 6.5 * dive - 0.45 * flare + Math.abs(rate) * 0.7 - lift - (P.boost > 0 ? 3.5 : 0);
+  var sp = 13 + 14 * dive - 5 * flare + (P.boost > 0 ? 22 : 0) + (TURBO ? 20 : 0), sink = 1.6 + 6.5 * dive - 3.4 * flare + Math.abs(rate) * 0.7 - lift - (P.boost > 0 ? 3.5 : 0);
   P.v += (sp - P.v) * Math.min(1, dt * 1.6); P.x += dx * P.v * dt; P.z += dz * P.v * dt; P.fy -= sink * dt; if (P.v > P.top) P.top = P.v;
   var gr = H(P.x, P.z, 2) - Y0; if (P.fy <= gr + 0.35) { P.mode = P.v > 7 ? 'ski' : 'walk'; P.yb = gr; P.vy = 0; P.gy0 = gr; myTrack.last = null; say('Touchdown!', 1.5); thump(0.5); hint(); }
 }
@@ -1682,7 +1685,7 @@ function wildStep(dt) {
   var i, k, base = SPRAY_N + PLUME_N + FLAKE_N + BALL_N, nr = nearestOnRoute(P.x, P.z), skiing = P.mode === 'ski' && !P.lost && started, bodyY = P.ry + 1;
   // gold rings
   for (i = 0; i < rings.length; i++) {
-    var r = rings[i], dx = r.x - P.x, dz = r.z - P.z, near = !r.got && Math.abs(dx) < 420 && Math.abs(dz) < 420; r.m.visible = near; if (!near) continue;
+    var r = rings[i], dx = r.x - P.x, dz = r.z - P.z, vd = r.kind === 1 ? 230 : 420, near = !r.got && Math.abs(dx) < vd && Math.abs(dz) < vd; r.m.visible = near; if (!near) continue;
     if (r.kind !== 3) r.m.rotation.y = clock * (r.kind ? 3.2 : 1.6) + i; if (dx * dx + dz * dz < r.r2 && Math.abs(r.y - bodyY) < (r.kind === 2 ? 4 : 2.4) && started) {
       r.got = true; r.m.visible = false; buzz(0, 0.3, 30); buzz(1, 0.3, 30);
       if (r.kind === 3) { addScore(30, 'Smash! +30'); thump(0.7); P.shake = 0.25; for (var si = 0; si < 34; si++) sprayEmit(r.x + (Math.random() - 0.5), r.y + Math.random() * 2, r.z + (Math.random() - 0.5), (Math.random() - 0.5) * 9 - Math.sin(P.head) * P.v * 0.4, 1 + Math.random() * 5, (Math.random() - 0.5) * 9 - Math.cos(P.head) * P.v * 0.4); }
@@ -1726,6 +1729,7 @@ function wildStep(dt) {
 press('flybtn', function () { toggleFly(); $('menu').style.display = 'none'; });
 $('wildbtn').addEventListener('click', function () { WILD = !WILD; this.textContent = WILD ? 'WILD: ON' : 'WILD: OFF'; try { localStorage.setItem('mr_wild', WILD ? '1' : '0'); } catch (e) {} if (started) say(WILD ? 'Avalanches and the yeti are on' : 'No avalanches, no hunting yeti', 2.5); if (!WILD) { AV.on = false; NY.on = false; NY.mesh.visible = false; for (var i = 0; i < AV_N; i++) puffs.set(SPRAY_N + PLUME_N + FLAKE_N + BALL_N + i, 0, -1e5, 0, 0, 0); } });
 $('trbtn').addEventListener('click', function () { TRAIL = (TRAIL + 1) % 4; this.textContent = TRNAME[TRAIL]; try { localStorage.setItem('mr_trail', TRAIL); } catch (e) {} if (started) say(TRNAME[TRAIL].replace('TRAIL: ', 'Trail: ').toLowerCase().replace('t', 'T'), 1.5); });
+$('turbobtn').addEventListener('click', function () { TURBO = !TURBO; this.textContent = TURBO ? 'TURBO: ON' : 'TURBO: OFF'; if (started) say(TURBO ? 'Turbo on!\nEverything is faster' : 'Turbo off', 2); });
 $('myname').addEventListener('change', myName); $('myname').addEventListener('input', myName);
 
 // ================= simulation =================
@@ -1746,7 +1750,7 @@ function stepWalk(dt, vy) {
   P.v = 0; P.turn = 0;
   if (m < 0.05) return;
   var dx = -Math.sin(vy) * f + Math.cos(vy) * s, dz = -Math.cos(vy) * f - Math.sin(vy) * s, g = grad(P.x, P.z), sl = (g[0] * dx + g[1] * dz) / (m || 1);
-  var sp = (P.yeti ? (inp.run ? 10 : 6.5) : (inp.run ? 7.5 : 3.6)) * clamp(1 - sl * 0.75, 0.35, 1.35) * (P.stun > 0 ? 0.3 : 1);
+  var sp = (P.yeti ? (inp.run ? 10 : 6.5) : (inp.run ? 7.5 : 3.6)) * clamp(1 - sl * 0.75, 0.35, 1.35) * (P.stun > 0 ? 0.3 : 1) * (TURBO ? 3 : 1);
   P.x += dx * sp * dt; P.z += dz * sp * dt; P.v = sp * m; P.bob += sp * m * dt;
 }
 function stepSki(dt, vy) {
@@ -1760,13 +1764,13 @@ function stepSki(dt, vy) {
   var pw = P.pow = P.air > 0.12 ? 0 : clamp(((P.offD || 0) - 9) / 8, 0, 1) * clamp(1 - P.rock * 3, 0, 1);
   if (pw > 0.5) { P.powM = (P.powM || 0) + P.v * dt; if (P.powM > 60) { P.powM -= 60; P.score += 5; } if (!(P.powS > clock) && P.v > 8) { P.powS = clock + 90; say('Powder!\nDeep snow off the trail scores points', 3); } if (P.v > 14 && Math.random() < dt * 5) sprayEmit(P.x + dx * 1.4 + rx * (Math.random() - 0.5), P.ry + 0.9, P.z + dz * 1.4 + rz * (Math.random() - 0.5), dx * P.v * 0.8, 1.5, dz * P.v * 0.8); }
   if (P.air > 0.12) { at = 0; br = 0; }
-  var k1 = (0.0035 - 0.0008 * tuck) * (P.yeti ? 0.8 : 1), vc = 22 + 13 * tuck + (P.yeti ? 3 : 0), over = Math.max(P.v - vc, 0);
+  var k1 = (0.0035 - 0.0008 * tuck) * (P.yeti ? 0.8 : 1), vc = 22 + 13 * tuck + (P.yeti ? 3 : 0) + (TURBO ? 26 : 0), over = Math.max(P.v - vc, 0);
   if (P.stun > 0) br = Math.max(br, 0.8);
   var rs = clamp(1 - (-sa - 0.55) / 0.45, 0.12, 1);       // so steep that even rock can not hold you
   if (P.rock > 0.4 && P.v > 8 && P.air < 0.1 && lampI < 60 && Math.random() < dt * 30) lamps.set(lampI++, P.x - dx * 0.5 + rx * (Math.random() - 0.5) * 0.4, P.ry + 0.08, P.z - dz * 0.5 + rz * (Math.random() - 0.5) * 0.4, 0.12, 0.9);
   var resist = k1 * P.v * P.v + 0.06 * over * over + 0.02 * G * ca + Math.abs(rate) * P.v * 0.05 + br * (Math.max(at, 0) + 6.5) + P.rock * (3.5 + 0.35 * P.v) * rs + pw * 0.45;
   if (P.air > 0.12) resist = k1 * P.v * P.v;
-  var push = tuck * 1.6 * Math.max(0, 1 - P.v / 7); if (P.draft > 0) { P.draft -= dt; push += 3.5; }
+  var push = tuck * 1.6 * Math.max(0, 1 - P.v / 7); if (P.draft > 0) { P.draft -= dt; push += 3.5; } if (TURBO && !br && P.air < 0.12) push += 7;
   if (P.boost > 0) { push += 15; over = Math.max(P.v - vc - 24, 0); for (var fi = 0; fi < 3 && lampI < 60; fi++) lamps.set(lampI++, P.x - dx * (0.9 + fi * 0.5) + rx * (Math.random() - 0.5) * 0.3, P.ry + 0.45 + Math.random() * 0.2, P.z - dz * (0.9 + fi * 0.5) + rz * (Math.random() - 0.5) * 0.3, 0.55 - fi * 0.12, 0.9); resist = k1 * P.v * P.v + 0.06 * over * over + 0.02 * G * ca + br * (Math.max(at, 0) + 6.5) + P.rock * (3.5 + 0.35 * P.v); if (Math.random() < 0.6) sprayEmit(P.x - dx * 0.8 + rx * (Math.random() - 0.5) * 0.5, P.ry + 0.1, P.z - dz * 0.8 + rz * (Math.random() - 0.5) * 0.5, -dx * 3 + (Math.random() - 0.5) * 2, 0.8 + Math.random() * 1.5, -dz * 3 + (Math.random() - 0.5) * 2); }
   if (P.v < 0.06 && at + push < 0.45) { P.v = 0; P.u = 0; }
   else { P.v += (at + push - resist) * dt; if (P.v < 0) P.v = 0; if (P.v > 74) P.v = 74; }
